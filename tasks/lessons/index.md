@@ -37,6 +37,19 @@ hva som gjør en test meningsfull vs. tom.
 **`git-workflow.md`** — Branch-håndtering, merge-konflikter, PR-prosess,
 commit-rekkefølge, rebase vs. merge.
 
+## Lint — periodisk vedlikehold
+
+Kjør lint når lessons-wikien føles utdatert, eller ca. én gang per måned.
+Gå gjennom alle tema-filer og sjekk:
+- **Motsetninger:** to entries som sier det motsatte — behold den nyeste, slett den gamle
+- **Foreldede entries:** løsningen er byttet ut siden entry ble skrevet — marker eller slett
+- **Orphans:** entries som refererer til kode, mønstre eller avhengigheter som ikke lenger finnes
+- **Feil fil:** entry ligger i `api.md` men handler egentlig om auth — flytt den
+
+Oppdater sammendragene i denne filen hvis innholdet i tema-filene har endret seg vesentlig.
+
+---
+
 ## Hvilke filer å lese — etter oppgavetype
 
 | Oppgave | Les |
