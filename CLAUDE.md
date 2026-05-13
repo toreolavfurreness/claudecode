@@ -76,6 +76,10 @@ Konformitet > smak innenfor kodebasen. Navnekonvensjoner i
 som oppretter eller endrer filer, variabler, komponenter, databaseobjekter,
 branches eller env-variabler. Avvik: si fra eksplisitt, ikke fork stille.
 
+### Token-budsjett er ikke veiledende
+Per oppgave: 4 000 tokens. Per sesjon: 30 000 tokens. Nærmer du deg grensen:
+oppsummer og start friskt. Si fra om grenseoverskridelsen — ikke kjør stille over.
+
 ### Feil høyt
 "Fullført" er feil hvis noe ble hoppet over stille.
 "Tester passerer" er feil hvis noen ble hoppet over.

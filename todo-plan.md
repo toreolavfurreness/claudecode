@@ -13,7 +13,10 @@ For den aktuelle TODO-en, presenter en detaljert plan som dekker:
 4. **Risiko og fallgruver:** Hva kan gå galt? Trekk eksplisitt på erfaringer fra lessons.md
 5. **Verifisering:** Eksakte steg for å bekrefte at oppgaven er ferdig (basert på TODO-ens testkriterier)
 
-Still deg spørsmålet: "Hva ville en senior utvikler gjort her?"
+Før du presenterer planen — sjekk eksplisitt:
+- Antar du noe som ikke er bekreftet? Si det.
+- Finnes det en enklere løsning? Presenter den som alternativ.
+- Berører planen kode du ikke har lest ennå? Flagg det.
 
 Presenter planen og vent på tilbakemelding fra bruker.
 

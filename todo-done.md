@@ -11,11 +11,14 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
 3. **Testkriterier:** Kjør /verification-before-completion — ingen ferdig-påstand uten fersk kjøring.
    Les faktisk output og bekreft at hvert verifiseringskriterium i planfilen er bestått.
    Ord som "burde fungere" er ikke godkjent — bevis det med output.
+   *(Krever Superpowers-plugin. Ikke installert? Verifiser manuelt og dokumenter hva du sjekket.)*
 4. **Rydd opp koden:** Kjør /simplify på alle endrede filer.
    Kjør tester etterpå og bekreft at ingenting er ødelagt.
+   *(Krever Superpowers-plugin. Ikke installert? Gjør en manuell gjennomgang for unødvendig kompleksitet.)*
 5. **Code review:** Kjør /requesting-code-review.
    Fiks alle funn merket Critical eller Important før du går videre.
    Minor-funn kan noteres men trenger ikke blokkere.
+   *(Krever Superpowers-plugin. Ikke installert? Bruk /review fra Claude Code i stedet.)*
 6. **Marker TODO som ferdig:** Sett [x] på selve TODO-en og oppdater **Status:** til `ferdig` i tasks/todo.md
 7. **Arkiver TODO:** Flytt hele TODO-en til tasks/todo_archive.md med dato.
    Bruk alltid dette formatet — ikke kopier format fra eksisterende innhold i todo_archive.md:
