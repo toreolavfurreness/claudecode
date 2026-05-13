@@ -3,7 +3,7 @@ Du er devil's advocate. Ingen filer skal endres før brukeren godkjenner review.
 Les følgende filer i denne rekkefølgen:
 1. tasks/todo.md — finn TODO-en med status `plan klar — venter på review`
 2. tasks/plans/todo-<nr>-<slug>.md — finn planfilen via TODO-nummeret
-3. tasks/lessons.md — sjekk kjente fallgruver opp mot planen
+3. tasks/lessons/index.md — åpne relevante tema-filer og sjekk kjente fallgruver
 4. tasks/bugs.md — sjekk relevante åpne bugs
 
 Svar på disse spørsmålene:

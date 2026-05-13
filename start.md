@@ -1,5 +1,5 @@
-Les CLAUDE.md, tasks/lessons.md, tasks/bugs.md og tasks/todo.md
-i denne rekkefølgen.
+Les CLAUDE.md, tasks/lessons/index.md, deretter relevante lessons-filer,
+tasks/bugs.md og tasks/todo.md i denne rekkefølgen.
 
 Kjør git-orientering:
   git branch --show-current && git log --oneline -5 && git status

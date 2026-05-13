@@ -2,7 +2,7 @@ Bytt til PlanMode før du gjør noe som helst. Ingen filer skal endres i denne k
 
 Les følgende filer i denne rekkefølgen:
 1. tasks/todo.md — finn første TODO som ikke er merket [x] eller [~]
-2. tasks/lessons.md — les hele filen før du gjør noen som helst analyse
+2. tasks/lessons/index.md — les filen, åpne deretter relevante tema-filer
 3. tasks/bugs.md — sjekk åpne bugs som kan være relevante
 
 For den aktuelle TODO-en, presenter en detaljert plan som dekker:

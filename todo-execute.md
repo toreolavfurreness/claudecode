@@ -1,7 +1,7 @@
 Les følgende filer i denne rekkefølgen:
 1. tasks/todo.md — finn TODO-en med status `reviewet — klar for /todo-execute`
 2. tasks/plans/todo-<nr>-<slug>.md — finn planfilen via TODO-nummeret
-3. tasks/lessons.md — frisk opp relevante erfaringer før du begynner
+3. tasks/lessons/index.md — åpne relevante tema-filer før du begynner
 
 Før du begynner implementering:
 - Kjør: git status — er det ucommittede endringer fra forrige sesjon?

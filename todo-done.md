@@ -50,7 +50,8 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
    Fjern dem fra tasks/bugs.md etterpå.
 10. **Lessons learned:** Gå gjennom komplikasjonene og workarounds du dokumenterte.
     For hver enkelt: vurder aktivt om dette er noe fremtidige TODOs kan støte på igjen.
-    Oppdater tasks/lessons.md — vær konkret og handlingsbar, ikke generell.
+    Skriv til riktig tema-fil i tasks/lessons/, oppdater index.md (ett sammendrag)
+    og append én linje i tasks/lessons/log.md. Vær konkret og handlingsbar.
     Dette steget er obligatorisk, ikke valgfritt.
 11. **Nye bugs:** Ble det avdekket nye bugs underveis? Legg dem til tasks/bugs.md
 12. **Git:** Commit alle endringer med en beskrivende melding, push branchen
@@ -60,7 +61,7 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
     - Komplikasjoner og hvordan de ble løst
     - Funn fra /simplify og /code-review
     - Bugs lukket og eventuelle nye bugs oppdaget
-    - Hva som ble lagt til i lessons.md
+    - Hva som ble lagt til i tasks/lessons/ (tema-fil og log)
     - Neste TODO i køen (men ikke start på den)
 
 Vent på eksplisitt bekreftelse fra bruker før neste TODO påbegynnes.
