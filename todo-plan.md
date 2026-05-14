@@ -1,3 +1,10 @@
+# /todo-plan
+
+**Anbefalt modell:** claude-opus-4-7
+**Standalone bruk:** `claude --model claude-opus-4-7 < agents/planner.md`
+
+---
+
 Bytt til PlanMode før du gjør noe som helst. Ingen filer skal endres i denne kommandoen.
 
 Les følgende filer i denne rekkefølgen:
@@ -10,8 +17,8 @@ For den aktuelle TODO-en, presenter en detaljert plan som dekker:
 1. **Analyse:** Hva oppgaven faktisk innebærer — bryt ned i konkrete steg
 2. **Filer som berøres:** List alle filer som skal opprettes, endres eller slettes
 3. **Avhengigheter:** Er det noe som må være på plass først? Sjekk mot todo.md
-4. **Risiko og fallgruver:** Hva kan gå galt? Trekk eksplisitt på erfaringer fra lessons.md
-5. **Verifisering:** Eksakte steg for å bekrefte at oppgaven er ferdig (basert på TODO-ens testkriterier)
+4. **Risiko og fallgruver:** Hva kan gå galt? Trekk eksplisitt på erfaringer fra lessons
+5. **Verifisering:** Eksakte steg for å bekrefte at oppgaven er ferdig
 
 Før du presenterer planen — sjekk eksplisitt:
 - Antar du noe som ikke er bekreftet? Si det.
@@ -27,6 +34,13 @@ Etter at brukeren godkjenner planen:
    # TODO <nr> — <tittel>
    **Dato:** [dato]
    **Status:** plan klar — venter på review
+   **Planlagt med:** claude-opus-4-7
+
+   ## TODO-beskrivelse
+   [Kopiert fra todo.md: Hva, Hvorfor, Test — implementeringsagenten leser ikke todo.md]
+
+   ## Ekstraherte lessons
+   [Faktisk innhold fra relevante lessons-filer — ikke referanser, ikke lenker]
 
    ## Analyse
    [analysedel]
@@ -38,7 +52,7 @@ Etter at brukeren godkjenner planen:
    [avhengigheter]
 
    ## Risiko og fallgruver
-   [risikovurdering med referanser til relevante lessons]
+   [risikovurdering koblet til ekstraherte lessons]
 
    ## Verifisering
    [testkriterier]
@@ -49,7 +63,7 @@ Etter at brukeren godkjenner planen:
    *(osv.)*
 
 3. Verifiser at filen faktisk eksisterer på disk: ls tasks/plans/todo-<nr>-<slug>.md
-   Hvis filen ikke eksisterer: opprett den på nytt før du går videre. Ikke fortsett uten at denne filen er på plass.
+   Hvis filen ikke eksisterer: opprett den på nytt før du går videre.
 4. Commit planfilen umiddelbart:
    git add tasks/plans/todo-<nr>-<slug>.md
    git commit -m "plan: legg til planfil for TODO <nr>"
