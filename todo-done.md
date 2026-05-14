@@ -11,11 +11,14 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
 3. **Testkriterier:** Kjør /verification-before-completion — ingen ferdig-påstand uten fersk kjøring.
    Les faktisk output og bekreft at hvert verifiseringskriterium i planfilen er bestått.
    Ord som "burde fungere" er ikke godkjent — bevis det med output.
+   *(Krever Superpowers-plugin. Ikke installert? Verifiser manuelt og dokumenter hva du sjekket.)*
 4. **Rydd opp koden:** Kjør /simplify på alle endrede filer.
    Kjør tester etterpå og bekreft at ingenting er ødelagt.
+   *(Krever Superpowers-plugin. Ikke installert? Gjør en manuell gjennomgang for unødvendig kompleksitet.)*
 5. **Code review:** Kjør /requesting-code-review.
    Fiks alle funn merket Critical eller Important før du går videre.
    Minor-funn kan noteres men trenger ikke blokkere.
+   *(Krever Superpowers-plugin. Ikke installert? Bruk /review fra Claude Code i stedet.)*
 6. **Marker TODO som ferdig:** Sett [x] på selve TODO-en og oppdater **Status:** til `ferdig` i tasks/todo.md
 7. **Arkiver TODO:** Flytt hele TODO-en til tasks/todo_archive.md med dato.
    Bruk alltid dette formatet — ikke kopier format fra eksisterende innhold i todo_archive.md:
@@ -50,7 +53,8 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
    Fjern dem fra tasks/bugs.md etterpå.
 10. **Lessons learned:** Gå gjennom komplikasjonene og workarounds du dokumenterte.
     For hver enkelt: vurder aktivt om dette er noe fremtidige TODOs kan støte på igjen.
-    Oppdater tasks/lessons.md — vær konkret og handlingsbar, ikke generell.
+    Skriv til riktig tema-fil i tasks/lessons/, oppdater index.md (ett sammendrag)
+    og append én linje i tasks/lessons/log.md. Vær konkret og handlingsbar.
     Dette steget er obligatorisk, ikke valgfritt.
 11. **Nye bugs:** Ble det avdekket nye bugs underveis? Legg dem til tasks/bugs.md
 12. **Git:** Commit alle endringer med en beskrivende melding, push branchen
@@ -60,7 +64,7 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
     - Komplikasjoner og hvordan de ble løst
     - Funn fra /simplify og /code-review
     - Bugs lukket og eventuelle nye bugs oppdaget
-    - Hva som ble lagt til i lessons.md
+    - Hva som ble lagt til i tasks/lessons/ (tema-fil og log)
     - Neste TODO i køen (men ikke start på den)
 
 Vent på eksplisitt bekreftelse fra bruker før neste TODO påbegynnes.

@@ -1,16 +1,26 @@
+# /todo-execute
+
+**Anbefalt modell:** claude-sonnet-4-6
+**Standalone bruk:** `claude --model claude-sonnet-4-6 < agents/implementer.md`
+
+---
+
 Les følgende filer i denne rekkefølgen:
-1. tasks/todo.md — finn TODO-en med status `reviewet — klar for /todo-execute`
-2. tasks/plans/todo-<nr>-<slug>.md — finn planfilen via TODO-nummeret
-3. tasks/lessons.md — frisk opp relevante erfaringer før du begynner
+1. CLAUDE.md — atferdsregler
+2. tasks/plans/todo-<nr>-<slug>.md — finn planfilen for TODO-en med status `reviewet — klar for /todo-execute`
+
+Planfilen inneholder all nødvendig kontekst: TODO-beskrivelse, ekstraherte lessons og risiko.
+Du leser ikke tasks/todo.md eller tasks/lessons/ direkte — alt er i planfilen.
+Mangler du kontekst? Si fra til brukeren — ikke søk på eget initiativ.
 
 Før du begynner implementering:
 - Kjør: git status — er det ucommittede endringer fra forrige sesjon?
-- Er alle avhengigheter merket [x] i tasks/todo.md?
+- Er alle avhengigheter i planfilen oppfylt?
 
 Hvis noe mangler: rapporter til bruker og vent på instruksjon. Ikke start implementering.
 
 Hvis alt er klart:
-1. Oppdater **Status:** til `under arbeid` i tasks/todo.md og i planfilen
+1. Oppdater **Status:** til `under arbeid` i planfilen
 2. Implementer steg for steg basert på steg-listen i planfilen:
    - Marker hvert steg som fullført i planfilen etterhvert som det er gjort og verifisert: [ ] → [x]
    - Etter hvert steg: gi bruker en kort statusmelding om hva som ble gjort og hvilket steg som er neste
