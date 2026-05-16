@@ -1,7 +1,7 @@
 # /todo-execute
 
-**Agent:** `@implementer` (claude-sonnet-4-6) — delegeres automatisk eller via @-mention
-**Eksplisitt:** Skriv `@implementer implementer TODO-[nr]` i Claude Code
+> **Sesjon:** Åpne en **ny sesjon** for å unngå kontekstforurensing fra planleggingen.
+> Sonnet er standard modell — ingen modellbytte nødvendig.
 
 ---
 

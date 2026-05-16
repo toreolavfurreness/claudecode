@@ -1,7 +1,8 @@
 # /todo-plan
 
-**Agent:** `@planner` (claude-opus-4-7) — delegeres automatisk eller via @-mention
-**Eksplisitt:** Skriv `@planner planlegg neste TODO` i Claude Code
+> **Modell:** Planlegging gir best resultat med Opus 4.7.
+> Bytt modell før du begynner: `/model claude-opus-4-7` i Claude Code.
+> Implementeringssesjonen kjøres i ny sesjon med Sonnet (standard — ingen bytte nødvendig).
 
 ---
 
@@ -68,5 +69,11 @@ Etter at brukeren godkjenner planen:
    git add tasks/plans/todo-<nr>-<slug>.md
    git commit -m "plan: legg til planfil for TODO <nr>"
 5. Oppdater tasks/todo.md under den aktuelle TODO-en:
-   - Sett **Status:** til `plan klar — venter på review`
-6. Informer brukeren om at neste steg er /todo-plan-review
+   - Sett **Status:** til `plan klar — under review`
+6. Kall `@plan-reviewer` med beskjed om å gjennomgå tasks/plans/todo-<nr>-<slug>.md
+7. Presenter funnene til brukeren strukturert (Critical / Important / Minor)
+8. Vent på brukerens beslutning:
+   - **Godkjent:** Sett **Status:** til `reviewet — klar for /todo-execute` i todo.md.
+     Informer bruker: "Åpne en ny sesjon (Sonnet er standard) og kjør `/todo-execute`."
+   - **Revidering ønsket:** Gå tilbake til PlanMode, juster planen, skriv oppdatert planfil,
+     commit på nytt og kjør `@plan-reviewer` igjen.

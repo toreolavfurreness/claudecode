@@ -168,52 +168,49 @@ orphan-deteksjon visuell — isolerte noder er lessons ingen lenker til.
 
 ---
 
-## Sub-agents
+## Sub-agents og sesjonsstruktur
 
-Prosjektet bruker fire sub-agents definert i `.claude/agents/`. Sub-agents
-kjører i egne kontekstvinduer og returnerer kun et sammendrag til
-hovedsesjonen — verbose output, utforskning og spesialisert arbeid
-forurenser ikke din hovedkontekst.
+Sub-agents kjører i egne kontekstvinduer og returnerer kun et sammendrag
+til hovedsesjonen. Brukes kun der interaktivitet ikke er nødvendig.
 
-| Agent | Modell | Verktøy | Trigger |
-|-------|--------|---------|---------|
-| `planner` | Opus 4.7 | Read, Grep, Glob, Write | /todo-plan |
-| `implementer` | Sonnet 4.6 | Read, Write, Edit, Bash, Grep, Glob | /todo-execute |
-| `reviewer` | Sonnet 4.6 | Read, Grep, Glob, Bash | /todo-done |
-| `lessons-writer` | Haiku 4.5 | Read, Write | /todo-done |
+| Agent | Modell | Verktøy | Trigger | Hvorfor sub-agent |
+|-------|--------|---------|---------|-------------------|
+| `plan-reviewer` | Opus 4.7 | Read | /todo-plan (automatisk) | Frisk kontekst = avdekker antakelser fra planleggingsdiskusjonen |
+| `reviewer` | Sonnet 4.6 | Read, Grep, Glob, Bash | /todo-done | Ikke-interaktiv, strukturert output |
+| `lessons-writer` | Haiku 4.5 | Read, Write | /todo-done | Rutinemessig, billig |
 
-### Invokasjon
+### Sesjonsstruktur per TODO
 
-Claude Code delegerer automatisk basert på `description`-feltet, eller du
-kan kalle eksplisitt:
-
-```text
-@planner planlegg neste TODO
-@implementer implementer TODO-3
-@reviewer gjennomfør code review av nylige endringer
-@lessons-writer dokumenter at migrasjonen hoppet over records stille
-```
-
-### Planfil som API
-
-Planlegging og implementering kjører i separate kontekster.
-`tasks/plans/todo-X.md` er API-et mellom dem:
+Planlegging og implementering kjører alltid i **separate sesjoner** for å
+unngå kontekstforurensing:
 
 ```
-@planner  →  Leser: CLAUDE.md + lessons + todo + bugs
-              Produserer: planfil med all nødvendig kontekst kopiert inn
-              Kontekst dør.
+Sesjon 1 — Planlegging (Opus anbefalt)
+  /todo-plan
+    → PlanMode + AskUserQuestion (full interaktivitet)
+    → Skriver planfil til disk
+    → Spawner @plan-reviewer (Opus, leser kun planfilen — frisk kontekst)
+    → Presenter funn: Critical / Important / Minor
+    → Bruker godkjenner eller reviderer
 
-@implementer  →  Leser: CLAUDE.md + planfilen
-                 Ingenting annet. Ren start.
+Sesjon 2 — Implementering (Sonnet, standard)
+  /todo-execute
+    → Leser kun: CLAUDE.md + planfilen
+    → Ren kontekst, ingen planleggingsdiskusjon
+    → /tdd (ny feature) eller /systematic-debugging (bug)
+
+Sesjon 2 avslutning
+  /todo-done
+    → @reviewer (sub-agent, leser git diff)
+    → @lessons-writer (sub-agent, oppdaterer wiki)
 ```
 
-**Kostnadseffekt:** Opus brukes kun på den korte planleggingsfasen med
-begrenset kontekst. Sonnet tar den lange implementeringen. Haiku håndterer
-rutineoppgaver som lessons-skriving.
+**Modellvalg per sesjon:**
+- Planlegging: bytt til Opus med `/model claude-opus-4-7`
+- Implementering: Sonnet er standard — ingen bytte nødvendig
 
-**Merk:** Sub-agents arver ikke CLAUDE.md automatisk. De relevante
-atferdsreglene er inkludert direkte i hver agents system prompt.
+**Sub-agents arver ikke CLAUDE.md automatisk.** Relevante atferdsregler
+er inkludert direkte i hver agents system prompt.
 
 ---
 
