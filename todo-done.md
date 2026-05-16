@@ -18,6 +18,7 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
 5. **Code review:** Bruk `@reviewer` — den leser git diff og returnerer Critical / Important / Minor.
    Fiks alle funn merket Critical eller Important før du går videre.
    Minor-funn kan noteres men trenger ikke blokkere.
+   *(Krever Superpowers-plugin. Ikke installert? Bruk /review fra Claude Code i stedet.)*
 6. **Marker TODO som ferdig:** Sett [x] på selve TODO-en og oppdater **Status:** til `ferdig` i tasks/todo.md
 7. **Arkiver TODO:** Flytt hele TODO-en til tasks/todo_archive.md med dato.
    Bruk alltid dette formatet — ikke kopier format fra eksisterende innhold i todo_archive.md:
