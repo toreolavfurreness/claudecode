@@ -246,17 +246,58 @@ Se `docs/workflow.md` for flere hook-eksempler og konfigurasjonsguide.
 
 ## Superpowers-plugin
 
-`/todo-done` kaller tre kommandoer fra
-[Superpowers-pluginen](https://github.com/johnhuichen/superpowers-plugin):
+[obra/superpowers](https://github.com/obra/superpowers) er et skill-bibliotek
+for Claude Code som gir strukturerte kodepraksis-kommandoer. Det er
+**komplementært** til dette oppsettet — ikke konkurrerende.
 
-| Kommando | Fallback hvis ikke installert |
-|----------|-------------------------------|
-| `/verification-before-completion` | Manuell verifisering mot testkriteriene i planfilen |
-| `/simplify` | Manuell gjennomgang av endrede filer for unødvendig kompleksitet |
-| `/requesting-code-review` | `/review` i Claude Code |
+| Nivå | Dette oppsettet | Superpowers |
+|------|-----------------|-------------|
+| **Spørsmål** | Hva bygger vi, i hvilken rekkefølge? | Hvordan skriver vi god kode? |
+| **Verktøy** | Agents, plan-filer, lessons-wiki | Skills per oppgave |
+| **Persistens** | Langtidsminne på tvers av sesjoner | Aktiveres per kommando |
+
+### Integrasjonskart
+
+```
+/todo-plan (@planner)
+  └── Valgfritt: /brainstorm FØR planner kalles
+      → Utforsk 3-5 tilnærminger, gi den beste til planner
+
+/todo-execute (@implementer)
+  ├── Ny feature    → START med /tdd (red-green-refactor)
+  ├── Bug           → START med /systematic-debugging (diagnose rot-årsak FØR kode)
+  └── Sikkerhetskode → /security-review inline
+
+/todo-done
+  ├── /verification-before-completion  ← Superpowers
+  ├── /simplify på endrede filer       ← Superpowers
+  ├── @reviewer (Critical/Important/Minor)  ← Native agent
+  └── @lessons-writer                       ← Native agent
+```
+
+### TDD-arbeidsflyt
+
+1. `@planner` skriver testkriterier inn i `## Verifisering` i planfilen
+2. `@implementer` starter med `/tdd` — tvinger red-green-refactor
+3. Hvert testkriterium fra planfilen dokumenterer *hvorfor* atferden er viktig
+4. `/todo-done` → `/verification-before-completion` kjører testene, bekrefter faktisk output
+
+### Systematisk debugging
+
+1. Bug oppdages → logg i `tasks/bugs.md`
+2. Kjør `/systematic-debugging` **FØR** du rører kode — identifiser rot-årsak
+3. Er buggen kompleks nok for TODO? → `/todo-plan`. Liten og forstått? → Fiks direkte
+4. Etter fix: `@lessons-writer` dokumenterer hva som var ikke-åpenbart
+
+### Installasjon
+
+```bash
+# Åpne Claude Code → Extensions, eller følg instruksjoner på:
+# https://github.com/obra/superpowers
+```
 
 Pluginen er anbefalt men ikke påkrevd. Fallback-instruksjon er dokumentert
-direkte i `todo-done.md`.
+direkte i `todo-done.md` og `todo-execute.md`.
 
 ---
 

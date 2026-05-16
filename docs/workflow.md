@@ -104,6 +104,49 @@ Flytt til `tasks/bugs_archive.md` når lukket. Slett aldri.
 
 ---
 
+## Superpowers-integrasjon
+
+[obra/superpowers](https://github.com/obra/superpowers) er et skill-bibliotek
+som gir strukturerte kodepraksis-kommandoer. Installer via Claude Code Extensions.
+
+### Skill-til-flyt-mapping
+
+| Superpowers-skill | Når | Plassering i flyten |
+|-------------------|-----|---------------------|
+| `/brainstorm` | Utforsk tilnærminger | Før `/todo-plan` |
+| `/tdd` | Ny feature | Første steg i `/todo-execute` |
+| `/systematic-debugging` | Bug | Første steg i `/todo-execute` |
+| `/security-review` | Auth/data-kode | Under `/todo-execute` |
+| `/verification-before-completion` | Verifiser ferdig | Steg 3 i `/todo-done` |
+| `/simplify` | Rydd opp kode | Steg 4 i `/todo-done` |
+
+### TDD-syklus
+
+```
+/tdd → skriv failing test (RED)
+     → minimum kode for å bestå (GREEN)
+     → refaktorer uten å endre tester (REFACTOR)
+     → gjenta per testkriterium fra planfilen
+```
+
+Hvert testkriterium i planfilens `## Verifisering` skal ha en korresponderende test
+som dokumenterer *hvorfor* atferden er viktig (ikke bare *hva* den gjør).
+
+### Debugging-protokoll
+
+```
+/systematic-debugging → reproduser problemet (minimaleksempel)
+                      → formuler hypotese
+                      → test hypotesen (logg, isoler)
+                      → identifiser rot-årsak
+                      → verifiser at fix løser rot-årsaken (ikke symptomet)
+```
+
+Skriv null kode før rot-årsaken er identifisert.
+Etter fix: kall `@lessons-writer` med hva som var ikke-åpenbart.
+
+---
+
 ## Prinsipp: brukerspråk i UI / engelsk under panseret
 
 *(Fjern seksjonen hvis ikke relevant.)*
