@@ -15,10 +15,9 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
 4. **Rydd opp koden:** Kjør /simplify på alle endrede filer.
    Kjør tester etterpå og bekreft at ingenting er ødelagt.
    *(Krever Superpowers-plugin. Ikke installert? Gjør en manuell gjennomgang for unødvendig kompleksitet.)*
-5. **Code review:** Kjør /requesting-code-review.
+5. **Code review:** Bruk `@reviewer` — den leser git diff og returnerer Critical / Important / Minor.
    Fiks alle funn merket Critical eller Important før du går videre.
    Minor-funn kan noteres men trenger ikke blokkere.
-   *(Krever Superpowers-plugin. Ikke installert? Bruk /review fra Claude Code i stedet.)*
 6. **Marker TODO som ferdig:** Sett [x] på selve TODO-en og oppdater **Status:** til `ferdig` i tasks/todo.md
 7. **Arkiver TODO:** Flytt hele TODO-en til tasks/todo_archive.md med dato.
    Bruk alltid dette formatet — ikke kopier format fra eksisterende innhold i todo_archive.md:
@@ -51,10 +50,8 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
    **Løsning:** [kort beskrivelse av hva som fikset det]
 
    Fjern dem fra tasks/bugs.md etterpå.
-10. **Lessons learned:** Gå gjennom komplikasjonene og workarounds du dokumenterte.
-    For hver enkelt: vurder aktivt om dette er noe fremtidige TODOs kan støte på igjen.
-    Skriv til riktig tema-fil i tasks/lessons/, oppdater index.md (ett sammendrag)
-    og append én linje i tasks/lessons/log.md. Vær konkret og handlingsbar.
+10. **Lessons learned:** Bruk `@lessons-writer` — beskriv hva som gikk galt eller var uventet.
+    Den skriver til riktig tema-fil, oppdaterer index.md og appender til log.md.
     Dette steget er obligatorisk, ikke valgfritt.
 11. **Nye bugs:** Ble det avdekket nye bugs underveis? Legg dem til tasks/bugs.md
 12. **Git:** Commit alle endringer med en beskrivende melding, push branchen

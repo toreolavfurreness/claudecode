@@ -43,9 +43,12 @@ prosjektrot/
 ├── CLAUDE.md                   Atferdsregler + prosjektkontekst (141 linjer)
 ├── README.md                   Denne filen
 │
-├── agents/
-│   ├── planner.md              Standalone instruksjon for Opus 4.7
-│   └── implementer.md          Standalone instruksjon for Sonnet 4.6
+├── .claude/
+│   └── agents/                 Sub-agent definisjoner (YAML frontmatter + system prompt)
+│       ├── planner.md          Opus 4.7 — produserer planfil
+│       ├── implementer.md      Sonnet 4.6 — implementerer fra planfil
+│       ├── reviewer.md         Sonnet 4.6 — code review av git diff
+│       └── lessons-writer.md   Haiku 4.5 — oppdaterer lessons-wiki
 │
 ├── docs/
 │   ├── architecture.md         Stack, miljøer, mappestruktur
@@ -165,41 +168,52 @@ orphan-deteksjon visuell — isolerte noder er lessons ingen lenker til.
 
 ---
 
-## Agent-lagene: Opus for planlegging, Sonnet for implementering
+## Sub-agents
 
-### Problemet
+Prosjektet bruker fire sub-agents definert i `.claude/agents/`. Sub-agents
+kjører i egne kontekstvinduer og returnerer kun et sammendrag til
+hovedsesjonen — verbose output, utforskning og spesialisert arbeid
+forurenser ikke din hovedkontekst.
 
-Planlegging og implementering i samme sesjon forurenser konteksten.
-Implementeringsagenten starter med planleggingsdiskusjonen, forkastede
-tilnærminger og review-runden i bagasjen.
+| Agent | Modell | Verktøy | Trigger |
+|-------|--------|---------|---------|
+| `planner` | Opus 4.7 | Read, Grep, Glob, Write | /todo-plan |
+| `implementer` | Sonnet 4.6 | Read, Write, Edit, Bash, Grep, Glob | /todo-execute |
+| `reviewer` | Sonnet 4.6 | Read, Grep, Glob, Bash | /todo-done |
+| `lessons-writer` | Haiku 4.5 | Read, Write | /todo-done |
 
-### Løsningen
+### Invokasjon
 
-Planfilen (`tasks/plans/todo-X.md`) er API-et mellom de to fasene:
+Claude Code delegerer automatisk basert på `description`-feltet, eller du
+kan kalle eksplisitt:
+
+```text
+@planner planlegg neste TODO
+@implementer implementer TODO-3
+@reviewer gjennomfør code review av nylige endringer
+@lessons-writer dokumenter at migrasjonen hoppet over records stille
+```
+
+### Planfil som API
+
+Planlegging og implementering kjører i separate kontekster.
+`tasks/plans/todo-X.md` er API-et mellom dem:
 
 ```
-/todo-plan  →  Opus 4.7 leser: CLAUDE.md + lessons + todo + bugs
-                Produserer: planfil med alt implementeringsagenten trenger
-                (TODO-beskrivelse og relevante lessons kopiert inn)
-                Dør.
+@planner  →  Leser: CLAUDE.md + lessons + todo + bugs
+              Produserer: planfil med all nødvendig kontekst kopiert inn
+              Kontekst dør.
 
-/todo-execute  →  Sonnet 4.6 leser: CLAUDE.md + planfilen
-                  Ingenting annet. Ren kontekst.
+@implementer  →  Leser: CLAUDE.md + planfilen
+                 Ingenting annet. Ren start.
 ```
 
-**Kostnadseffekt:** Opus brukes kun på den korte planleggingsfasen.
-Sonnet håndterer den lange implementeringen. Ingen kvalitetskompromiss —
-Opus er der resonering trengs, Sonnet er der presis utførelse trengs.
+**Kostnadseffekt:** Opus brukes kun på den korte planleggingsfasen med
+begrenset kontekst. Sonnet tar den lange implementeringen. Haiku håndterer
+rutineoppgaver som lessons-skriving.
 
-### Standalone bruk (sub-agent eller ny sesjon)
-
-```bash
-# Planlegging
-claude --model claude-opus-4-7 < agents/planner.md
-
-# Implementering (angi planfilnummer)
-claude --model claude-sonnet-4-6 < agents/implementer.md
-```
+**Merk:** Sub-agents arver ikke CLAUDE.md automatisk. De relevante
+atferdsreglene er inkludert direkte i hver agents system prompt.
 
 ---
 

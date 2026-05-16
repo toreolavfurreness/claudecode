@@ -1,7 +1,7 @@
 # /todo-plan
 
-**Anbefalt modell:** claude-opus-4-7
-**Standalone bruk:** `claude --model claude-opus-4-7 < agents/planner.md`
+**Agent:** `@planner` (claude-opus-4-7) — delegeres automatisk eller via @-mention
+**Eksplisitt:** Skriv `@planner planlegg neste TODO` i Claude Code
 
 ---
 

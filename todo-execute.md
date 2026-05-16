@@ -1,7 +1,7 @@
 # /todo-execute
 
-**Anbefalt modell:** claude-sonnet-4-6
-**Standalone bruk:** `claude --model claude-sonnet-4-6 < agents/implementer.md`
+**Agent:** `@implementer` (claude-sonnet-4-6) — delegeres automatisk eller via @-mention
+**Eksplisitt:** Skriv `@implementer implementer TODO-[nr]` i Claude Code
 
 ---
 
