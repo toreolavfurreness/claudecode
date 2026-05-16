@@ -43,9 +43,12 @@ prosjektrot/
 ├── CLAUDE.md                   Atferdsregler + prosjektkontekst (141 linjer)
 ├── README.md                   Denne filen
 │
-├── agents/
-│   ├── planner.md              Standalone instruksjon for Opus 4.7
-│   └── implementer.md          Standalone instruksjon for Sonnet 4.6
+├── .claude/
+│   └── agents/                 Sub-agent definisjoner (YAML frontmatter + system prompt)
+│       ├── planner.md          Opus 4.7 — produserer planfil
+│       ├── implementer.md      Sonnet 4.6 — implementerer fra planfil
+│       ├── reviewer.md         Sonnet 4.6 — code review av git diff
+│       └── lessons-writer.md   Haiku 4.5 — oppdaterer lessons-wiki
 │
 ├── docs/
 │   ├── architecture.md         Stack, miljøer, mappestruktur
@@ -165,41 +168,49 @@ orphan-deteksjon visuell — isolerte noder er lessons ingen lenker til.
 
 ---
 
-## Agent-lagene: Opus for planlegging, Sonnet for implementering
+## Sub-agents og sesjonsstruktur
 
-### Problemet
+Sub-agents kjører i egne kontekstvinduer og returnerer kun et sammendrag
+til hovedsesjonen. Brukes kun der interaktivitet ikke er nødvendig.
 
-Planlegging og implementering i samme sesjon forurenser konteksten.
-Implementeringsagenten starter med planleggingsdiskusjonen, forkastede
-tilnærminger og review-runden i bagasjen.
+| Agent | Modell | Verktøy | Trigger | Hvorfor sub-agent |
+|-------|--------|---------|---------|-------------------|
+| `plan-reviewer` | Opus 4.7 | Read | /todo-plan (automatisk) | Frisk kontekst = avdekker antakelser fra planleggingsdiskusjonen |
+| `reviewer` | Sonnet 4.6 | Read, Grep, Glob, Bash | /todo-done | Ikke-interaktiv, strukturert output |
+| `lessons-writer` | Haiku 4.5 | Read, Write | /todo-done | Rutinemessig, billig |
 
-### Løsningen
+### Sesjonsstruktur per TODO
 
-Planfilen (`tasks/plans/todo-X.md`) er API-et mellom de to fasene:
+Planlegging og implementering kjører alltid i **separate sesjoner** for å
+unngå kontekstforurensing:
 
 ```
-/todo-plan  →  Opus 4.7 leser: CLAUDE.md + lessons + todo + bugs
-                Produserer: planfil med alt implementeringsagenten trenger
-                (TODO-beskrivelse og relevante lessons kopiert inn)
-                Dør.
+Sesjon 1 — Planlegging (Opus anbefalt)
+  /todo-plan
+    → PlanMode + AskUserQuestion (full interaktivitet)
+    → Skriver planfil til disk
+    → Spawner @plan-reviewer (Opus, leser kun planfilen — frisk kontekst)
+    → Presenter funn: Critical / Important / Minor
+    → Bruker godkjenner eller reviderer
 
-/todo-execute  →  Sonnet 4.6 leser: CLAUDE.md + planfilen
-                  Ingenting annet. Ren kontekst.
+Sesjon 2 — Implementering (Sonnet, standard)
+  /todo-execute
+    → Leser kun: CLAUDE.md + planfilen
+    → Ren kontekst, ingen planleggingsdiskusjon
+    → /tdd (ny feature) eller /systematic-debugging (bug)
+
+Sesjon 2 avslutning
+  /todo-done
+    → @reviewer (sub-agent, leser git diff)
+    → @lessons-writer (sub-agent, oppdaterer wiki)
 ```
 
-**Kostnadseffekt:** Opus brukes kun på den korte planleggingsfasen.
-Sonnet håndterer den lange implementeringen. Ingen kvalitetskompromiss —
-Opus er der resonering trengs, Sonnet er der presis utførelse trengs.
+**Modellvalg per sesjon:**
+- Planlegging: bytt til Opus med `/model claude-opus-4-7`
+- Implementering: Sonnet er standard — ingen bytte nødvendig
 
-### Standalone bruk (sub-agent eller ny sesjon)
-
-```bash
-# Planlegging
-claude --model claude-opus-4-7 < agents/planner.md
-
-# Implementering (angi planfilnummer)
-claude --model claude-sonnet-4-6 < agents/implementer.md
-```
+**Sub-agents arver ikke CLAUDE.md automatisk.** Relevante atferdsregler
+er inkludert direkte i hver agents system prompt.
 
 ---
 
@@ -232,17 +243,58 @@ Se `docs/workflow.md` for flere hook-eksempler og konfigurasjonsguide.
 
 ## Superpowers-plugin
 
-`/todo-done` kaller tre kommandoer fra
-[Superpowers-pluginen](https://github.com/johnhuichen/superpowers-plugin):
+[obra/superpowers](https://github.com/obra/superpowers) er et skill-bibliotek
+for Claude Code som gir strukturerte kodepraksis-kommandoer. Det er
+**komplementært** til dette oppsettet — ikke konkurrerende.
 
-| Kommando | Fallback hvis ikke installert |
-|----------|-------------------------------|
-| `/verification-before-completion` | Manuell verifisering mot testkriteriene i planfilen |
-| `/simplify` | Manuell gjennomgang av endrede filer for unødvendig kompleksitet |
-| `/requesting-code-review` | `/review` i Claude Code |
+| Nivå | Dette oppsettet | Superpowers |
+|------|-----------------|-------------|
+| **Spørsmål** | Hva bygger vi, i hvilken rekkefølge? | Hvordan skriver vi god kode? |
+| **Verktøy** | Agents, plan-filer, lessons-wiki | Skills per oppgave |
+| **Persistens** | Langtidsminne på tvers av sesjoner | Aktiveres per kommando |
+
+### Integrasjonskart
+
+```
+/todo-plan (@planner)
+  └── Valgfritt: /brainstorm FØR planner kalles
+      → Utforsk 3-5 tilnærminger, gi den beste til planner
+
+/todo-execute (@implementer)
+  ├── Ny feature    → START med /tdd (red-green-refactor)
+  ├── Bug           → START med /systematic-debugging (diagnose rot-årsak FØR kode)
+  └── Sikkerhetskode → /security-review inline
+
+/todo-done
+  ├── /verification-before-completion  ← Superpowers
+  ├── /simplify på endrede filer       ← Superpowers
+  ├── @reviewer (Critical/Important/Minor)  ← Native agent
+  └── @lessons-writer                       ← Native agent
+```
+
+### TDD-arbeidsflyt
+
+1. `@planner` skriver testkriterier inn i `## Verifisering` i planfilen
+2. `@implementer` starter med `/tdd` — tvinger red-green-refactor
+3. Hvert testkriterium fra planfilen dokumenterer *hvorfor* atferden er viktig
+4. `/todo-done` → `/verification-before-completion` kjører testene, bekrefter faktisk output
+
+### Systematisk debugging
+
+1. Bug oppdages → logg i `tasks/bugs.md`
+2. Kjør `/systematic-debugging` **FØR** du rører kode — identifiser rot-årsak
+3. Er buggen kompleks nok for TODO? → `/todo-plan`. Liten og forstått? → Fiks direkte
+4. Etter fix: `@lessons-writer` dokumenterer hva som var ikke-åpenbart
+
+### Installasjon
+
+```bash
+# Åpne Claude Code → Extensions, eller følg instruksjoner på:
+# https://github.com/obra/superpowers
+```
 
 Pluginen er anbefalt men ikke påkrevd. Fallback-instruksjon er dokumentert
-direkte i `todo-done.md`.
+direkte i `todo-done.md` og `todo-execute.md`.
 
 ---
 

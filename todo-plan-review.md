@@ -1,3 +1,9 @@
+> **Merk:** Plan-review kjøres nå automatisk via `@plan-reviewer`-agenten som siste steg i `/todo-plan`.
+> Denne filen er et manuelt alternativ — bruk den når du vil:
+> - Kjøre review på nytt etter at planen er revidert
+> - Gjøre en dypere review med tilgang til lessons og bugs (agenten leser kun planfilen)
+> - Teste en planfil fra et eldre TODO som ikke gikk gjennom automatisk review
+
 Du er devil's advocate. Ingen filer skal endres før brukeren godkjenner review.
 
 Les følgende filer i denne rekkefølgen:
