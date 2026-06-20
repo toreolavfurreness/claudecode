@@ -1,10 +1,11 @@
-# Treningsdashboard — prosjektoppsett
+# TindraFit — prosjektoppsett
 
+> **TindraFit** — auto-oppdatert treningsdashboard. Domene: `tindrafit.com`.
 > Strukturert planmappe. **Ingenting implementeres i dette repoet.**
 > Innholdet her løftes senere inn i et eget repo med egen infrastruktur.
 
 ## Hva
-Et auto-oppdatert treningsdashboard som henter data fra Strava og Garmin,
+TindraFit er et auto-oppdatert treningsdashboard som henter data fra Strava og Garmin,
 lagrer historikk i egen database, og presenterer trening på fire nivåer —
 **år / måned / uke / dag** — med nøkkeltall-kort og trendgrafer, samt en
 treningsassistent som gir innsikt og en justerbar treningsplan.
@@ -35,7 +36,8 @@ Verdien ligger i å samle rådata i egen DB → beregne egne metrics → vise tr
 | `dashboard.md` | Visninger, kort og grafer per nivå |
 | `assistent.md` | Treningsassistenten — ambisjonsnivåer og hva som kreves |
 | `faseplan.md` | Faseinndelt TODO for når prosjektet settes opp i eget repo |
-| `apne-sporsmal.md` | Beslutninger som gjenstår |
+| `beslutninger.md` | **Avklarte valg** (belastningsmetrikk, styrke/Hevy, sesongmål m.m.) |
+| `apne-sporsmal.md` | Historikk over vurderte spørsmål (nå avklart) |
 
 ## Status
 Planfase. Neste konkrete steg er beskrevet i `faseplan.md`.

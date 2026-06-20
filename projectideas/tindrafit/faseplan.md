@@ -4,7 +4,7 @@
 > implementeres i `claudecode`-repoet. `[ ]` = ikke startet.
 
 ## Fase 0 — Oppsett av eget repo
-- [ ] Opprett GitHub-repo for treningsdashboardet
+- [ ] Opprett GitHub-repo for TindraFit
 - [ ] Kopier denne mappa inn som `docs/` / planunderlag
 - [ ] Skriv `CLAUDE.md`, `docs/naming-conventions.md`, `tasks/todo.md`
 - [ ] Opprett Supabase-prosjekt + Vercel-prosjekt, koble til repo

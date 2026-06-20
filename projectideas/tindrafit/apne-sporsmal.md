@@ -1,5 +1,8 @@
 # Åpne spørsmål / beslutninger som gjenstår
 
+> **Alle ti er nå avklart — se `beslutninger.md`.** Denne fila beholdes som
+> historikk over hva som ble vurdert.
+
 Avklares før eller tidlig i oppsett av eget repo.
 
 1. **Belastningsmetrikk:** TSS (krever FTP/power, best på sykkel) vs TRIMP
