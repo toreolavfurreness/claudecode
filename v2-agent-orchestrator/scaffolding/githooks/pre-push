@@ -1,0 +1,25 @@
+#!/bin/sh
+# Warn before pushing directly to the production branch.
+# All changes should go through the base/integration branch first
+# (feature → base_branch → production).
+#
+# SCAFFOLDING: dette er stillas, ikke en del av /setup-pipelinen.
+# Sett protected_branch til prosjektets produksjons-branch (loop.config
+# branch_strategy.prod_branch). Aktiver med:
+#   git config core.hooksPath .githooks
+
+protected_branch="main"   # ← sett til branch_strategy.prod_branch fra loop.config
+current_branch=$(git symbolic-ref HEAD | sed 's|refs/heads/||')
+
+if [ "$current_branch" = "$protected_branch" ]; then
+  printf "\n⚠️  Du er i ferd med å pushe direkte til '%s' (produksjon).\n" "$protected_branch"
+  printf "   Normalt flyt: feature-branch → PR → base-branch → PR → %s\n\n" "$protected_branch"
+  printf "Er du sikker? [j/N] " </dev/tty
+  read answer </dev/tty
+  if [ "$answer" != "j" ] && [ "$answer" != "J" ]; then
+    echo "Push avbrutt."
+    exit 1
+  fi
+fi
+
+exit 0

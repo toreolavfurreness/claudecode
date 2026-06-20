@@ -1,0 +1,26 @@
+# SCAFFOLDING — blokkerende CI-port på PR (type-check / lint / test).
+# Dette er stillas, ikke en del av /setup-pipelinen. Tilpass branch-navn og
+# kommandoer til prosjektet (loop.config branch_strategy + verification_commands).
+# Eksempelet under er Node/npm — bytt til prosjektets toolchain.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]   # ← prod_branch + base_branch fra loop.config
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run type-check     # ← verification_commands.type_check_script
+      - run: npm run lint           # ← verification_commands.lint
+      - run: npm run test:run       # ← verification_commands.test

@@ -1,0 +1,108 @@
+# loop.config.yaml — den ENESTE filen du fyller for å porte loopen
+#
+# Dette er kilden. `/setup` kompilerer verdiene herfra inn i kit-et
+# (templates/ → prosjektets faktiske stier). Charterne leser ALDRI denne
+# fila ved runtime — alt substitueres ved setup-tid (ren A, én mekanisme).
+# Endrer du noe her: kjør `/setup` på nytt for å rekompilere.
+#
+# Eksempelverdiene under er fra Kornerflagget (Next.js + Supabase) — bytt
+# dem ut. Hver nøkkel mapper til ett eller flere {{TOKEN}} i templates/;
+# se token-tabellen i setup.md for den fullstendige mappingen.
+#
+# ALLE nøkler er påkrevd. `/setup` stopper hardt hvis én mangler.
+
+# --- Identitet -------------------------------------------------------------
+project_name: kornerflagget                      # → agent-navn <project>-planner osv. Kebab-case, ingen mellomrom.
+github_repo: toreolavfurreness/kornerflagget     # owner/repo — brukes i PR-URL-eksempler
+language: "norsk bokmål"                          # UI/svar-språk (kode er alltid engelsk)
+dev_server_port: 3000                             # for prosess-rydding (lsof)
+dev_server_process: "next dev"                    # prosessnavn for pkill -f (f.eks. "next dev", "vite", "rails s")
+
+# --- Modeller (tier per rolle) --------------------------------------------
+# planner/reviewer/code-reviewer = dyp modell; implementer = rask.
+# model: leses av plattformen ved sesjonsstart — KAN ikke være runtime-config.
+models:
+  planner: opus
+  planner_effort: high
+  reviewer: opus
+  reviewer_effort: high
+  implementer: sonnet
+  implementer_effort: high
+  code_reviewer: opus
+  code_reviewer_effort: high
+  # Fast visningsstreng for run-log «models»-kolonnen og orchestration-loop
+  # Modeller-tabellen — et tidsstemplet snapshot, rekkefølge:
+  # planner/reviewer/implementer/code-reviewer
+  display: "Opus4.8/Opus4.8/Sonnet4.6/Opus4.8"
+
+# --- Miljøer (Tier-1-invariant — må aldri glippe) -------------------------
+environments:
+  dev_id: ujuqinujwffbgcqnhqwy                    # daglig arbeid; all loop-aktivitet treffer dette
+  prod_id: xrezrnjhrschjdzkstmu                   # «aldri rør» automatisk
+  # Hvis prosjektet ikke har et eksternt miljø-ID-begrep (ren frontend e.l.):
+  # sett dev_id/prod_id til en meningsfull markør, f.eks. "n/a-dev"/"n/a-prod".
+
+# --- Branch-strategi ------------------------------------------------------
+branch_strategy:
+  base_branch: dev                                # PR-er lages mot denne; loopen merger hit
+  release_branch: main                            # produksjon; loopen rører den ALDRI
+  prod_branch: main                               # «aldri push/merge/commit»-branchen (oftest == release_branch)
+
+# --- Verifiserings-kommandoer ---------------------------------------------
+# Tomme strenger ("") = steget hoppes over (f.eks. prosjekt uten e2e).
+verification_commands:
+  build: "npm run build"
+  type_check: "npx tsc --noEmit"                  # rask inline-sjekk i worker
+  type_check_script: "npm run type-check"         # script-variant brukt i helsesjekk
+  lint: "npm run lint"
+  test: "npm run test:run"
+  e2e: "Playwright MCP (mcp__playwright__browser_navigate m.fl.)"   # tom "" hvis ingen e2e
+
+# --- Tier-1-invarianter (sikkerhetsnett i hvert charter) ------------------
+# Skrives ordrett inn i agentenes «Ufravikelige invarianter»-seksjon.
+# Behold den som en YAML-blokk (|). Hold den kort og hard.
+tier1_invariants: |
+  - Norsk bokmål i UI/svar; engelsk i kode/variabler/commits.
+  - RLS på alle tabeller fra første migrasjon.
+  - Dev = ujuqinujwffbgcqnhqwy. Prod = xrezrnjhrschjdzkstmu. Bland dem aldri.
+  - Aldri push/merge/commit til main.
+  - Flagg som teknisk risiko: migrasjon, RLS-endring, prod/main-push, env/secrets.
+
+# --- Pluggbare tech-review-agenter ----------------------------------------
+# Hvilke domene-reviewere code-revieweren dispatcher som friske sub-agenter,
+# og ved hvilke diff-stier. Lever prosjektets egne (se examples/ for maler).
+# Tom liste [] = code-revieweren kjører uten tech-review-arm.
+tech_review_agents:
+  - name: security-reviewer
+    trigger: "src/app/(auth)/, src/lib/auth/, Supabase-klientkode eller Server Actions"
+    severity_map: "KRITISK→BLOKKERENDE, HØY→VIKTIG, LAV→MINDRE"
+  - name: rls-auditor
+    trigger: "supabase/migrations/"
+    severity_map: "funn→BLOKKERENDE"
+
+# --- Canary (bevis på fil-lesing) -----------------------------------------
+# Fil planner-canaryen leses fra. Velg en fil med stabilt, prosjektspesifikt
+# innhold som IKKE gjentas i dispatch-prompten (data-model, arkitektur e.l.).
+canary_source: docs/data-model.md
+
+# --- Lessons-tema (gyldige tema-filnavn) ----------------------------------
+# Brukes som enum i ferdig-rapporten og som tema-filer i tasks/lessons/.
+lessons_topics:
+  - postgres-rls
+  - supabase-platform
+  - migrations
+  - nextjs-app-router
+  - react-hooks
+  - playwright-e2e
+  - typescript
+  - tailwind-styling
+  - anthropic-api
+  - workflow-process
+
+# --- Pausepunkter (hva som teller som teknisk risiko) ---------------------
+pause_triggers: "migrasjon, RLS-endring, prod/main-push, env/secrets"
+
+# --- Release --------------------------------------------------------------
+release:
+  command: "/release-prod"                        # menneske-kjørt; loopen anbefaler kun
+  health_check_merge_interval: 5                  # N: kjør helsesjekk hver N-te merge
