@@ -28,11 +28,11 @@ Messenger-grupper flagger dette som et reelt hull.
 
 | Fil | Innhold |
 |---|---|
-| [00-markedsanalyse.md](00-markedsanalyse.md) | Konkurrentkartlegging, gap-vurdering, etterspørsel, kilder |
-| [01-produktspec.md](01-produktspec.md) | Kjernefunksjoner, brukerflyt, hva vi bevisst dropper |
-| [02-mvp-plan.md](02-mvp-plan.md) | Teknisk stack, datamodell, faseplan, åpne spørsmål |
-| [03-markedsforing-instagram.md](03-markedsforing-instagram.md) | Vekststrategi, invitasjon-som-markedsføring-loopen |
-| [04-navn-og-merkevare.md](04-navn-og-merkevare.md) | Navneforslag, posisjonering, tone |
+| [markedsanalyse.md](markedsanalyse.md) | Konkurrentkartlegging, gap-vurdering, etterspørsel, kilder |
+| [produktspec.md](produktspec.md) | Kjernefunksjoner, brukerflyt, hva vi bevisst dropper |
+| [mvp-plan.md](mvp-plan.md) | Teknisk stack, datamodell, faseplan, åpne spørsmål |
+| [markedsforing.md](markedsforing.md) | Vekststrategi, invitasjon-som-markedsføring-loopen |
+| [navn-og-merkevare.md](navn-og-merkevare.md) | Navneforslag, posisjonering, tone |
 
 ## Den strategiske kjernen (les denne hvis du bare leser én ting)
 
