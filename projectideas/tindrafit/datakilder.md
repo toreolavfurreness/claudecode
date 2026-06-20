@@ -8,10 +8,11 @@ direkte MCP. Dette gir en naturlig rollefordeling.
 ## Rollefordeling (Garmin/Chirona er primærkilde)
 **Garmin er kilden, Strava er speilet.** Treningsdata bor samme sted som
 restitusjonsdata (HRV/søvn/puls), som kun finnes i Garmin/Chirona. Derfor er
-Garmin/Chirona primær for alt. **Strava = fullverdig fallback** (ikke bare
-berikelse): brukes når Garmin/Chirona-data mangler, og for evt. fremtidige
-brukere som kun har Strava. Begge kilder ligger bak ett provider-grensesnitt
-(se `beslutninger.md`), så appen er kilde-agnostisk.
+Garmin/Chirona primær for alt. **Strava har tre roller:** fullverdig fallback
+når Garmin-data mangler, frittstående kilde for Strava-only-brukere, OG
+berikelse av data Chirona ikke gir — **gear/utstyr (sko/sykkel-slitasje),
+segmenter, relative effort, sosialt**. Begge kilder ligger bak ett
+provider-grensesnitt (se `beslutninger.md`), så appen er kilde-agnostisk.
 
 | Datatype | Primærkilde | Merknad |
 |----------|-------------|---------|

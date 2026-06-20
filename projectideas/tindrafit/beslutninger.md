@@ -4,7 +4,7 @@ Disse erstatter de åpne spørsmålene i `apne-sporsmal.md`. Avklart 2026-06-20.
 
 | # | Tema | Beslutning |
 |---|------|-----------|
-| 0 | **Primærkilde** | **Garmin/Chirona** er primærkilde for ALL treningsdata (og restitusjon). Garmin er kilden (Strava er speilet), og restitusjonsdata (HRV/søvn/puls) finnes kun her. **Strava = fullverdig fallback**, ikke bare berikelse: brukes (a) når Garmin/Chirona-data mangler, og (b) for evt. fremtidige brukere som kun har Strava (ingen Chirona). Krever at kildene abstraheres bak et felles provider-grensesnitt. |
+| 0 | **Primærkilde** | **Garmin/Chirona** er primærkilde for ALL treningsdata (og restitusjon). Garmin er kilden (Strava er speilet), og restitusjonsdata (HRV/søvn/puls) finnes kun her. **Strava har tre roller:** (a) **fullverdig fallback** når Garmin/Chirona-data mangler, (b) **frittstående kilde** for fremtidige Strava-only-brukere, (c) **berikelse** av data Chirona ikke gir — utstyr/gear (sko/sykkel-slitasje), segmenter, relative effort, sosialt. Krever felles provider-grensesnitt. |
 | 1 | **Belastning — SEPARERT** | Utholdenhet og styrke holdes **adskilt** (ulike stimuli: kardiovaskulær vs mekanisk). **Ingen felles lastenhet.** Utholdenhet → TRIMP → egen CTL/ATL/TSB. Styrke → tonnasje/sett×RPE → egen trend. TSS i tillegg for sykkel med watt. |
 | 2 | **På tvers uten felles enhet** | Belastning «på tvers» uttrykkes via det **modalitets-uavhengige restitusjonslaget** (HRV, hvilepuls, søvn, subjektiv følelse) + beskrivende balanse/volum (tid, antall økter, monotoni). IKKE via et sammenslått lasttall. |
 | 3 | **Styrkebelastning** | Tonnasje (sett×reps×vekt) når **Hevy via Chirona** er koblet på. Inntil da: kun antall økter + varighet (IKKE HR-TRIMP — puls måler ikke mekanisk last). |
