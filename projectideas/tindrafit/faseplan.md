@@ -10,6 +10,21 @@
 - [ ] Opprett Supabase-prosjekt + Vercel-prosjekt, koble til repo
 - [ ] Legg tokens (Strava, Chirona, Claude API) som secrets
 
+## Fase 0.5 — Datakvalitets-audit (FØR vi bygger beregninger)
+> Terra normaliserer data. Vi må vite hva vi faktisk får før vi stoler på det.
+- [ ] Les gjennom et representativt utvalg ekte økter via Chirona
+      (ulike sporter: løp/sykkel/ski/styrke, både korte og lange).
+- [ ] Sjekk for hver økt: finnes **HR-streams** (per-sekund) eller kun snitt-HR?
+- [ ] Sjekk om **maxHR + hvilepuls / soner** er tilgjengelig.
+- [ ] Sjekk **søvn/HRV/hvilepuls/body battery** — dekning, hull, enheter, tidsstempler.
+- [ ] Sjekk om Garmins egne **Training Load / Readiness / VO2max** kommer gjennom.
+- [ ] Verifiser tidssoner, varighet (elapsed vs moving), distanse-enheter.
+- [ ] Se etter dubletter / manglende økter vs hva du vet du har gjort.
+- [ ] **Skriv en kort kvalitetsrapport**: hva er pålitelig, hva har hull,
+      hva må evt. hentes fra Strava som berikelse. Oppdater `datakilder.md`
+      og `beslutninger.md` (verifiseringspunktene) ut fra funnene.
+- [ ] Logg overraskelser i `tasks/lessons/` (data-kvalitet).
+
 ## Fase 1 — Fundament
 - [ ] Supabase-skjema fra `datamodell.md` (migrasjon)
 - [ ] Row Level Security pr `athlete_id`
@@ -17,14 +32,17 @@
 - [ ] Ett dag/uke-view som leser ekte rader
 
 ## Fase 2 — Innhenting
-- [ ] Cron: hent activities (Strava + Garmin), idempotent på source_id
+- [ ] Cron: hent activities fra **Garmin/Chirona** (primær), idempotent på source_id
 - [ ] Cron: hent daily_metrics (søvn/HRV/hvilepuls/vekt)
-- [ ] Engangs backfill (Garmin i 3-mnd-bolker, Strava paginert)
+- [ ] Engangs backfill (Garmin/Chirona i 3-mnd-bolker)
+- [ ] Ev. Strava-berikelse kun for det audit-en (Fase 0.5) viste mangler
 - [ ] `sync_state` for inkrementell henting
 
 ## Fase 3 — Analyse
-- [ ] Beregn TRIMP/TSS pr økt ved innhenting
-- [ ] Beregn daglig load + CTL/ATL/TSB → `load_metrics`
+- [ ] Beregn TRIMP pr utholdenhetsøkt (TSS i tillegg for watt-sykkel)
+- [ ] Beregn `endurance_load` (CTL/ATL/TSB) — kun utholdenhet
+- [ ] Beregn `strength_load` (tonnasje/antall) — SEPARAT serie
+- [ ] Beregn readiness-signal fra daily_metrics + feedback
 - [ ] Bygg år/måned/uke/dag-visning: kort + trendgrafer
 - [ ] Varselgrenser (HRV-fall, lav TSB, monotoni)
 

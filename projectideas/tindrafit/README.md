@@ -16,10 +16,10 @@ ikke for det i V1.
 
 ## Hvorfor
 Strava og Garmin viser hver sin bit. Ingen av dem regner ut egen
-form-/fatigue-kurve over tid, kombinerer utholdenhet + styrke til samlet
-belastning, eller kobler subjektiv følelse mot data for adaptiv coaching.
-Verdien ligger i å samle rådata i egen DB → beregne egne metrics → vise trender
-→ gi råd.
+form-/fatigue-kurve over tid, holder utholdenhets- og styrkebelastning som
+adskilte stimuli men forener dem på et felles restitusjons-/readiness-lag, eller
+kobler subjektiv følelse mot data for adaptiv coaching. Verdien ligger i å samle
+rådata i egen DB → beregne egne metrics → vise trender → gi råd.
 
 ## Omfang V1 (besluttet)
 - **Treningsformer:** utholdenhet (løp/sykkel/ski) **+** styrke/gym (hybrid).

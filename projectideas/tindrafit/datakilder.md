@@ -5,19 +5,30 @@ Garmin nås **ikke** direkte. Den går via **Chirona** (et Terra-basert lag som
 dekker Garmin, og evt. COROS / Oura / TrainingPeaks). Strava er en egen,
 direkte MCP. Dette gir en naturlig rollefordeling.
 
-## Rollefordeling (én sannhet per datatype)
-Samme økt finnes ofte i både Strava og Garmin. For å unngå dobbelttelling
-velger vi én kilde som autoritativ per datatype:
+## Rollefordeling (Garmin/Chirona er primærkilde)
+**Garmin er kilden, Strava er speilet.** Treningsdata bor samme sted som
+restitusjonsdata (HRV/søvn/puls), som kun finnes i Garmin/Chirona. Derfor er
+Garmin/Chirona primær for alt. **Strava = fullverdig fallback** (ikke bare
+berikelse): brukes når Garmin/Chirona-data mangler, og for evt. fremtidige
+brukere som kun har Strava. Begge kilder ligger bak ett provider-grensesnitt
+(se `beslutninger.md`), så appen er kilde-agnostisk.
 
-| Datatype | Autoritativ kilde | Merknad |
-|----------|-------------------|---------|
-| Utholdenhetsøkter (distanse, HR, watt, kadens, soner) | **Strava** | Rikest på detaljer + tidsserier |
-| Tidsserier / streams (HR, watt, høyde, GPS) | **Strava** | `get_activity_streams` |
-| Soner, FTP, maxHR, pace-soner | **Strava** | `get_athlete_zones` |
-| Styrkeøkter | **Garmin/Chirona** | Strava er tynn på styrke |
+| Datatype | Primærkilde | Merknad |
+|----------|-------------|---------|
+| Utholdenhetsøkter (distanse, HR, watt, kadens) | **Garmin/Chirona** | `get-recent-activities` / `get-activity-details` |
 | Søvn, HRV, hvilepuls, recovery, body battery | **Garmin/Chirona** | Finnes ikke i Strava |
-| Vekt / body-data | **Garmin/Chirona** | |
+| Styrkeøkter | **Garmin/Chirona** (+ Hevy) | |
+| Vekt / body-data | **Garmin/Chirona** | `get-latest-body` |
 | Push av planlagte økter til klokke | **Garmin/Chirona** | Lukker coaching-loopen |
+| Detaljerte HR-streams | **Garmin/Chirona** → ev. **Strava** | Berikelse hvis Chirona er tynn |
+| Soner, FTP, maxHR, pace-soner | **Garmin/Chirona** → ev. **Strava** | `get_athlete_zones` som fallback |
+
+### MÅ verifiseres tidlig (avgjør om Strava trengs)
+1. Gir Chirona **HR-tidsserier (streams)** per økt? (Til stream-TRIMP + sonefordeling.)
+2. Gir Chirona **maxHR + hvilepuls / soner**? (Til TRIMP.)
+3. Gir Chirona Garmins egne **Training Load / Readiness / VO2max**? (Referanse.)
+
+Mangler 1 eller 2 → hent akkurat det fra Strava som supplement.
 
 ## Strava — relevante endepunkter
 - `list_activities` — distanse, tid, høydemeter, snitt/maxHR, watt, kadens,
@@ -45,15 +56,17 @@ Enheter returneres i metrisk.
 > som første kall hver melding før øvrige Chirona-kall. Verdt å huske når
 > innhenting bygges.
 
-## TRIMP beregnes — hentes ikke
+## TRIMP beregnes — hentes ikke (kun utholdenhet)
 Verken Strava eller Garmin/Chirona gir et ferdig TRIMP-tall. Vi beregner det
 selv (Banister): `TRIMP = varighet_min × r × 0,64·e^(1,92·r)`, der
 `r = (snittpuls − hvilepuls)/(maxpuls − hvilepuls)`.
-- **Råstoff per økt fra kilden som «eier» økta** (dedup-regelen over):
-  utholdenhet → Strava (HR-stream best, snitt-HR ok), styrke → Garmin (snitt-HR).
-- `maxHR` + `hvilepuls` settes på `athletes` fra Strava `get_athlete_zones`/profil.
+- **Kun for utholdenhetsøkter.** Styrke får IKKE TRIMP (puls måler ikke
+  mekanisk last) — styrke = tonnasje/antall i egen `strength_load`.
+- Råstoff hentes fra **Garmin/Chirona** (primær). Snitt-HR til å starte;
+  stream-vektet hvis Chirona gir streams, ellers Strava som fallback.
+- `maxHR` + `hvilepuls` settes på `athletes` fra Garmin/Chirona (Strava
+  `get_athlete_zones` som fallback hvis Chirona ikke eksponerer dem).
 - Aldri TRIMP fra begge kilder for samme økt → unngå dobbelttelling.
-- Start med snitt-HR-TRIMP; forfine til sone-/stream-vektet senere.
 
 ## Konsekvens for innhenting
 - Idempotens på `(source, source_id)` slik at re-kjøring ikke duplikerer.
