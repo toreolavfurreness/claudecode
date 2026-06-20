@@ -45,6 +45,16 @@ Enheter returneres i metrisk.
 > som første kall hver melding før øvrige Chirona-kall. Verdt å huske når
 > innhenting bygges.
 
+## TRIMP beregnes — hentes ikke
+Verken Strava eller Garmin/Chirona gir et ferdig TRIMP-tall. Vi beregner det
+selv (Banister): `TRIMP = varighet_min × r × 0,64·e^(1,92·r)`, der
+`r = (snittpuls − hvilepuls)/(maxpuls − hvilepuls)`.
+- **Råstoff per økt fra kilden som «eier» økta** (dedup-regelen over):
+  utholdenhet → Strava (HR-stream best, snitt-HR ok), styrke → Garmin (snitt-HR).
+- `maxHR` + `hvilepuls` settes på `athletes` fra Strava `get_athlete_zones`/profil.
+- Aldri TRIMP fra begge kilder for samme økt → unngå dobbelttelling.
+- Start med snitt-HR-TRIMP; forfine til sone-/stream-vektet senere.
+
 ## Konsekvens for innhenting
 - Idempotens på `(source, source_id)` slik at re-kjøring ikke duplikerer.
 - Garmin-historikk hentes i 3-måneders bolker ved første backfill.
