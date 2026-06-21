@@ -6,6 +6,8 @@
 > prosjekter?*
 >
 > Dato: 2026-06-21 · Status: research, ingen kodeendringer foreslått implementert ennå.
+> Se **Addendum (2026-06-21)** nederst: `brain`-vaulten er besluttet/opprettet,
+> og hvordan engineering-lessons passer inn som et tredje tre i `brain`.
 
 ---
 
@@ -330,6 +332,78 @@ fordi flere prosjekter dytter inn overlappende lessons.
 4. Pilot: kjør to prosjekter mot samme global vault i noen uker, mål hvor mange
    lessons som faktisk er portable (validerer om gevinsten er reell før vi
    bygger maskineri).
+
+---
+
+## Addendum (2026-06-21): `brain`-repoet er besluttet og designet
+
+Etter at rapporten ble skrevet kom det frem at den globale vaulten **allerede
+finnes**: et privat repo `toreolavfurreness/brain` (lokalt `~/brain`), satt opp
+som en Karpathy LLM-Wiki. Det bekrefter transport-valget i §6/§7 (Option A:
+eget git-repo, ikke en delt `shared/`-mappe). To presiseringer følger.
+
+### A1. `brain` er designet som *semantisk* wiki — lessons er *prosedural*
+
+`brain` slik den er designet løser et **beslektet, men annet** problem enn det
+opprinnelige cross-project-lessons-spørsmålet:
+
+| | `brain` (slik designet) | Cross-project lessons (denne rapporten) |
+|---|---|---|
+| Minnetype | **Semantisk** — kunnskap fra lesestoff | **Prosedural** — lærdom fra kodearbeid |
+| Inntak | Mennesket limer URL/snippet i `raw/inbox.md` → `/ingest` | v2-koordinator/implementer emitter lesson som data |
+| Karpathy-fase | Full: `raw/` → diskuter → `wiki/` | Hopper over `raw/` — ankommer ferdig-strukturert |
+| Form | `wiki/entities|concepts|sources|syntheses` | Pattern / Sjekkliste fremover / `**Kilder:**` |
+
+`brain`s nåværende struktur (`raw/` + `wiki/`) er en lese-kunnskap-wiki.
+Engineering-lessons er prosedural memory og har en annen generator (kodeagenten,
+ikke et menneske som klipper artikler).
+
+### A2. Anbefaling: ett `brain`-repo, et tredje tre — ikke to repos
+
+Brukeren ønsket eksplisitt "én wiki for alt på tvers, ikke splittet per
+prosjekt". Det er riktig instinkt. Løs det med et **tredje toppnivå-tre** i
+`brain`, ved siden av `raw/` og `wiki/`:
+
+```
+brain/
+├── raw/          ← ingest-kilder (uendret; mates av /ingest)
+├── wiki/         ← semantisk kunnskap (uendret; mates av /ingest)
+└── lessons/      ← NY: prosedural engineering-kunnskap
+    ├── index.md          (eller egen seksjon i topp-index.md)
+    ├── postgres-rls.md
+    ├── typescript.md
+    └── ...
+```
+
+- `wiki/` mates av mennesket via `/ingest`.
+- `lessons/` mates av `claudecode`-v2 via **promoteringsbroen** (§7.2): bare
+  `scope: global`-lessons forfremmes hit; prosjektspesifikke blir i repoets egen
+  `tasks/lessons/`. Disse går rett i `lessons/` + `index.md` + `log.md` — ingen
+  `raw/`-runde, fordi de allerede er strukturert.
+- Samme `CLAUDE.md`-schema, samme `index.md`, samme `log.md`, samme
+  Obsidian-vault. **Én hjerne, to inntak.**
+
+### A3. Hvordan v2-prosjekter leser `brain/lessons/`
+
+Brukerens besluttede mekanisme passer rett inn: `claude --add-dir ~/brain/wiki`
+(utvid til `~/brain/lessons`), eller en `/brain`-kommando som leser `index.md`.
+Følg Karpathy-disiplinen (§7.3): last **indeksen** ved oppstart, hent tema-filer
+on-demand.
+
+### A4. Justert neste steg (erstatter §9 der det avviker)
+
+1. Legg `lessons/`-treet + en lessons-seksjon i `index.md`/`CLAUDE.md` til
+   `brain` (kjør helst Claude Code i en sesjon scopet til `brain`).
+2. Beslutt en **stabil tema-taksonomi** for `brain/lessons/` (jf. risiko i §8 om
+   taksonomi-drift) — uavhengig av per-prosjekt `loop.config.yaml`.
+3. Spec'e `scope`-feltet i `report-schema.md` + promoteringssteget i
+   `todo-done.md` (skriver til `~/brain/lessons/` via git append).
+4. Pilot: kjør to v2-prosjekter mot `brain/lessons/`, mål portabilitets-andel.
+
+> Status `brain` (fra brukerens oppsummering): konsept besluttet, mappestruktur
+> + filer generert (template-zip), `~/brain` + GitHub-repo opprettet. Gjenstår:
+> pakke ut template, første push, åpne som Obsidian-vault, `/wiki-start`. Disse
+> stegene er uavhengige av lessons-integrasjonen over.
 
 ---
 
