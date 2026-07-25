@@ -28,6 +28,10 @@ Hvis alt er klart:
 3. Implementer steg for steg basert på steg-listen i planfilen:
 
    - Marker hvert steg som fullført etterhvert som det er gjort og verifisert: [ ] → [x]
+   - **Committ INKREMENTELT etter hvert grønt steg** (lokale commits i worktreet — push skjer samlet
+     til slutt): et API-dødsfall skal aldri sitte på 30+ ucommittede filer (erfart i live-drift:
+     implementeren døde 2× ved commit-punktet; §5a-rescue reddet det, men inkrementelle
+     commits fjerner klassen)
    - Verifisering betyr å kjøre relevante kommandoer og lese faktisk output — ikke anta at noe fungerer
    - Etter hvert steg: gi en kort statusmelding om hva som ble gjort og hva som er neste
 

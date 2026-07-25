@@ -17,6 +17,15 @@ Dispatch en triviell probe før du starter: `Agent` med `subagent_type: {{PROJEC
 
 ## Preflight: dep-sjekk
 
+### 0. §6f-teller (selvevaluering — sjekk VED SESJONSSTART, ikke bare per merge)
+
+```bash
+awk '/\| loop-eval \|/ { count=0; next } /\| merged \|/ { count++ } END { print count }' docs/superpowers/loop/run-log.md
+```
+
+≥ 5 → kjør §6f-selvevalueringen FØR første nye dispatch (kadensen glapp 3,4× da telleren kun ble
+sjekket ved egne merges — korte/eier-fokuserte sesjoner hoppet over den; batch-14-funn).
+
 Kjør disse sjekkene etter agent-proben og FØR første todo velges. Rapporter status og modus til brukeren.
 
 ### 1. E2E-verktøy (Playwright MCP)
@@ -32,7 +41,7 @@ Verifiser at `/systematic-debugging` og `/verification-before-completion` er til
 - Begge tilgjengelige → **Superpowers: tilgjengelige**
 - Én eller begge mangler → **Superpowers: MANGLER**
 
-(`/requesting-code-review` og `/simplify` er ikke preflight-sjekket her — de utføres allerede inline i `todo-finish-worker.md` steg 3 og 5 og er aldri eksponert som eksplisitte runtime-kall.)
+(`/simplify` kalles eksplisitt i `todo-finish-worker.md` steg 3 av workeren selv (som har `Skill` i toolsettet) med inline-fallback hvis skillen mangler, og `/requesting-code-review` utføres inline i steg 5 — derfor preflight-sjekkes ingen av dem her.)
 
 ### 3. In-repo-agenter
 
@@ -78,8 +87,12 @@ Tom kø → §6c helsesjekk + release-rådgiver → §7 grooming-modus (foreslå
 ## Argument
 
 `$ARGUMENTS` styrer omfang:
-- **tomt** → kjør kontinuerlig, én todo om gangen, til køen er tom eller et pausepunkt treffes
-- **et todo-nr** (f.eks. `41`) → start med den todoen
+- **tomt** → kjør kontinuerlig, alle tags (ingen sesjon-filter)
+- **tomt** → SLETT ev. eksisterende `tasks/session-queue-filter.md` FØR §1 (`rm -f tasks/session-queue-filter.md` + commit hvis den var committet) — et foreldet filter fra en tidligere sesjon har styrt køen stille før (2026-07-19)
+- **domene-tag** (`ai`, `design`, `sync`, `fundament`, `metrics`) → skriv `tasks/session-queue-filter.md` med `tags_filter: [<arg>]`, kjør deretter kontinuerlig innenfor det domenet
+- **et todo-nr** (f.eks. `41`) → start med den todoen (ingen tag-filter)
 - **`once`** → kjør nøyaktig én todo, så stopp og rapporter (nyttig for validering / forsiktig oppstart)
+
+**Domene-filter eksempel:** `/run-loop design` → setter filter automatisk og starter design-sesjonen.
 
 Etter hver fullførte todo: gi en kort statuslinje (hva ble gjort, PR-lenke, neste i køen) før du fortsetter.

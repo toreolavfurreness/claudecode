@@ -84,4 +84,5 @@ Etter at du godkjenner planen:
 
    - Oppdater `tasks/todos/todo-<nr>-<slug>.md` frontmatter:
      Sett `status: reviewed` og `plan: "tasks/plans/todo-<nr>-<slug>.md"`
+   - **Committ og pushe planfilen** (`git add tasks/plans/todo-<nr>-<slug>.md && git commit -m "plan: todo-<nr> ..." && git push`). En planfil som kun ligger på disk i en isolert worktree er usynlig for alt som leser den senere (reviewer, koordinator) — den MÅ inn i delt historikk før du går videre. Verifiser med `git log origin/{{BASE_BRANCH}} -- tasks/plans/todo-<nr>-<slug>.md` at den faktisk landet — ikke anta at push lyktes.
    - Informer om at neste steg er /todo-execute

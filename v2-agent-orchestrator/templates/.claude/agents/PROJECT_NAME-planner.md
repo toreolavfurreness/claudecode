@@ -36,6 +36,14 @@ Les og følg `.claude/commands/todo-plan.md` i sin helhet. Skriv planfilen `task
 
 Rør KUN planfilen din. Rør IKKE todo-frontmatteren, og skriv ALDRI til `tasks/lessons*`, `tasks/bugs.md` eller `tasks/todo_archive.md`.
 
+**Leveranse-splitt-vurdering (vurdering med begrunnelse, IKKE mekanisk tak):**
+implementer-kost skalerer med antall flater/filer × testkrav-tetthet, ikke med todo-
+«vanskelighet». Berører implementasjonen din plan mer enn ~3 uavhengige flater/sider ELLER
+~10 filer med hver sine testkrav, SKAL planen eksplisitt vurdere leveranse-splitt (flere PR-er,
+eller flere sekvensielle implementer-dispatcher mot samme plan der dispatch 2 bygger på
+dispatch 1s branch) — og begrunne valget i plan-rapportens `notes`/`technical_risk`, uansett
+hvilken vei du lander på. Små/sammenhengende planer trenger ingen slik drøfting.
+
 ## Revisjons-runde
 
 Hvis koordinatoren sender deg review-funn: oppdater planen så hvert BLOKKERENDE-funn er adressert, og returner oppdatert plan-rapport.

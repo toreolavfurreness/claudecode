@@ -37,7 +37,7 @@ Workers rører ALDRI run-log.md.
 Fast rekkefølge — alle nøkler obligatoriske:
 
 ```
-sha=<full-40-char-origin/{{BASE_BRANCH}}-HEAD-SHA>;tests=<green|red|infra-feil>;type=<green|red|infra-feil>;lint=<green|red|infra-feil>;rls=<green|red|n/a>;release=<go|no-go>
+sha=<full-40-char-origin/{{BASE_BRANCH}}-HEAD-SHA>;tests=<green|red|infra-feil>;type=<green|red|infra-feil>;lint=<green|red|infra-feil>;rls=<green|red|n/a>;release=<go|no-go>;worktrees_total=<n>;worktrees_stale=<n>;branches_stale_deleted=<n>;merges_since_last=<n>;plan_revision_rate=<x/y>
 ```
 
 - `sha=` — `origin/{{BASE_BRANCH}}`-HEAD-SHA på tidspunktet for helsesjekken. Brukes av neste helsesjekk for
@@ -49,10 +49,19 @@ sha=<full-40-char-origin/{{BASE_BRANCH}}-HEAD-SHA>;tests=<green|red|infra-feil>;
 - `rls` — `green` (ingen åpne hull), `red` (funn som krever eskalering), `n/a` (ingen
   tech-relevante endringer siden forrige helsesjekk, eller ingen tech-review-agenter konfigurert).
 - `release` — `go` (alt grønt + ingen høy-prioriterte bugs) eller `no-go` (minst ett hinder).
+- `worktrees_total` — antall registrerte git-worktrees ved sweepens start (§A5b i
+  `.claude/commands/loop-health-check.md`).
+- `worktrees_stale` — antall worktrees FJERNET denne sweeprunden (semantikk endret 2026-07-12: var
+  tidligere et rent øyeblikksbilde-antall av «trolig trygge å fjerne»-worktrees — §A5b fjerner nå
+  faktisk i stedet for kun å telle, se `docs/superpowers/loop/optimization-backlog.md` tiltak #6.
+  Historiske rader fra før 2026-07-12 brukte den gamle betydningen; de endres ikke, append-only).
+- `branches_stale_deleted` — antall orphan-brancher (uten tilknyttet worktree) slettet denne runden.
+- `merges_since_last` — antall `outcome=merged`-rader siden forrige helserad.
+- `plan_revision_rate` — brøk `<trengte≥2 runder>/<totalt>` blant merges siden forrige helserad.
 
 **Invarianter:**
 - `outcome=paused` ⟹ `pause_event` MÅ være ett av de lovlige pausepunkt-verdiene (ikke `-`).
-- `outcome=health` ⟹ `pause_event = -` (grønn) eller `pause_event = helsesjekk-rød` (rød + eskalert). `pr = -`. `plan_review_rounds = 0`. `code_review_rounds = 0`. `todo_nr = -`. `slug = loop-health-check`. `health_payload` MÅ ha alle seks nøkler i fast rekkefølge. `degradation = -`.
+- `outcome=health` ⟹ `pause_event = -` (grønn) eller `pause_event = helsesjekk-rød` (rød + eskalert). `pr = -`. `plan_review_rounds = 0`. `code_review_rounds = 0`. `todo_nr = -`. `slug = loop-health-check`. `health_payload` MÅ ha alle elleve nøkler i fast rekkefølge (`sha/tests/type/lint/rls/release` + `worktrees_total/worktrees_stale/branches_stale_deleted/merges_since_last/plan_revision_rate`). `degradation = -`.
 - `outcome=merged|failed|blocked` ⟹ `pause_event` SKAL være `-`. `health_payload = -` (invariant).
 - `models`-feltet skrives som et fast kjede-uttrykk på formen `planner/reviewer/implementer/code-reviewer=<modell>/<modell>/<modell>/<modell>` — hentes fra Modeller-tabellen, ikke fra rapporten.
 - `degradation` settes alltid; `-` betyr ingen aktiv degradering.

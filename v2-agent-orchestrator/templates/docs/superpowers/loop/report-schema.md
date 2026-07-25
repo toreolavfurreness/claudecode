@@ -22,6 +22,7 @@ Tre rapporter binder koordinator og workers sammen. Hver returneres som ETT JSON
   "deps_ok": true,
   "verification_criteria": ["Uinnlogget bruker på dyp lenke → /login?next=<url>"],
   "canary": "<eksakt tekst fra fil+linje koordinatoren oppga i dispatch>",
+  "canary_line": "<linjenummeret planneren FAKTISK leste teksten fra>",
   "status": "reviewed",
   "notes": "Forbehold eller funn."
 }
@@ -29,6 +30,9 @@ Tre rapporter binder koordinator og workers sammen. Hver returneres som ETT JSON
 
 - `technical_risk.flagged`: `true` hvis planen krever noe under pause-triggerne. `kind` ∈ `"migration"|"rls"|"prod_push"|"secrets"` (tilpass til prosjektets pause-triggere).
 - `deps_ok`: `false` → `status: "blocked"`.
+- `canary_line`: linjenummeret teksten faktisk ble lest fra — gjør drift trivielt å diffe (bedt-om
+  N vs. lest M); N±1 tolereres, større avvik krever koordinator-faktasjekk av planens påstander
+  (drift traff 3/5 plannere i batch 15–16, alltid autentisk tekst).
 - `canary`: stikkprøve på at filene faktisk ble lest. Koordinatoren oppgir et mål (fil + linje som IKKE er gjentatt i prompten); planneren returnerer den eksakte teksten. Mismatch = lesing hoppet over. NB: dette beviser at lesing *skjedde*, ikke at *alle* bootstrap-filer ble lest fullt.
 - `status` ∈ `"reviewed"|"blocked"`.
 

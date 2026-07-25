@@ -21,19 +21,22 @@ dev_server_process: "next dev"                    # prosessnavn for pkill -f (f.
 # --- Modeller (tier per rolle) --------------------------------------------
 # planner/reviewer/code-reviewer = dyp modell; implementer = rask.
 # model: leses av plattformen ved sesjonsstart — KAN ikke være runtime-config.
+#
+# ALLTID eksplisitt modell-ID, aldri et flytende alias (`opus`/`sonnet`):
+# aliaser hopper stille til ny generasjon, og run-loggen blir da usporbar i
+# etterkant — du kan ikke lenger se hvilken modell som faktisk kjørte en todo.
 models:
-  planner: opus
+  planner: claude-opus-5
   planner_effort: high
-  reviewer: opus
+  reviewer: claude-opus-5
   reviewer_effort: high
-  implementer: sonnet
+  implementer: claude-sonnet-5
   implementer_effort: high
-  code_reviewer: opus
+  code_reviewer: claude-opus-5
   code_reviewer_effort: high
-  # Fast visningsstreng for run-log «models»-kolonnen og orchestration-loop
-  # Modeller-tabellen — et tidsstemplet snapshot, rekkefølge:
-  # planner/reviewer/implementer/code-reviewer
-  display: "Opus4.8/Opus4.8/Sonnet4.6/Opus4.8"
+  # display UTLEDES av /setup fra modell-nøklene over — sett den KUN for å
+  # overstyre. En hardkodet streng her driftet fra faktisk modell én gang før;
+  # la derivasjonen gjøre jobben.
 
 # --- Miljøer (Tier-1-invariant — må aldri glippe) -------------------------
 environments:
@@ -106,3 +109,12 @@ pause_triggers: "migrasjon, RLS-endring, prod/main-push, env/secrets"
 release:
   command: "/release-prod"                        # menneske-kjørt; loopen anbefaler kun
   health_check_merge_interval: 5                  # N: kjør helsesjekk hver N-te merge
+
+# --- Loop-selvevaluering --------------------------------------------------
+# Koordinatoren evaluerer LOOPENS EGEN ytelse (tid/token/sikkerhet/friksjon,
+# ikke prosjekt-kodekvalitet) hver N-te merge, skriver en rapport til
+# docs/superpowers/loop/evaluations/, og implementerer trygge mal-/prosess-
+# optimaliseringer direkte (aldri app-kode, aldri pause-trigger-kategorier).
+# Egen teller, uavhengig av release.health_check_merge_interval.
+loop_eval:
+  merge_interval: 5

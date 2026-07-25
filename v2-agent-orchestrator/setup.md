@@ -19,6 +19,11 @@ leser config-en og **kompilerer** templates inn i prosjektets faktiske stier.
    substitusjon. En charter med `{{DEV_ENV_ID}}` igjen skal ALDRI genereres.
 3. **Idempotent + «GENERERT»-merking.** Re-kjøring overskriver de genererte
    filene rent. Hver generert fil bærer en header som sier «ikke rediger her».
+   **Unntak — stateful seed-only-filer:** filer i skriptets `SEED_ONLY`-sett
+   (f.eks. `docs/superpowers/loop/run-log.md`) eies av koordinatoren, som
+   appender data under loop-kjøring. De SEEDES kun når de mangler; en
+   eksisterende fil overskrives ALDRI (ellers nullstilles akkumulert tilstand).
+   Skriptet rapporterer hvilke stateful filer som ble seedet vs. hoppet over.
 4. **Kilde vs. generert adskilt.** Templates (med tokens) blir liggende i
    `v2-agent-orchestrator/templates/`. Skriptet skriver generert output til
    prosjektets `.claude/`, `docs/`, `tasks/`. Du kan alltid diffe de to.
@@ -41,7 +46,9 @@ leser config-en og **kompilerer** templates inn i prosjektets faktiske stier.
    er pluggbare — code-revieweren dispatcher dem etter `tech_review_agents` i
    config. Har prosjektet ingen → sett `tech_review_agents: []`.
 5. **Stillas:** hvis prosjektet ikke allerede har det, kopier scaffolding
-   (`pre-push`-hook, CI-workflow) — se `scaffolding/` og README §«Forutsetninger».
+   (`pre-push`-hook, `pre-commit`-hook — delt-checkout-vern —,
+   CI-workflow) — se `scaffolding/` og README §«Forutsetninger». Begge hooker
+   aktiveres av samme `git config core.hooksPath .githooks`.
 6. Commit de genererte filene. Start fersk sesjon. Kjør `/run-loop once`.
 
 ## Token-tabell (kanonisk vokabular)
@@ -60,7 +67,7 @@ autoritativt; tabellen er for mennesker.
 | `{{MODEL_REVIEWER}}` / `{{EFFORT_REVIEWER}}` | `models.reviewer` / `models.reviewer_effort` |
 | `{{MODEL_IMPLEMENTER}}` / `{{EFFORT_IMPLEMENTER}}` | `models.implementer` / `models.implementer_effort` |
 | `{{MODEL_CODE_REVIEWER}}` / `{{EFFORT_CODE_REVIEWER}}` | `models.code_reviewer` / `models.code_reviewer_effort` |
-| `{{MODELS_DISPLAY}}` | `models.display` |
+| `{{MODELS_DISPLAY}}` | utledes fra `models.planner/reviewer/implementer/code_reviewer` (valgfri override: `models.display`) |
 | `{{DEV_ENV_ID}}` / `{{PROD_ENV_ID}}` | `environments.dev_id` / `environments.prod_id` |
 | `{{BASE_BRANCH}}` / `{{RELEASE_BRANCH}}` / `{{PROD_BRANCH}}` | `branch_strategy.*` |
 | `{{CMD_BUILD}}` / `{{CMD_TYPE_CHECK}}` / `{{CMD_TYPE_CHECK_SCRIPT}}` / `{{CMD_LINT}}` / `{{CMD_TEST}}` / `{{CMD_E2E}}` | `verification_commands.*` |
@@ -71,6 +78,7 @@ autoritativt; tabellen er for mennesker.
 | `{{PAUSE_TRIGGERS}}` | `pause_triggers` |
 | `{{RELEASE_COMMAND}}` | `release.command` |
 | `{{HEALTH_CHECK_INTERVAL}}` | `release.health_check_merge_interval` |
+| `{{LOOP_EVAL_INTERVAL}}` | `loop_eval.merge_interval` |
 | `{{GENERATED_HEADER}}` | fast tekst (se skript) |
 
 ## Substitusjons-skript
@@ -102,7 +110,7 @@ REQUIRED = [
     "project_name","github_repo","language","dev_server_port","dev_server_process",
     "models.planner","models.planner_effort","models.reviewer","models.reviewer_effort",
     "models.implementer","models.implementer_effort","models.code_reviewer",
-    "models.code_reviewer_effort","models.display",
+    "models.code_reviewer_effort",
     "environments.dev_id","environments.prod_id",
     "branch_strategy.base_branch","branch_strategy.release_branch","branch_strategy.prod_branch",
     "verification_commands.build","verification_commands.type_check",
@@ -110,6 +118,7 @@ REQUIRED = [
     "verification_commands.test","verification_commands.e2e",
     "tier1_invariants","canary_source","lessons_topics","pause_triggers",
     "release.command","release.health_check_merge_interval",
+    "loop_eval.merge_interval",
 ]
 def get(path):
     cur = c
@@ -152,7 +161,18 @@ M = {
     "{{EFFORT_IMPLEMENTER}}": c["models"]["implementer_effort"],
     "{{MODEL_CODE_REVIEWER}}": c["models"]["code_reviewer"],
     "{{EFFORT_CODE_REVIEWER}}": c["models"]["code_reviewer_effort"],
-    "{{MODELS_DISPLAY}}": c["models"]["display"],
+    # display UTLEDES fra modell-nøklene (ship-nå #4: config-strengen driftet — viste Sonnet4.6
+    # mens faktisk modell var Sonnet5). Valgfri override via models.display hvis satt.
+    "{{MODELS_DISPLAY}}": c["models"].get("display") or "/".join(
+        {"claude-opus-5": "Opus5", "claude-sonnet-5": "Sonnet5",
+         "claude-opus-4-8": "Opus4.8", "claude-haiku-4-5-20251001": "Haiku4.5",
+         # Flytende aliaser skal IKKE brukes i loop.config.yaml (de driftet
+         # displayet før). Mappes til seg selv så run-loggen viser aliaset rått
+         # i stedet for å påstå en generasjon vi ikke kan garantere.
+         "opus": "opus", "sonnet": "sonnet", "haiku": "haiku"}.get(m, m)
+        for m in (c["models"]["planner"], c["models"]["reviewer"],
+                  c["models"]["implementer"], c["models"]["code_reviewer"])
+    ),
     "{{DEV_ENV_ID}}": str(c["environments"]["dev_id"]),
     "{{PROD_ENV_ID}}": str(c["environments"]["prod_id"]),
     "{{BASE_BRANCH}}": c["branch_strategy"]["base_branch"],
@@ -171,6 +191,7 @@ M = {
     "{{PAUSE_TRIGGERS}}": c["pause_triggers"],
     "{{RELEASE_COMMAND}}": c["release"]["command"],
     "{{HEALTH_CHECK_INTERVAL}}": str(c["release"]["health_check_merge_interval"]),
+    "{{LOOP_EVAL_INTERVAL}}": str(c["loop_eval"]["merge_interval"]),
     "{{GENERATED_HEADER}}": HEADER,
 }
 
@@ -179,8 +200,20 @@ def subst(text):
         text = text.replace(k, v)
     return text
 
+# --- Stateful seed-only-filer (overskrives ALDRI ved re-kjøring) ---------
+# Disse SEEDES ved første /setup, men eies deretter av koordinatoren, som
+# appender data under loop-kjøring (single-writer-kontrakt). De er IKKE rene
+# genererte filer: en re-kjøring som overskriver dem nullstiller akkumulert
+# tilstand. (run-log.md ble klobbet til skjelett 2026-06-29 — ~102 logg-rader
+# tapt, gjenopprettet via `git checkout HEAD --`.) Legg KUN til append-only,
+# koordinator-eide stier her. Stiene er OUTPUT-relative (etter PROJECT_NAME-
+# rename), normalisert til forward-slash.
+SEED_ONLY = {
+    "docs/superpowers/loop/run-log.md",
+}
+
 # --- Walk templates → render → write -------------------------------------
-written, leftovers = [], []
+written, seeded, skipped, leftovers = [], [], [], []
 PROJ = c["project_name"]
 for dirpath, _, files in os.walk(TPL):
     for fn in files:
@@ -188,7 +221,12 @@ for dirpath, _, files in os.walk(TPL):
         rel = os.path.relpath(src, TPL)
         # Rename agent-filer: PROJECT_NAME-*.md → <project>-*.md
         out_rel = rel.replace("PROJECT_NAME-", f"{PROJ}-")
+        is_seed_only = out_rel.replace(os.sep, "/") in SEED_ONLY
         dst = os.path.join(ROOT, out_rel)
+        # Seed-only + finnes alt → behold akkumulert tilstand, ikke rør fila.
+        if is_seed_only and os.path.exists(dst):
+            skipped.append(out_rel)
+            continue
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         with open(src) as f: body = f.read()
         body = subst(body)
@@ -196,10 +234,19 @@ for dirpath, _, files in os.walk(TPL):
         if rem:
             leftovers.append((out_rel, sorted(set(rem))))
         with open(dst, "w") as f: f.write(body)
-        written.append(out_rel)
+        (seeded if is_seed_only else written).append(out_rel)
 
-print(f"Skrev {len(written)} filer:")
+print(f"Skrev {len(written)} genererte filer:")
 for w in sorted(written): print(f"  ✓ {w}")
+
+if seeded:
+    print(f"\nSeedet {len(seeded)} stateful fil(er) (manglet — opprettet fra template):")
+    for s in sorted(seeded): print(f"  + {s}")
+
+if skipped:
+    print(f"\nHoppet over {len(skipped)} stateful fil(er) "
+          "(finnes alt — beholdt akkumulert tilstand, IKKE overskrevet):")
+    for s in sorted(skipped): print(f"  ↷ {s}")
 
 if leftovers:
     print("\n❌ GJENVÆRENDE TOKENS — kit-et er IKKE komplett:")

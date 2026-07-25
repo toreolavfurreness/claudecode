@@ -59,7 +59,9 @@ v2-agent-orchestrator/
 │   └── tech-review-agents/    rls-auditor / security-reviewer (pluggbare EKSEMPLER)
 └── scaffolding/
     ├── githooks/pre-push      Produksjons-branch-beskyttelse
-    └── github-workflows/ci.yml Blokkerende CI-port
+    ├── githooks/pre-commit    Delt-checkout-vern (backstop) — aktiveres via samme core.hooksPath
+    ├── scripts/               check-todo-nr-collisions.sh — kopier til prosjektets scripts/
+    └── github-workflows/ci.yml Blokkerende CI-port (verify + todo-nr-guard)
 ```
 
 **Kilde vs. generert:** `templates/` (med `{{TOKEN}}`) er kilden. `/setup`
@@ -76,7 +78,7 @@ diffe template mot generert.
 3. **Fyll config:** `cp v2-agent-orchestrator/loop.config.example.yaml v2-agent-orchestrator/loop.config.yaml` og rediger alle nøkler.
 4. **Kjør `/setup`.** Den validerer config, renamer agentene til `<project>-*`, substituerer tokens, og skriver kit-et til prosjektets stier. Stopper hardt hvis en nøkkel mangler eller et token gjenstår.
 5. **Tech-review-agenter:** kopier prosjektets egne fra `examples/` til `.claude/agents/`, registrer i `loop.config` under `tech_review_agents`, kjør `/setup` på nytt. Ingen DB/auth? Sett `tech_review_agents: []`.
-6. **Stillas:** kopier `scaffolding/` (pre-push, CI) hvis prosjektet mangler det; tilpass branch-navn/kommandoer.
+6. **Stillas:** kopier `scaffolding/` (pre-push, pre-commit delt-checkout-vern, CI) hvis prosjektet mangler det; tilpass branch-navn/kommandoer. Begge hooker aktiveres av samme `git config core.hooksPath .githooks`.
 7. **Restart + valider:** start en **fersk** sesjon (agent-registeret lastes ved sesjonsstart), kjør agent-proben, så `/run-loop once` på én liten lavrisiko-todo.
 
 > **Hvorfor fersk sesjon?** Claude Code snapshotter agent-registeret ved
@@ -104,6 +106,27 @@ Endrer du config: kjør `/setup` på nytt. «Rekompilering» er eksplisitt og sp
 Substitusjonen er **deterministisk** (sed/python over en eksplisitt
 token→verdi-map), med en validerings-gate som feiler høyt på gjenværende
 `{{...}}` eller manglende nøkler. Se [`setup.md`](setup.md).
+
+---
+
+## Herdinger fra live-drift
+
+Template-et er destillert fra et prosjekt som har kjørt loopen i produksjon.
+Disse delene er lagt til *etter* at praksis avvek fra den opprinnelige
+antakelsen — de er ikke designet på papiret:
+
+| Del | Hva den løser |
+|---|---|
+| **§0** argument-fortolkning + synk | Koordinator startet mot en stale base og valgte feil todo-nr |
+| **§1b** status-artifact | Mennesket hadde ingen synlig fremdrift mellom releaser |
+| **§5a** PR-opprettelse worker-først, koordinator som fallback | Workers HAR `gh`-tilgang; gamle maler antok feilaktig at de manglet den |
+| **§6f** loop-selvevaluering | Loopens *egen* ytelse (tid/token/friksjon) ble aldri målt — egen teller, uavhengig av helsesjekken |
+| **§6g** eier-beslutningskø + konservativ default | Ikke-blokkerende avklaringer stoppet loopen én om gangen i stedet for å buntes |
+| **A5b** effektivitets-snapshot + worktree/branch-sweep | Round-over-round-sammenligning; aldri en pausetrigger |
+| `SEED_ONLY` i `/setup` | En re-kjøring nullstilte run-loggen og tok ~100 logg-rader med seg |
+| `display` utledet, ikke hardkodet | Config-strengen påsto én modell mens en annen faktisk kjørte |
+| `githooks/pre-commit` | Delt-checkout: to samtidige koordinatorer kontaminerte hverandres commits |
+| `scripts/check-todo-nr-collisions.sh` + `todo-nr-guard`-CI | Parallelle koordinatorer valgte samme todo-nr, eller gjenbrukte et pensjonert |
 
 ---
 
