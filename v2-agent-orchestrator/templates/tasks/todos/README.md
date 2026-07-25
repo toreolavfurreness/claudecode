@@ -43,6 +43,12 @@ plan: null                        # tasks/plans/todo-NN-slug.md (settes når pla
 - `[domene-tag]` — valgfri tag som grupperer todos rundt et avgrenset domene/delsystem
   (erstatt med prosjektets egne domene-tags). Todos uten tag = generelle app-features.
 - `[forslag]` — u-triagert grooming-forslag (universell; brukes av grooming-flyten).
+- `[utredning]` — todoen krever websøk/nettlesing (policy-tolkning, konkurrentpraksis, ekstern
+  dokumentasjon) for å fullføres. `§1`-seleksjonsscriptet i koordinator-runbooken ekskluderer disse
+  fra automatisk dispatch, fordi verken planner- eller implementer-workeren har `WebFetch`/
+  `WebSearch` i sitt `tools:`-sett — en blind dispatch vil bare produsere en plan/implementering
+  som later som forskningen er gjort. Koordinatoren håndterer `[utredning]`-todoer bevisst selv
+  (gjør research-arbeidet direkte, eller rapporterer at den venter på en dedikert research-økt).
 
 ### Regler
 

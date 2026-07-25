@@ -24,3 +24,14 @@ jobs:
       - run: npm run type-check     # ← verification_commands.type_check_script
       - run: npm run lint           # ← verification_commands.lint
       - run: npm run test:run       # ← verification_commands.test
+
+  # Blokkerende gate mot todo-nr-kollisjoner mellom parallelle koordinatorer.
+  # Leser samme kilder som koordinatorens §6-pre-merge-kjøring: frontmatter i
+  # tasks/todos/todo-*.md + tasks/todo_archive.md. Kopier scriptet fra
+  # scaffolding/scripts/ til prosjektets scripts/ for at jobben skal virke.
+  # Egen jobb (ikke et steg i `verify`) så den kjører selv om toolchain-steget feiler.
+  todo-nr-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/check-todo-nr-collisions.sh
