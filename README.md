@@ -8,7 +8,8 @@ komplett arbeidsflyt. Du drar inn ÉN mappe og har alt — ingen delt
 | Versjon | Mappe | I ett ord |
 |---|---|---|
 | **v1** | [`v1-sekvensiell-human-orchestrator/`](v1-sekvensiell-human-orchestrator/) | Mennesket orkestrerer, sekvensielt |
-| **v2** | [`v2-agent-orchestrator/`](v2-agent-orchestrator/) | En koordinator-agent orkestrerer, autonomt |
+| **v2** | [`v2-agent-orchestrator/`](v2-agent-orchestrator/) | En koordinator-agent orkestrerer, autonomt (Claude Code) |
+| **v2 (Copilot)** | [`copilot-agent-orchestrator/`](copilot-agent-orchestrator/) | Samme v2-modell, portert til GitHub Copilot CLI |
 
 ---
 
