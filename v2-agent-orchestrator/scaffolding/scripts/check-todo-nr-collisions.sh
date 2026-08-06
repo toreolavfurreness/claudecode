@@ -1,7 +1,8 @@
 #!/bin/sh
 # SCAFFOLDING — maskinell gate mot todo-nr-kollisjoner mellom parallelle
 # koordinatorer. Kopier til prosjektets scripts/ og kall den fra CI (se
-# scaffolding/github-workflows/ci.yml, jobben `todo-nr-guard`).
+# scaffolding/github-workflows/ci.yml, jobben `todo-nr-guard`) og fra
+# koordinator-runbookens §6.4 (gate a) + §8 (--next).
 # POSIX sh, macOS/BSD-trygt. Ingen GNU-only-flagg (aldri `sed s///i`, aldri `grep -P`)
 # — kasus-folding gjøres med `tr`, ekstraksjon med `grep -oE`/`grep -ioE` (begge
 # støttet av BSD grep på macOS).
@@ -30,13 +31,23 @@
 #   sh scripts/check-todo-nr-collisions.sh          kjør kollisjonssjekken
 #   sh scripts/check-todo-nr-collisions.sh --next    skriv neste ledige nr til stdout
 #
+# `--next` regner mot arbeidstreet ∪ integrasjons-tippen (`origin/{{BASE_BRANCH}}` —
+# juster `TODO_NR_REF`-defaulten under til prosjektets faktiske base-branch),
+# slik at et nr som alt finnes der aldri deles ut. Kjør `git fetch origin
+# <base-branch>` FØRST — scriptet gjør ingen nettverk-I/O, så en uhentet ref er
+# like foreldet som basen. Ref + sha som faktisk ble lest skrives til stderr.
+# Mangler git/ref-en: WARN på stderr og ren arbeidstre-oppførsel (aldri stille
+# degradering).
+#
 # Exit: 0 = ingen blokkerende kollisjon (WARN kan likevel være skrevet til stderr)
 #       1 = ≥1 blokkerende kollisjon (stdout lister hvert kolliderende nr + kildene)
 #       2 = intern feil (tasks/todos ikke funnet relativt til nåværende katalog)
 #
-# Kjøres fra repo-roten (slik CI-jobben og koordinatorens §6-pre-merge-kjøring gjør
-# det) — bevisst IKKE selv-lokaliserende via `git`, slik at den kan kjøres mot et
-# rent `tasks/`-fixture-tre uten å måtte være et ekte git-repo.
+# Kjøres fra repo-roten (slik CI-jobben og koordinatorens §6.4-kjøring gjør det)
+# — IKKE selv-lokaliserende via `git` for kjerne-kollisjonssjekken, slik at den
+# kan kjøres mot et rent `tasks/`-fixture-tre uten å måtte være et ekte git-repo
+# (`--next`s integrasjons-tip-oppslag er unntaket — det bruker `git` eksplisitt
+# og degraderer trygt når det ikke er tilgjengelig, se over).
 
 set -u
 
@@ -109,7 +120,7 @@ awk -F'\t' '$2=="PARKED"{print $1}' "$active_file" | sort -u > "$parked_file"
 retired_file="$tmp_dir/retired.txt"
 cat "$done_file" "$archive_file" | sort -u > "$retired_file"
 
-# --- --next-modus: max(numerisk del av OPEN ∪ RETIRED ∪ PARKED) + 1 ----------
+# --- --next-modus: max(numerisk del av OPEN ∪ RETIRED ∪ PARKED ∪ integrasjons-tip) + 1
 if [ "$mode" = "--next" ]; then
   all_nrs_file="$tmp_dir/all_nrs.txt"
   cat "$open_file" "$retired_file" "$parked_file" | sort -u > "$all_nrs_file"
@@ -127,6 +138,69 @@ if [ "$mode" = "--next" ]; then
       max=$num
     fi
   done < "$all_nrs_file"
+
+  # --- Integrasjons-tippen teller også ----------------------------------------
+  # HVORFOR: arbeidstreet er branchens base, og basen blir foreldet så snart en annen
+  # PR merger. To parallelle PR-er som hver regner `--next` mot SIN egen (foreldede)
+  # base kan velge samme nr — `check`-modusen fanger det først ETTER merge, når
+  # integrasjonsbranchen er rød. Ved å ta max over arbeidstreet ∪ integrasjons-tippen
+  # deles et nr som alt finnes på integrasjonsbranchen aldri ut.
+  #
+  # Fjerner IKKE hele racet: to PR-er som velger nr samtidig, før noen av dem har
+  # merget, ser fortsatt ikke hverandre (verken integrasjonsbranchen eller
+  # arbeidstreet har den andres fil ennå). Det er derfor nr etterprøves rett før
+  # merge — se scripts/check-todo-nr-premerge.sh.
+  #
+  # Ingen nettverk-I/O: leser den LOKALE ref-en. Kjør `git fetch origin <base-branch>`
+  # først, ellers er tippen like foreldet som arbeidstreet. Ref-en + sha-en scriptet
+  # faktisk leste skrives til stderr, slik at operatøren kan se om den er fersk.
+  # Degraderer HØYT (WARN på stderr, aldri stille): ingen git, ikke et repo, eller
+  # ukjent ref → ren arbeidstre-oppførsel, som er hele oppførselen fixture-testene
+  # (mktemp-kataloger, ikke git-repoer) treffer.
+  ref=${TODO_NR_REF:-origin/dev}
+  ref_sha=$(git rev-parse --short "$ref" 2>/dev/null || true)
+
+  if [ -z "$ref_sha" ]; then
+    printf 'WARN: fant ikke ref «%s» (ingen git / ikke et repo / ref mangler) — %s\n' \
+      "$ref" 'regner --next KUN mot arbeidstreet. Et nr som alt finnes på integrasjonsbranchen kan bli delt ut.' >&2
+  else
+    ref_nrs_file="$tmp_dir/ref_nrs.txt"
+    : > "$ref_nrs_file"
+
+    # Aktive todos på ref-en: nr leses fra FRONTMATTER, ikke fra filnavnet. Filnavnet
+    # SKAL være konsistent med `nr` (tasks/todos/README.md § Slug-konsistens), men
+    # frontmatter er den kanoniske kilden i resten av dette scriptet — å bruke filnavn
+    # her ville gjort ref-stien uenig med arbeidstre-stien nettopp når en fil er
+    # feilnavngitt, altså i det tilfellet en guard skal fange.
+    # Én `git grep` framfor N `git show` — leser blobene internt.
+    # `|| true`: exit 1 fra git grep betyr «ingen treff», ikke en feil.
+    git grep -h -E '^nr:' "$ref" -- 'tasks/todos/todo-*.md' 2>/dev/null \
+      | sed -e 's/^nr:[[:space:]]*//' -e "s/[\"']//g" -e 's/[[:space:]]*$//' \
+      | grep -oE '^[0-9]+' >> "$ref_nrs_file" || true
+
+    # Arkivet på ref-en: gravsteiner er pensjonerte nr og skal aldri gjenbrukes.
+    git show "$ref:$archive_path" 2>/dev/null \
+      | grep -ioE '^##[[:space:]]*todo-[0-9]+' \
+      | grep -oE '[0-9]+' >> "$ref_nrs_file" || true
+
+    ref_max=0
+    while IFS= read -r num; do
+      [ -z "$num" ] && continue
+      num=$(printf '%s' "$num" | sed 's/^0*//')
+      num=${num:-0}
+      num=$((num))
+      if [ "$num" -gt "$ref_max" ]; then
+        ref_max=$num
+      fi
+    done < "$ref_nrs_file"
+
+    printf 'INFO: --next tok også hensyn til %s (%s), høyeste nr der: %s.\n' \
+      "$ref" "$ref_sha" "$ref_max" >&2
+
+    if [ "$ref_max" -gt "$max" ]; then
+      max=$ref_max
+    fi
+  fi
 
   echo $((max + 1))
   exit 0

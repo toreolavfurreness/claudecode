@@ -15,6 +15,12 @@ Dispatch en triviell probe før du starter: `Agent` med `subagent_type: {{PROJEC
 - Får du `{"ok": true}` → fortsett.
 - «Agent type not found» → agentene er ikke lastet i denne sesjonen. Be brukeren starte en **fersk** sesjon (Claude Code snapshotter agent-registeret ved sesjonsstart). Har du nettopp kjørt `/setup`? Da MÅ du starte fersk sesjon før loopen kan kjøre.
 
+Er en **verifikator-arm** konfigurert i `tech_review_agents`, prob den også
+(`subagent_type: {{PROJECT_NAME}}-verifier`, samme `{"ok": true}`-prompt). Den dispatches av
+kode-revieweren, ikke av deg — men uteblir den i §5b, er det koordinatoren som må dispatche den
+direkte, og da må den finnes i registeret. «Agent type not found» her stopper ikke loopen: den
+gjør §5b-verifikasjonsgaten UTILGJENGELIG, som skal rapporteres eksplisitt, aldri gås stille forbi.
+
 ## Preflight: dep-sjekk
 
 ### 0. §6f-teller (selvevaluering — sjekk VED SESJONSSTART, ikke bare per merge)
@@ -25,6 +31,52 @@ awk '/\| loop-eval \|/ { count=0; next } /\| merged \|/ { count++ } END { print 
 
 ≥ 5 → kjør §6f-selvevalueringen FØR første nye dispatch (kadensen glapp 3,4× da telleren kun ble
 sjekket ved egne merges — korte/eier-fokuserte sesjoner hoppet over den; batch-14-funn).
+
+### 0c. Run-log-avstemming (sesjonsstart)
+
+Kode kan merges rett til `{{BASE_BRANCH}}` eller `{{PROD_BRANCH}}` utenfor en loop-sesjon (se
+`docs/hotfix-runbook.md`). Denne sjekken finner slike merger før de blir usynlige i telemetrien.
+
+```bash
+for b in {{BASE_BRANCH}} {{PROD_BRANCH}}; do
+  gh pr list --state merged --base "$b" --limit 30 --json number -q '.[].number' \
+  | while read n; do
+      grep -qE "pull/$n([^0-9]|$)" docs/superpowers/loop/run-log.md || echo "UKLASSIFISERT: PR #$n (base=$b)"
+    done
+done
+```
+
+Begge baser dekkes — en `{{PROD_BRANCH}}`-basert PR (hotfix ELLER release-merge, se
+`## Avstemming`-seksjonen i `docs/superpowers/loop/run-log.md`) listes aldri av
+`--base {{BASE_BRANCH}}` alene. Grepen matcher `pull/$n` HVOR SOM HELST i fila, ikke bare
+`## Logg`-tabellen — en dempning i `## Avstemming`-seksjonen slukker treffet like godt som en
+faktisk logg-rad, med vilje (det er poenget med den seksjonen); demping beviser altså IKKE at det
+finnes en `## Logg`-rad for PR-en.
+
+Tom output er KUN grønt hvis `gh pr list` faktisk lyktes — sjekk exit-koden (legg
+`|| echo "SVEIP FEILET: gh pr list base=$b"` på gh-kallet) før du konkluderer; en feilet gh gir
+ellers null linjer, visuelt identisk med «alt avstemt».
+
+Første kjøring gir en engangs-backfill (målt 2026-08-02: 25 historiske `{{PROD_BRANCH}}`-PR-er,
+nesten alle `release-merge`). Klassifiser dem i én omgang; deretter er sveipet nesten alltid tomt.
+
+Hull etterfylles/klassifiseres FØR første dispatch. Vinduet er de 30 sist OPPRETTEDE av de mergede
+PR-ene per base — `gh pr list` sorterer på opprettelsestidspunkt, ikke mergetidspunkt (målt
+2026-08-02: #588 opprettet før #587, men merget etter) — **vinduet glemmer**: en gammel branch som
+merges i dag kan falle utenfor de 30 nyeste; sjekken er et nett for ferske merges, ikke en garanti
+for historikken.
+
+Deretter main-hotfix-sjekken (fanger en hotfix som gikk direkte til `{{PROD_BRANCH}}` uten å bli
+forsonet til `{{BASE_BRANCH}}`):
+
+```bash
+git fetch origin {{BASE_BRANCH}} {{PROD_BRANCH}} && \
+git log origin/{{BASE_BRANCH}}..origin/{{PROD_BRANCH}} --oneline --no-merges
+```
+
+Tomt = ingen uforsonet main-hotfix (målt 2026-08-02: tom, #517 er forsonet). Treff betyr enten en
+ekte main-hotfix ELLER at forsoningen ble gjort med `-s ours` — sjekk begge før du handler. Forson
+til `{{BASE_BRANCH}}` før første dispatch.
 
 Kjør disse sjekkene etter agent-proben og FØR første todo velges. Rapporter status og modus til brukeren.
 

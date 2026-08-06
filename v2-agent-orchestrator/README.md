@@ -18,7 +18,7 @@ prosjekt-agnostisk via `loop.config.yaml` + `/setup`.
 | **Plan-godkjenning** | Du godkjenner hver plan | Uavhengig reviewer-agent; du godkjenner per *release* |
 | **Kode-review** | Punktvis `@reviewer` | Uavhengig kode-reviewer på PR-diff, revise-gate (maks 2 runder) |
 | **Todos** | Monolittisk `tasks/todo.md` | Én-fil-per-todo (ingen merge-konflikt-felle) |
-| **Workers** | — | Planner/reviewer/implementer/code-reviewer i isolerte worktrees |
+| **Workers** | — | Planner/reviewer/implementer/code-reviewer i isolerte worktrees (+ pluggbar verifikator-arm som beviser at vakter faktisk kan gå røde) |
 | **Delt state** | Du skriver alt | Koordinator er eneste skriver (lessons/arkiv/bugs/run-log) |
 | **Telemetri** | — | Run-logg + periodisk helsesjekk + release-rådgiver |
 | **Menneske-i-loopen** | Hvert steg | Kun pausepunkter (teknisk risiko, ikke-konvergerende review, rød helsesjekk …) |
@@ -50,17 +50,19 @@ v2-agent-orchestrator/
 ├── docs/
 │   └── PORTING.md             Blueprinten (universal vs. config)
 ├── templates/                 KILDE — tokeniserte filer; /setup renderer disse
-│   ├── .claude/agents/        PROJECT_NAME-{planner,reviewer,implementer,code-reviewer}.md
+│   ├── .claude/agents/        PROJECT_NAME-{planner,reviewer,implementer,code-reviewer,verifier}.md
 │   ├── .claude/commands/      run-loop, todo-finish-worker, loop-health-check,
 │   │                          todo-plan(+review), todo-execute, todo-done, start, status, endsession
-│   ├── docs/                  orchestration-loop.md + superpowers/loop/{coordinator-runbook,report-schema,run-log}.md
+│   ├── docs/                  orchestration-loop.md, hotfix-runbook.md +
+│   │                          superpowers/loop/{coordinator-runbook,report-schema,run-log}.md
 │   └── tasks/                 todos/README.md, bugs/inbox/README.md
 ├── examples/
 │   └── tech-review-agents/    rls-auditor / security-reviewer (pluggbare EKSEMPLER)
 └── scaffolding/
     ├── githooks/pre-push      Produksjons-branch-beskyttelse
     ├── githooks/pre-commit    Delt-checkout-vern (backstop) — aktiveres via samme core.hooksPath
-    ├── scripts/               check-todo-nr-collisions.sh — kopier til prosjektets scripts/
+    ├── scripts/               check-todo-nr-collisions.sh + check-todo-nr-premerge.sh —
+    │                          kopier til prosjektets scripts/
     └── github-workflows/ci.yml Blokkerende CI-port (verify + todo-nr-guard)
 ```
 
@@ -127,6 +129,10 @@ antakelsen — de er ikke designet på papiret:
 | `display` utledet, ikke hardkodet | Config-strengen påsto én modell mens en annen faktisk kjørte |
 | `githooks/pre-commit` | Delt-checkout: to samtidige koordinatorer kontaminerte hverandres commits |
 | `scripts/check-todo-nr-collisions.sh` + `todo-nr-guard`-CI | Parallelle koordinatorer valgte samme todo-nr, eller gjenbrukte et pensjonert |
+| `scripts/check-todo-nr-premerge.sh` (§6.4 gate b) | `--next` mot fersk base krymper racet, men lukker det ikke — to PR-er kan fortsatt velge nr FØR noen av dem merger |
+| Verifikator-arm (`PROJECT_NAME-verifier`, §5b) | En vakt som ikke kan gå rød kjøpte tillit uten å bevise noe — armen injiserer en mutasjon i eget worktree og beviser falsifiserbarhet |
+| Konsolideringsgate (§4) | En plan-revisjonsrunde legger til lag og fjerner ingen — dokumentet degraderte monotont uten et motgrep |
+| `docs/hotfix-runbook.md` | Kode merget utenfor loop-sesjonen (hastefiks) ble usynlig for run-loggen og telemetrien |
 
 ---
 

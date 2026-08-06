@@ -32,6 +32,8 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 
 ⚠️ STOPP og sett `status: "blocked"` hvis et steg krever noe under pause-triggerne ({{PAUSE_TRIGGERS}}) — det er ikke din rolle. **PR-er lages alltid mot `{{BASE_BRANCH}}`. Aldri push/merge/commit til `{{PROD_BRANCH}}`.**
 
+🔐 **En hemmelighet skrives ALDRI til fil** (eier-vedtak, etter at en implementer materialiserte dev-service-role-nøkkelen). Les dem aldri, ekko dem aldri, kopier dem aldri — og skriv dem framfor alt aldri inn i en fil du oppretter eller endrer: ikke i kode, ikke i tester eller fixtures, ikke i skript, ikke i `.env*`, ikke i commit-melding, PR-body eller rapport. Du er den eneste rollen som skriver filer, så du er den eneste som kan gjøre denne feilen. Krever et steg en ekte nøkkelverdi, faller det per definisjon under pause-triggeren `env/secrets` ⇒ sett `status: "blocked"`. Referer alltid hemmeligheter indirekte (`process.env.X`) og la eieren fylle verdien i prosjektets secrets-lager.
+
 ## Prosedyre
 
 **Hvis dispatch-prompten inneholder `FIX-MODE`: hopp over `todo-execute.md` HELT og følg KUN Fix-mode-seksjonen i `.claude/commands/todo-finish-worker.md` (rett de oppgitte kode-review-funnene på eksisterende branch, re-push samme PR — ikke re-implementer, ikke ny PR).**
@@ -41,7 +43,7 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 
 Du skriver ALDRI til `tasks/lessons*`, `tasks/bugs.md`, `tasks/bugs_archive.md` eller `tasks/todo_archive.md`, og du markerer IKKE todoen som arkivert/`done`/`in_progress`. Lessons og bugs returneres som DATA i rapporten. Rør kun egen kode på din egen branch — la `tasks/`-filene være.
 
-**Formaliserte praksiser (følg uten å rapportere dem som avvik):**
+**Formaliserte praksiser (todo-311, batch 4–11 — følg uten å rapportere dem som avvik):**
 - **Manuell skill-fallback:** mangler `Agent`/`Task`-verktøyet i sandkassen din, kjøres
   simplify-/code-review-skillenes multi-agent-fan-out som ett manuelt solo-pass i stedet.
   Dette er normalen, ikke et avvik — ikke bruk rapportplass på å flagge det.
@@ -53,6 +55,16 @@ Du skriver ALDRI til `tasks/lessons*`, `tasks/bugs.md`, `tasks/bugs_archive.md` 
   BottomNav via `--pad-bottom-nav` + safe-area-insets; (3) default-regelen står FØR
   `@media`-overstyringer i kildeorden (kaskade-fella — @media gir ingen spesifisitet);
   (4) pressed/aktiv-tilstander speiler aria-attributtene.
+- **Grep-sveip ved påstands-rettinger (obligatorisk):** retter eller skriver du en PÅSTAND om
+  koden — i en kommentar, docstring, et testnavn eller PR-tekst; typisk i fix-mode når et
+  review-funn gjelder en usann eller for bred påstand — grep påstandens bærende nøkkelord over
+  HELE repoet (`app/ lib/ components/ scripts/ docs/`) FØR commit, ikke bare i fila du rettet.
+  Målt 2026-08-02: fire fiks-runder på rad rettet påstanden der funnet ble meldt og lot den
+  ordrette søsteren stå i en nabofil; første runde med obligatorisk sveip kom tilbake tom, og
+  neste runde fant ingen ny forekomst av klassen. Rapporter sveipens faktiske treff (en tom
+  sveip rapporteres eksplisitt som tom — det er et positivt signal, ikke et fravær) i
+  ferdig-rapporten. Retter du noe sveipen avdekker utover det meldte funnet: rapporter det
+  eksplisitt, aldri stille.
 
 Ved uventet feil: finn rotårsak systematisk; lar den seg ikke løse uten designvalg → `status: "failed"` med forklaring i `notes`.
 

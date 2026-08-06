@@ -80,6 +80,7 @@ Du har sluttet å godkjenne planer per todo — så kvaliteten sikres i tre lag,
 **Loopens egne lag (automatisk):**
 - Uavhengig plan-reviewer (devil's advocate) før implementering
 - Uavhengig kode-review på PR-diffen etter implementering, før merge (`{{PROJECT_NAME}}-code-reviewer`; adversariell, read-only, maks 2 revise-runder)
+- **Verifikasjons-gate (betinget, del av §5b)**: når PR-en leverer *vakter* (tester som finnes for å gå røde ved drift) eller rører en flate i layout-smokens registry, dispatcher kode-revieweren `{{PROJECT_NAME}}-verifier` — en agent uten implementerens kontekst som **beviser at hver vakt faktisk KAN gå rød** ved å injisere en mutasjon i sitt eget engangs-worktree, og som kjører layout-smoken ved UI-endringer. Poenget er ikke flere tester; det er at en test som ikke kan feile kjøper tillit uten å levere noe. Gaten kjører ikke på hver todo — kun når det finnes vakter å bryte eller flater å måle
 - Implementer-selvgransking + CI (build/type-check/lint/test) på hver PR
 - **Periodisk helsesjekk** (`/loop-health-check`): koordinatoren kjører tester, type-check, lint og tech-sweep (pluggbar; f.eks. RLS-sweep via rls-auditor hvis konfigurert) mot integrert `origin/{{BASE_BRANCH}}` — enten etter {{HEALTH_CHECK_INTERVAL}} merges eller når køen tømmes. Resultatet skrives som en `outcome=health`-rad i run-loggen. Rød helsesjekk er et pausepunkt (se under).
 - **Release-rådgiver**: som del av helsesjekken sammenlignes `origin/{{BASE_BRANCH}}` mot `origin/{{PROD_BRANCH}}`, brukervendte endringer oppsummeres, og en go/no-go-anbefaling produseres. Selve releasen utføres aldri av loopen — kun av deg via `{{RELEASE_COMMAND}}`.
@@ -194,6 +195,10 @@ Vurder hvert forslag mot disse fire spørsmålene:
 | Plan-review | {{MODEL_REVIEWER}} (effort {{EFFORT_REVIEWER}}) | Uavhengig kritikk trenger sterkest resonnering |
 | Implementering | {{MODEL_IMPLEMENTER}} (effort {{EFFORT_IMPLEMENTER}}) | Følger en ferdig plan; raskere/billigere |
 | Kode-review (§5b) | {{MODEL_CODE_REVIEWER}} (effort {{EFFORT_CODE_REVIEWER}}) | Adversariell diff-review trenger sterk resonnering |
+| Verifikasjons-gate (§5b, betinget) | {{MODEL_VERIFIER}} (effort {{EFFORT_VERIFIER}}) | Skal falsifisere vakter og mutere kode presist — feil her gir falsk trygghet |
+
+Verifikatoren er en **pluggbar tech-arm**, ikke et kjedeledd, og holdes derfor bevisst utenfor
+run-loggens `models`-kolonne (som er låst til `planner/reviewer/implementer/code-reviewer`).
 
 ---
 

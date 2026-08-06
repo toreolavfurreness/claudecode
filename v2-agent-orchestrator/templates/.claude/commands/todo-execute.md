@@ -29,11 +29,29 @@ Hvis alt er klart:
 
    - Marker hvert steg som fullført etterhvert som det er gjort og verifisert: [ ] → [x]
    - **Committ INKREMENTELT etter hvert grønt steg** (lokale commits i worktreet — push skjer samlet
-     til slutt): et API-dødsfall skal aldri sitte på 30+ ucommittede filer (erfart i live-drift:
-     implementeren døde 2× ved commit-punktet; §5a-rescue reddet det, men inkrementelle
-     commits fjerner klassen)
+     til slutt): et API-dødsfall skal aldri sitte på 30+ ucommittede filer (todo-317: implementer
+     døde 2× ved commit-punktet; §5a-rescue reddet det, men inkrementelle commits fjerner klassen)
    - Verifisering betyr å kjøre relevante kommandoer og lese faktisk output — ikke anta at noe fungerer
    - Etter hvert steg: gi en kort statusmelding om hva som ble gjort og hva som er neste
+   - **Rødt før grønt på steg merket `TDD-STEG`** (utvidelse av regelen over, ikke en ny mekanisme
+     ved siden av). Bruk `superpowers:test-driven-development`-skillen via `Skill`-verktøyet; er den
+     ikke tilgjengelig i denne kjørekonteksten, gjelder oppskriften her:
+     1. Skriv ÉN minimal feilende test for oppførselen steget navngir. Ingen produksjonskode ennå.
+     2. Kjør den scopet (`{{CMD_TEST}} <fil>`) og LES outputen. Rødt av riktig grunn = feilen handler
+        om oppførselen som mangler — ikke skrivefeil i testen, feil import-sti eller manglende
+        testoppsett. Består testen med det samme: den tester eksisterende atferd — skriv den om.
+     3. Committ den røde testen ALENE. Subject: `test(red): <hva testen krever>`. Body linje 1:
+        `RED: <testfil> :: <testnavn ordrett>`, linje 2: `FAILURE: <ordrett feillinje fra runneren>`.
+        Kode-revieweren sjekker ut nettopp denne commiten og kjører testen på nytt — en påstand du
+        ikke kan reprodusere blir et BLOKKERENDE funn.
+     4. Skriv minimal implementasjon, kjør samme test til grønn, committ grønt steg som vanlig.
+     - Steg UTEN `TDD-STEG` har intet rødt-krav (UI/CSS/layout, migrasjon, config, dokumentasjon og
+       prompt-/mal-filer, ren refaktor uten atferdsendring).
+     - Hele `verification.tdd`-blokken limes ordrett inn i PR-bodyen — feltet er ellers
+       skrive-bare (ingen leser ferdig-rapporten i §5b-dispatchen; verifiseringsrunde 2).
+     - Lar et merket steg seg ikke rødt-bevise (feilmerket, eller oppførselen kan ikke isoleres uten
+       ny testinfrastruktur): IKKE hopp over det stille. Før det i `verification.tdd.deviations[]`
+       med steg-referanse og målt grunn, og gjenta det i PR-bodyen.
 
    - Hvis et steg er merket ⚠️ PAUSE:
      Deaktiver automode, beskriv hva som skal skje, og vent på eksplisitt bekreftelse.

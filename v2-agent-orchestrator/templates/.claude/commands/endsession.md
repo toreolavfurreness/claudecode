@@ -3,7 +3,8 @@
   Endre loop.config.yaml og kjør /setup på nytt.
 -->
 Før du gjør noe annet — rydd opp kjørende prosesser:
-- Kjør: pkill -f "{{DEV_SERVER_PROCESS}}" 2>/dev/null || true
+- Kjør (PORT-SCOPET, aldri navnebasert): lsof -ti :{{DEV_SERVER_PORT}} | xargs -r kill 2>/dev/null || true
+- NB: et navnebasert drap på prosessnavnet `{{DEV_SERVER_PROCESS}}` dreper ALLE dev-servere på maskinen — også eierens, og også en verifikator-arms server på en annen port. Bruk port-varianten.
 - Bekreft: lsof -i :{{DEV_SERVER_PORT}} 2>/dev/null
 - Rapporter hvilke prosesser som ble stoppet, eller "ingen kjørende prosesser funnet"
 

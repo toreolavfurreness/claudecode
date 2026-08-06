@@ -43,7 +43,7 @@ Ikke-tom output → lagre SHA-en som `<forrige_sha>`.
 ```
 
 **Rapporter faktisk output og exit-kode** — «burde funke» godkjennes ikke. (Fil-omdirigering + `$?`,
-ALDRI `cmd | tail` — pipen svelger exit-koden og gate-n kan ikke blokkere.)
+ALDRI `cmd | tail` — pipen svelger exit-koden og gate-n kan ikke blokkere; TODO-310-lesson.)
 
 Utfallsklasser:
 - Exit 0, 0 failures → `tests=green`
@@ -128,6 +128,19 @@ while IFS= read -r wt_path; do
 
   if echo "$active_cwds" | grep -qxF "$wt_path"; then
     continue   # kjørende prosess har dette som cwd — rør ikke
+  fi
+
+  # Verifikator-worktree: markørfila betyr at innholdet er BEVISST INNSATTE mutasjoner.
+  # Det skal aldri bevares og aldri reddes — fjern det selv om det er dirty (dirty er
+  # NORMALTILSTANDEN her hvis agenten døde midt i en mutasjon; uten dette unntaket blir
+  # worktreet liggende for alltid). lsof-vernet over gjelder fortsatt — en LEVENDE
+  # verifikators worktree røres ikke.
+  if [ -f "$wt_path/.verifier-worktree" ]; then
+    if git worktree remove "$wt_path" --force 2>/dev/null; then
+      git branch -D "$branch" 2>/dev/null
+      removed=$((removed+1))
+    fi
+    continue
   fi
 
   dirty=$(git -C "$wt_path" status --porcelain 2>/dev/null)

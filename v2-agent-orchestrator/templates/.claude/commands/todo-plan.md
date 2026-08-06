@@ -35,6 +35,18 @@ Merk alle risikable steg eksplisitt med ⚠️ PAUSE i steg-listen. Risikable st
 - Endringer i miljøvariabler eller secrets
 - Alt som berører produksjonsmiljøet ({{PROJECT_NAME}}-prod)
 
+Merk i tillegg hvert **logikk-bærende** steg med tokenet `TDD-STEG` — **rett etter steg-tittelen
+på FØRSTE fysiske linje** (§4-review V5: steg-punkter brytes over flere linjer, og et token på en
+fortsettelseslinje treffes aldri av det ankrede grepet). Står både `TDD-STEG` og `⚠️ PAUSE` på
+samme steg: `TDD-STEG` først, PAUSE-halen sist på linja (§4-review M9) — ordrett eksempel:
+`- [ ] Steg 3: beregn hvilepuls-leddet i TRIMP TDD-STEG ⚠️ PAUSE — krever manuell bekreftelse`. Logikk-
+bærende = steget navngir en testbar funksjon/oppførsel der man kan formulere ÉN feilende test
+(ren funksjon, beregning, API-handler, datatransform, server-action).
+**Merk ALDRI:** UI/CSS/layout, migrasjoner, config/env, dokumentasjon og prompt-/mal-filer, ren
+refaktor uten atferdsendring. Disse har egne gates (CSS-sjekklista, layout-gaten, RLS-auditoren) og
+passer dårlig med TDDs Jernlov. Overmerking er like skadelig som undermerking: den lager krav
+implementeren ikke kan innfri, og hver umulig markør brenner en fiks-runde.
+
 Still deg spørsmålet: "Hva ville en senior utvikler gjort her?"
 
 Presenter planen og vent på tilbakemelding.

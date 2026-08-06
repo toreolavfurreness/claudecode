@@ -22,6 +22,11 @@ Svar på disse spørsmålene:
 4. **Er testkriteriene gode nok?** Ville en senior utvikler godkjent disse som bevis på at oppgaven er ferdig?
 5. **Er det relevante åpne bugs** som bør fikses som del av denne oppgaven?
 6. **Kompleksitetsvurdering:** Er oppgaven for stor for én PR? Bør den splittes?
+7. **Er logikk-bærende steg merket `TDD-STEG`, og bare de?** Et steg som navngir en testbar
+   funksjon/oppførsel uten markør fjerner rødt-kravet stille — **undermerking = BLOKKERENDE**
+   (fiksen er fullt foreskrevet: legg markøren på de navngitte stegene — kvalifiserer for
+   koordinator-fold, koster ingen planner-runde). Et merket UI-/migrasjons-/config-steg lager et
+   krav som ikke kan innfris — overmerking = VIKTIG.
 
 Vær konkret og handlingsbar. Ikke gjenta planen — pek kun på svakheter og forbedringsforslag.
 

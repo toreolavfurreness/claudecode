@@ -34,6 +34,11 @@ models:
   implementer_effort: high
   code_reviewer: claude-opus-5
   code_reviewer_effort: high
+  # Verifikator-armen (pluggbar tech-arm, ikke et kjedeledd) — holdes bevisst UTENFOR
+  # display-strengen, som er låst til planner/reviewer/implementer/code-reviewer. Kun
+  # relevant hvis en verifikator er registrert i tech_review_agents under.
+  verifier: claude-opus-5
+  verifier_effort: high
   # display UTLEDES av /setup fra modell-nøklene over — sett den KUN for å
   # overstyre. En hardkodet streng her driftet fra faktisk modell én gang før;
   # la derivasjonen gjøre jobben.
@@ -82,6 +87,15 @@ tech_review_agents:
   - name: rls-auditor
     trigger: "supabase/migrations/"
     severity_map: "funn→BLOKKERENDE"
+  # Valgfri: `dispatch_note` er en flerlinjet blokk som rendres under arm-linja i
+  # code-reviewer-charteret. Bruk den når armen har en dispatch-kontrakt som ikke får plass
+  # i `trigger`/`severity_map` (f.eks. en verifikator som må dispatches uten kontekst).
+  # - name: <project>-verifier
+  #   trigger: "vakt-testfiler i diffen ELLER UI-flater i smoke-registryet"
+  #   severity_map: "IKKE DEKKET-par→BLOKKERENDE, UBEVISBAR par→VIKTIG"
+  #   dispatch_note: |
+  #     Send prompten ORDRETT etter malen; oppgi branch + base-SHA, aldri PR-URL.
+  #     Armens rapport bæres ordrett videre i `code_review.tech_arm_reports[]`.
 
 # --- Canary (bevis på fil-lesing) -----------------------------------------
 # Fil planner-canaryen leses fra. Velg en fil med stabilt, prosjektspesifikt
