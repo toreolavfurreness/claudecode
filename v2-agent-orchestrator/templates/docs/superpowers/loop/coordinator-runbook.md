@@ -235,6 +235,14 @@ Velg et **canary-mål** workeren ikke kan gjette: en fil+linje som ikke er en in
 `Agent`: `subagent_type: {{PROJECT_NAME}}-planner`. Prompt:
 > TODO <nr> (`tasks/todos/todo-<nr>-<slug>.md`). Relevante lessons-tema: <liste>. Canary: returner de første 8 ordene på linje <N> i `{{CANARY_FILE}}`. Følg charteret ditt. Returner plan-rapport som JSON.
 
+**Planner-tiering (eier-aktivert, betinget):** for en LAVRISIKO-todo — ingen migrasjon/RLS, ingen
+provider-/sync-flate, ingen metrics-/beregningsflate, ingen secrets/env, i praksis ren UI/CSS/copy/
+registry — kan planneren dispatches med Agent-parameteren `model: "{{MODEL_IMPLEMENTER}}"`
+(per-kall-override; agent-definisjonen forblir dyp modell som default). Reviewer (§4) er
+OBLIGATORISK uansett tier og skal re-verifisere alle verifikasjonsutsagn. Er du i tvil om
+risikoklassen → dyp modell. Bokfør faktisk brukt planner-tier i run-log-radens modellkolonne
+(f.eks. `planner=Sonnet5(light)`), aldri aliaset alene.
+
 Verifiser at `canary` matcher den faktiske teksten du noterte. Mismatch → re-dispatch eller eskalér (workeren leste sannsynligvis ikke filene). Koordinatoren (du) setter `plan:`-stien fra rapportens `plan_path` i todo-frontmatteren — workeren rører den ikke.
 
 **Hent planfil til delt state + rydd worktree (obligatorisk, atomisk kjede — ikke et hoppbart steg):**
@@ -300,8 +308,24 @@ ved SendMessage-gjenopptakelse — se `tasks/lessons/workflow-process.md` 2026-0
 `Agent`: `subagent_type: {{PROJECT_NAME}}-reviewer`. Prompt:
 > TODO <nr>. Plan: `<plan_path>`. Relevante lessons-tema: <liste>. Følg charteret ditt. Returner review-rapport som JSON.
 
+**Konsolideringsgate (før du velger fold eller planner-revisjon) — OBLIGATORISK.**
+
+1. **Terskelen.** Mål `wc -l <plan_path>` FØR du håndterer en no-go OG PÅ NYTT etter at
+   folden/revisjonen er skrevet (målt maks delta per runde kan overstige 400 linjer i én runde). **≥ 400 linjer OG planen har minst én tidligere review-/fold-runde ⇒ planen skal KONSOLIDERES**, ikke foldes/revideres videre. På et førsteutkast finnes ingen lag å konsolidere — der gjelder planner-charterets output-budsjett. «Minst én tidligere runde» er MEKANISK og sesjonsuavhengig (koordinator-overlevering nullstiller kontekst-tellere): §4-rundetelleren > 0 ELLER `git log --oneline -- <plan_path>` viser ≥2 commits (commit-listen overteller heller enn underteller — riktig feilretning for en gate; §4-telleren er FASIT når den finnes). Passerer fila terskelen ETTER runden, konsolideres den i samme omgang, før neste dispatch (verifiserings-review på fold-grenen, planner-revisjon på den andre) — fyrer terskelen først etter folden, kommer konsolideringen i TILLEGG til folden; regnskapet er uendret (verifiseringsrunden teller).
+2. **HVORFOR** (suksesskriterium): en review-runde legger til lag og fjerner ingen, så dokumentet degraderer monotont uten et motgrep.
+3. **Hvorfor linjeantall og ikke et annotasjonstall:** annotasjonsmarkører skrives inkonsistent — linjeantall er det eneste som er målbart ved beslutningen. Én linje, ingen tabell.
+4. **Hva konsolidering ER:** skriv planen om til gjeldende sannhet — én versjon av hver påstand, ingen «r1 sa X, r2 rettet til Y». Behold begrunnelser som er lastbærende for implementeringen, OG hvert bevisst avvist funn som én linje («**Vurdert og forkastet**: X — fordi Y») — en avvisnings-begrunnelse er lastbærende for neste reviewer; strykes den, reises funnet på nytt og runden gaten skulle spare brennes likevel. Review-historikken ellers flyttes til én kort seksjon nederst eller strykes (run-log + PR-body bærer den). Rundens nye funn foldes inn som del av omskrivingen.
+5. **Hva konsolidering IKKE er:** **ikke en ny planner-dispatch** (planneren mangler review-konteksten; ved kontekstpress kan koordinatoren overlate selve omskrivingen til en **fersk sub-agent** MED funn-inventaret K1 — ansvaret for K1–K3 forblir koordinatorens); ikke en anledning til å endre scope. **Ingen ny beslutning** tas — det er en omskriving, ikke en re-planlegging.
+6. **Hvem, og hva den erstatter:** koordinatoren konsoliderer. Konsolideringen erstatter folden, ikke den obligatoriske verifiserings-review-runden — den kjøres som normalt, og dispatch-prompten sier eksplisitt at planen er konsolidert og vedlegger funn-inventaret (K1). Konsolideringen selv er ikke en revisjonsrunde — den erstatter folden. Den obligatoriske verifiserings-review-runden etterpå **teller mot 2-runders-grensen**, som ved en vanlig fold (aldri dobbelt-telling, aldri gratis runde).
+7. **Planner-revisjons-grenen:** går settet til planner-revisjon (ett funn utenfor fold-kriteriene), konsoliderer koordinatoren FØRST, og dispatcher deretter planneren mot den konsoliderte fila.
+8. **Verifisering av konsolideringen** (bygger på E1/E2 i fold-etterkontrollen lenger ned i §4 — konsolidering er selv en fold-operasjon, og et tapt funn er verre enn annotasjons-støy):
+   - **K1 — funn-inventar FØR omskriving.** List hvert review-funn fra ALLE runder (kilder: review-rapportenes `findings[]` i kontekst + fold-notatene i `git log --format='%s%n%b' -- <plan>`), og merk hvert funn `innfoldet` eller `bevisst avvist`. Inventaret skrives ned før den konsoliderte teksten erstatter originalen.
+   - **K2 — per-funn-bekreftelse mot den NYE teksten,** med E1-snutten (samme seksjonsdeling, samme forventede retning analyse ≥1 / steg-liste ≥1). Gjenfinning kreves for BEGGE klasser fra K1 (innfoldede funn i planteksten; avviste som sin «Vurdert og forkastet»-linje). Et funn som ikke gjenfinnes, er tapt — da er konsolideringen ikke ferdig. Funn uten steg-konsekvens navngis skriftlig, som i E1.
+   - **K3 — aggregat-sveip + lengde.** Kjør E2-sveipen på den konsoliderte fila: en omskriving er den mest aggregat-farlige operasjonen som finnes, fordi hver telling kan ha mistet det den teller. Og: en konsolidering som gjør fila LENGRE er ikke en konsolidering — skriv `wc -l` før/etter i fold-notatet (på planner-revisjons-grenen: i commit-meldingen for den konsoliderte planfila), og begrunn en økning eksplisitt.
+9. **Utgangen** (en gate uten utgang blir rutet rundt): velger koordinatoren likevel å folde en plan som har passert terskelen, skrives begrunnelsen i fold-notatet (på planner-revisjons-grenen: i commit-meldingen for den konsoliderte planfila) («konsolidering utsatt fordi …»), slik at avviket er synlig i commit-loggen. Stillhet er ikke en lovlig utgang.
+
 Gate på `verdict`:
-- `"no-go"` (≥1 BLOKKERENDE) → send funnene tilbake til planner via en **FERSK** `Agent`-dispatch (§3, revisjons-runde — ALDRI `SendMessage`-gjenopptakelse av forrige planner-instans; forrige instans sitt worktree er allerede ryddet, se §3s rydde-steg). **Hold en eksplisitt teller** («revisjonsrunde X/2») i kontekst. Etter **2** runder uten `go` → ⚠️ eskalér til mennesket, release claim.
+- `"no-go"` (≥1 BLOKKERENDE) → send funnene tilbake til planner via en **FERSK** `Agent`-dispatch (§3, revisjons-runde — ALDRI `SendMessage`-gjenopptakelse av forrige planner-instans; forrige instans sitt worktree er allerede ryddet, se §3s rydde-steg) — men kjør **Konsolideringsgaten** over FØR du velger gren. **Hold en eksplisitt teller** («revisjonsrunde X/2») i kontekst. Etter **2** runder uten `go` → ⚠️ eskalér til mennesket, release claim.
 - `"go"` → fortsett.
 
 **Fold-føringer som dikterer UI-tekst:** si INTENSJONEN (hva hintet/teksten skal formidle), ikke
@@ -317,6 +341,90 @@ VERIFISERINGS-review-runde OBLIGATORISK: dispatch reviewer på nytt med eksplisi
 verifisere at foldene er komplette og korrekte (runden teller mot 2-runders-grensen). Er ETT
 funn utenfor kriteriene (krever skjønn/research/nye valg) → planner-revisjon som normalt for
 HELE settet. Dokumentér valget i commit-meldingen («koordinator-fold begrunnet: …»).
+
+**Etterkontroll av folden — OBLIGATORISK, ikke råd.** Tre målte feilformer fra live-drift: folden
+traff analysen men ikke steg-listen, aggregat-påstander ble stale av folden, og én foldet
+reviewer-FAKTA-påstand var usann. Alle tre postene under kjøres for HVER fold — ikke bare den
+koordinatoren tror er relevant.
+
+- **E1 — per-funn-verifisering med forventet RETNING.** Beviser at hvert foldet funn faktisk landet
+  i **steg-listen**, ikke bare i analysen — et grep-treff beviser tilstedeværelse, ikke korrekt
+  instruksjon. Global `grep -c '<funn>'` er UTILSTREKKELIG: treff i analysen maskerer at
+  steg-listen mangler dem. Et funn som landet ett sted er **ikke** foldet; et funn uten
+  steg-konsekvens må navngis skriftlig — stillhet teller som manglende fold.
+
+  ```bash
+  # plan         = full sti til planfila
+  # frase        = strengen folden FAKTISK skrev inn i steg-punktet (reviewerens funn-ID duger ikke —
+  #                bruk samme streng mot begge seksjonene)
+  # gammel_frase = formuleringen funnet skulle fjerne (forventning 0 i steg-listen)
+  plan="tasks/plans/todo-<nr>-<slug>.md"
+  frase="<frasen folden skrev inn>"
+  gammel_frase="<formuleringen som skal være borte>"
+
+  anker=$(LC_ALL=C /usr/bin/grep -nE '^#{1,4} *[0-9.]* *Steg' "$plan")
+  antall=$(printf '%s\n' "$anker" | LC_ALL=C /usr/bin/grep -c '^[0-9]')
+  siste_num=$(printf '%s\n' "$anker" | tail -1 | cut -d: -f1)
+  siste_tekst=$(printf '%s\n' "$anker" | tail -1 | cut -d: -f2-)
+  # neste_seksjon = første `## `-overskrift ETTER ankeret (tom => ingen, halen er bundet av EOF)
+  neste_seksjon=$(LC_ALL=C /usr/bin/grep -nE '^## ' "$plan" | LC_ALL=C /usr/bin/awk -F: -v n="$siste_num" '$1>n{print $1; exit}')
+
+  steg=""
+  if [ -z "$anker" ]; then
+    echo "STOPP: ingen steg-anker i $plan — fall ALDRI stille tilbake til «hele fila er én seksjon»." >&2
+  elif ! printf '%s\n' "$siste_tekst" | LC_ALL=C /usr/bin/grep -qE '^#{1,4} *[0-9.]* *Steg *$'; then
+    echo "STOPP: $antall ankertreff, siste (linje $siste_num) er ikke en ren steg-overskrift — velg skillelinje manuelt, skriv linjenummer + begrunnelse i fold-notatet, kjør så tellingene mot det manuelle skillet." >&2
+  elif [ -n "$neste_seksjon" ]; then
+    echo "STOPP: en \`## \`-overskrift finnes ETTER steg-ankeret (linje $siste_num, neste på linje $neste_seksjon) — halen er ubundet (kan inneholde fold-notater/verifiseringsseksjoner ETTER selve steg-listen). Velg sluttlinje manuelt, skriv linjenummer + begrunnelse i fold-notatet, kjør så tellingene mot det manuelle skillet." >&2
+  else
+    steg=$(sed -n "${siste_num},\$p" "$plan")
+  fi
+
+  if [ -z "$steg" ]; then
+    : # STOPP-meldingen over er alt skrevet — tellingene kjører ALDRI uten et gyldig skille.
+  else
+    analyse=$(sed -n "1,$((siste_num-1))p" "$plan")
+    echo "analyse:     $(printf '%s' "$analyse" | LC_ALL=C /usr/bin/grep -cF "$frase")   (forventning ≥1)"
+    echo "steg-liste:  $(printf '%s' "$steg"    | LC_ALL=C /usr/bin/grep -cF "$frase")   (forventning ≥1)"
+    echo "gammel form: $(printf '%s' "$steg"    | LC_ALL=C /usr/bin/grep -cF "$gammel_frase")   (forventning 0)"
+  fi
+  ```
+
+  Er folden rent steg-teknisk (ingen ny begrunnelse hører hjemme i analysen) er `analyse`-treff på
+  0 akseptabelt — men da skal fold-notatet si det eksplisitt, med begrunnelse, ikke bare stå som et
+  stille avvik fra forventningen ≥1 over.
+
+- **E2 — aggregat-sveip, substantiv-uavhengig.** Kjøres mot HELE planfila (ikke bare det foldede
+  avsnittet) — den literale strengen under, ordrett og kopierbar. `$plan` settes på nytt i DETTE
+  Bash-kallet: agent-Bash-kall deler ikke shell-state med E1s kall, og en unset `$plan` gir stille
+  treff-tall 0 (exit 0) i stedet for en feil:
+
+  ```bash
+  plan="tasks/plans/todo-<nr>-<slug>.md"
+  [ -f "$plan" ] || { echo "STOPP: plan-stien er ikke satt/finnes ikke" >&2; }
+  LC_ALL=C /usr/bin/grep -nioE '(^|[^A-Za-zÆØÅæøå-])([0-9]+|en|ei|et|én|éi|ett|to|tre|fire|fem|seks|sju|syv|åtte|ni|ti|elleve|tolv|tretten|fjorten|femten|seksten|sytten|atten|nitten|tjue|begge)[ -][A-Za-zÆØÅæøå]+' "$plan"
+  ```
+
+  Vis treffene som `linje:treff` (formen over) — det er linjen som inspiseres per treff, ikke et
+  aggregattall som avgjør noe alene. Et rått antall (samme kommando med `| wc -l` lagt til) kan tas
+  med som en rask oversikt, men aldri i stedet for å lese linjene.
+
+  Ingen substantiv-liste finnes bevisst — en hvitliste feiler stille (missed «To nye
+  **oppføringer**»-saken). `-i` under `LC_ALL=C` case-folder IKKE Æ/Ø/Å: store norske tallord
+  (`Én`, `Éi`, `Åtte`) fanges ikke. **Sveipen er et GULV, ikke en garanti:** den er linje- og
+  adjacency-basert, så en tallpåstand brutt av linjeskift eller `**`-utheving (`**FIRE** filer`)
+  fanges IKKE. `git diff -- "$plan"` brukes til **prioritering** av treffene (skjæringen mellom
+  sveipen og det folden faktisk rørte er farligst), aldri som filter — en skjæring kan også misse
+  stille. I fold-notatet står RELASJONEN («den substantiv-uavhengige formen fanger de kjente
+  sakene; en hvitliste fanget færre») — råtallene hører i PR-body, ikke i runbook-teksten, fordi de
+  drifter med hver ny fold.
+
+- **E3 — reviewer-påstander om FAKTA måles FØR de foldes.** Utvider den etablerte regelen for
+  foreskrevne fixtures/vakter til foreskrevne TALL og mekanisme-påstander (målt: tre runder, tre
+  ulike gale tall for samme måling — den foldede var på vei inn i kode). En reviewer-påstand om et
+  tall, en linje eller en mekanisme foldes ALDRI uprøvd; koordinatoren re-kjører målingen selv først.
+
+Folden er ikke ferdig før **alle postene i denne blokka** er kjørt og utfallet er skrevet ned.
 
 Ved `technical_risk.flagged` (plan- eller review-rapport) → ⚠️ STOPP, release claim, rapporter risikoen, vent på menneskets go.
 
@@ -376,6 +484,10 @@ Har ferdig-rapporten `pr_url` satt: bruk den, ikke opprett en duplikat-PR.
   push/rapport: koordinatoren verifiserer arbeidet i worktreet selv (type-check + relevante
   tester), committer og pusher branchen derfra, og sender den gjennom NORMAL §5b-kode-review —
   arbeid forkastes ikke fordi rapporten uteble, men det slipper heller aldri forbi reviewen.
+  **⚠️ Unntak uten skjønn — rescue ALDRI en verifikator-worktree.** Et worktree som inneholder
+  markørfila `.verifier-worktree` (eller står på en `verify-*`-branch) inneholder per definisjon
+  BEVISST INNSATTE feil: verifikatoren muterer produksjonskode for å bevise at vakter går røde.
+  Innholdet forkastes ALLTID, uansett hvor ferdig det ser ut.
 - **To-fase-implementer med migrasjons-pauseprotokoll:** todos med DB-migrasjon kjøres i to
   faser: implementeren SKRIVER migrasjonsfilene (uten å appliere), rapporterer og PAUSER;
   koordinatoren applierer mot {{DEV_ENV_ID}} med bevis (list_migrations før/etter + advisors),
@@ -405,13 +517,112 @@ Før du dispatcher selve reviewen, kjør en triviell probe for å verifisere at 
 ### Review-dispatch
 
 `Agent`: `subagent_type: {{PROJECT_NAME}}-code-reviewer`. Prompt:
-> TODO <nr>. PR: `<pr_url>` (fra ferdig-rapporten). Relevante lessons-tema: <liste>. Følg charteret ditt. Returner code_review-rapport som JSON.
+> TODO <nr>. PR: `<pr_url>` (fra ferdig-rapporten). branch: `<branch>`. base_sha: `<base_sha>`. Relevante lessons-tema: <liste>. Følg charteret ditt. Returner code_review-rapport som JSON.
+
+`branch` + `base_sha` er påkrevd i tillegg til PR-URL-en: de er det tech-armene som er spesifisert
+med **branch-dispatch** (uavhengighetskrav) får, i stedet for PR-referansen.
+
+### Verifikator-armen — diff-settene koordinatoren kan etterprøve
+
+Er en verifikator-arm konfigurert i `tech_review_agents`, beregner kode-revieweren to sett fra
+diffen. Koordinatoren kan kjøre samme beregning selv når rapporten skal falsifiseres:
+
+```
+GUARD_SET = {diff-filer som matcher **/*.guard.test.ts(x)}
+          ∪ {diff-filer som matcher **/*-parity.test.ts(x)}
+          ∪ {testfiler i diffen som gjør kildeskann (readFileSync|readdirSync|globSync)}
+          ∪ {testfiler der diffen legger til en maskinlesbar @guard-tag i docblocken}
+          ∪ {testfiler planen eksplisitt deklarerer som vakt/tripwire/mutasjonsprøve}
+
+UI_SET    = diff ∩ (katalogene til layout-smokens flate-registry
+                    ∪ globale stil-/layout-filer
+                    ∪ filer disse faktisk importerer — avgrenset import-vandring, maks 3 nivå)
+```
+
+**Trigger er filnavn-familie + `@guard`-tag + plan-deklarasjon — aldri nøkkelord i vilkårlig
+testtekst.** En tekstlig vakt-detektor er upålitelig som gate (falske positiver på
+«never»/«aldri»-kommentarer og `toHaveLength(1)`).
+
+Begge sett tomme ⇒ armen dispatches ikke, og kode-revieweren SKAL skrive det eksplisitt i `notes`.
+
+### Verifikator-rapportens sju mekaniske sjekker (kjøres FØR funnene tas for gitt)
+
+Alle leser `code_review.tech_arm_reports[]`. Uten det feltet kan ingen av dem kjøres:
+
+0. **`tech_arm_reports[]` finnes og inneholder verifikator-armen** med `status`, og ved
+   `status: "kjørt"` en `report` med `report_type: "verification"`. Mangler feltet ⇒ BLOKKERENDE.
+1. ingen `mutation.diff` inneholder `.test.`/`__tests__/`
+2. hver `mutation.class` er i enum (`insert-mechanism` er IKKE en lovlig verdi), og klassens
+   formkrav stemmer med diffens `+`/`-`-linjetelling
+3. `red[]` er ikke-tom for hvert `RØD-BEVIST`; `restored_green` og `worktree_clean` er `true`
+4. `pairs_proven + unprovable + not_covered === pairs_total`
+5. **kjør én sitert `site_inventory.command` på nytt** og sammenlign `count`. Avviker den, er hele
+   matrisen ugyldig — ikke bare det ene paret
+6. `new_names` er tom, ELLER `class === "revert-hunk"` og hvert navn gjenfinnes i PR-diffens
+   `-`-linjer; og `mutation.diff`s sti + hunk inneholder `site`
+7. `claim_reads` gjenfinnes ordrett i vaktfila på `head_sha`, ≥1 identifikator fra `claim_reads`
+   forekommer i `mutation.diff`s endrede linjer, og `drift_category` er lovlig for `class`
+
+Brudd på én av dem ⇒ armens grønt er ugyldig, behandles som BLOKKERENDE («gaten beviste ikke det
+den påstår»). Krysssjekk dessuten `base_sha`/`head_sha` mot PR-en — én kommando, og den avslører
+en verifikator som jobbet på feil tilstand.
+
+**⚪-regelen:** par med `verdict: "UBEVISBAR"` skrives ALDRI som ✅ i noen oppsummering — de får ⚪.
+Severity er VIKTIG, så §5b-revise-gaten fyrer og implementeren må håndtere dem. Aldri en stille
+dispensasjon. Godtas en innsnevret vakt-påstand, SKAL innsnevringen pinnes som MÅLT kommentar i
+vaktfila og gjentas i PR-beskrivelsen — ellers er «snevre i runde 1, være grønn i runde 2» en
+gratis vei ut.
+
+### Riving og migrasjon — tre ekstra gater
+
+Gjelder når en PR **sletter eller erstatter en brukervendt flate** (ruter, sider, komponenter som
+bæres over til et nytt sted). Klassen er farlig fordi **fravær ikke har noen feilmelding**: en
+manglende komponent kaster ikke, logger ikke og bryter ingen test — den oppdages først når noen
+leter etter noe som ikke er der.
+
+**G1 — dekningslista skal genereres, ikke skrives.** Har prosjektet et dekningsdiff-verktøy
+(fjernede filer vs. erstatningsflate): kjør det og bruk output som råmateriale. Maskinen produserer
+kandidatene, mennesket dømmer. En ufullstendig maskinell liste kan ikke *stille utelate* noe; en
+håndskrevet kan. Har prosjektet ikke et slikt verktøy: bygg dekningslista manuelt, men eksplisitt
+merket som HÅNDSKREVET (lavere tillitsnivå) i PR-body-en.
+
+Tre krav til bruken der verktøyet finnes:
+1. **Implementeren** kjører den i §5 og limer outputen i PR-body-en.
+2. **Revieweren** kjører **samme** kommando i §5b — det er G3s mekaniske grunnlag, ikke en gjentakelse.
+3. Outputen limes **sammen med** en `NOT_DETECTABLE_BY_DIFF`-seksjon, ikke bare kandidatlista. Uten
+   blindfelt-lista gjenoppstår «hevder mer enn mekanismen bærer» i selve PR-body-en — et slikt
+   verktøy ser typisk ikke CSS, ikke høyde/layout, og ikke interpolert tekst i template-literaler.
+
+**G2 — varianttvang.** Har erstatningsflaten grener (uke/måned, desktop/mobil, rolle-varianter), skal
+**hver gren** verifiseres — ikke bare den som utløste arbeidet. «Additivt før riving» er ikke nok
+hvis det additive steget var ufullstendig for én variant.
+
+**G3 — falsifiser eier-sammendraget i BEGGE retninger.** Gi revieweren dette som navngitt oppdrag:
+(a) står alt som faktisk forsvinner på lista (uttømmende), og (b) er alt på lista faktisk borte
+(ingen over-oppføring)? Begge feilretninger er skadelige — underdriving gir uinformert godkjenning,
+overdriving får eier til å tro noe er verre enn det er og undergraver tilliten til lista neste gang.
+**Koordinatoren bør verifisere de omstridte påstandene selv mot koden** framfor å delegere.
+
+**Billig tilleggsgrep:** for hver hovedfunksjon den slettede flaten hadde, still spørsmålet
+«hvor lever dette etterpå?». Det er ofte den faktiske detektoren når planen og reviewrundene ikke
+fanger et tapt lag.
+
+Grep-sveiper ved riving må dessuten dekke **både URL-form** (`/rute`) **og filsti-form**
+(`utover)/rute/page`) — sistnevnte fanger tester som leser de slettede filene som kildekode — og
+scopes til mer enn `app/`+`components/`+`lib/`.
 
 ### Gate (revise-gate på severity, ikke kun på verdict)
 
 Les `code_review`-rapporten:
 
 - Inneholder rapporten **≥1 BLOKKERENDE eller ≥1 VIKTIG** → **revise-gate**: send funnene tilbake til implementeren via fix-mode-dispatch (se fix-mode-mal under). **Hold en eksplisitt teller** («kode-review-runde X/2», samme mønster som §4). Etter **2** runder uten at revise-gaten er tom → ⚠️ eskalér til mennesket, release claim.
+- **Unntak — `KOORDINATOR-HANDLING`-poster teller ikke.** Poster merket `KOORDINATOR-HANDLING:` i
+  `notes` (videreført fra en tech-arms `coordinator_actions[]`) er ikke implementer-handlbare:
+  «par-tak truffet», «armen uteble», «feil worktree», «prompt-brudd». De teller **ikke** mot
+  revise-gaten og bruker **ikke** en runde. Koordinatoren utfører handlingen selv FØR §6 — typisk
+  ved å re-dispatche armen for de gjenstående parene, eller dispatche den direkte når den uteble.
+  Denne klassen er hele grunnen til at feltet finnes: uten den brenner en død arm en revise-runde
+  på en implementer som ikke kan gjøre noe med den.
 - Kun MINDRE eller ingen funn (`verdict = "go"`, revise-gate ikke trigget) → fortsett til §6.
 - Teknisk risiko som dukker opp i rapporten → ⚠️ STOPP, release claim, rapporter (samme som §4-gaten).
 
@@ -436,18 +647,61 @@ Fra ferdig-rapporten, `status: "implemented"`:
    - Ny/ukjent feil → ⚠️ STOPP, release claim, rapporter — ikke merge en reell regresjon.
    Hopp aldri over denne sjekken «fordi Vercel er grønn» — de er uavhengige signaler.
 
-   **Todo-nr-kollisjonssjekk FØR merge (belte-og-bukseseler mot parallelle
-   koordinatorer):** kjør `sh scripts/check-todo-nr-collisions.sh` mot en **fersk**
-   `origin/{{BASE_BRANCH}}` (`git fetch origin {{BASE_BRANCH}}` rett før — ikke stol på en
-   lokal branch som kan ha rukket å bli forbigått av en annen koordinator-sesjons merge).
-   Exit 1 → ⚠️ STOPP, IKKE merge; en annen sesjon har tatt samme `nr` siden planleggingen —
-   følg eksisterende renummereringsoppskrift (git mv + oppdater `nr`/`order`/`deps`/
-   kryssreferanser) og re-kjør scriptet før du prøver igjen. Exit 2 → repo-strukturfeil,
-   eskalér. `todo-nr-guard`-CI-jobben kjører den samme sjekken på PR-ens merge-commit, men
-   fanger IKKE momentane race mot en `{{BASE_BRANCH}}` som har avansert ETTER PR-ens siste
-   grønne CI-kjøring (GitHub re-kjører ikke en allerede-grønn PR automatisk uten
-   branch-protection «require branches up to date») — denne lokale, fersk-fetch-kjøringen
-   er derfor det egentlige racet-lukkende steget, CI er backstop for NESTE PR.
+   **Todo-nr-kollisjonssjekk FØR merge (TO gater — hver dekker en tilstand den andre
+   strukturelt ikke ser):**
+
+   - **(a)** kjør `sh scripts/check-todo-nr-collisions.sh` i dev-arbeidstreet. Dekker
+     koordinatorens EGNE ucommitterte §6.3/§6b/§7-endringer (arkivering/bug-triage/nummer-
+     reservasjon som ennå ikke er pushet) — den eneste tilstanden (b) aldri kan se, fordi
+     (b) kun leser committede refs.
+   - **(b)** kjør `sh scripts/check-todo-nr-premerge.sh <branch>` (bygger
+     `git merge-tree`-resultatet av en fersk `origin/{{BASE_BRANCH}}` og PR-branchen,
+     materialiserer `tasks/`-treet derfra, og kjører (a)-scriptet mot DET). Dekker PR-ens
+     **innkommende** nr mot en fersk base — noe (a) strukturelt ikke ser, siden (a) kun ser
+     dev-arbeidstreet ELLER én ref om gangen, aldri hva de to blir SAMMEN. Branch-utledning:
+     ```bash
+     br=$(gh pr view <pr> --json headRefName -q .headRefName)
+     sh scripts/check-todo-nr-premerge.sh "$br"
+     ```
+     Exit-kontrakt: `0` ingen kollisjon — **står det en WARN om fetch-svikt på stderr, er
+     basen muligens foreldet og 0 er DA IKKE grønt**; les WARN-linja før du stoler på
+     exit-koden · `1` BLOKKERENDE kollisjon → ⚠️ STOPP, IKKE merge
+     — følg renummererings-oppskriften i **§8** (git mv + oppdater `nr`/`order`/`deps`/
+     kryssreferanser, «sist inn flytter»-regelen), re-kjør (b), prøv igjen · `2` intern feil
+     (ukjent ref / git for gammel VED OPPSTART / uventet `merge-tree`-exit — typisk
+     ubeslektede historier (ingen felles merge-base) eller et utilgjengelig objekt, IKKE en
+     for gammel git siden versjonen alt er verifisert / `tasks/` mangler i treet) →
+     ⚠️ STOPP, les ALDRI som grønt, eskalér · `3` merge-konflikt → ⚠️ STOPP, samme
+     merge-konflikt-pause som over; sjekken ble ikke kjørt. **En konfliktsti under
+     `tasks/todos/` med SAMME nr+slug på begge sider ER en nr-kollisjon** (add/add på
+     identisk sti, ulikt innhold) — følg renummererings-oppskriften i §8, ikke bare
+     merge-konflikt-pausen. Presisering: identisk fil lagt til på begge sider merges REN og
+     er per definisjon ikke en kollisjon — exit 3 er ikke garantert for enhver
+     dobbeltopprettelse, kun for ULIKT innhold på samme sti.
+
+   Gate (b) ser KUN committet+pushet tilstand; ucommitterte delt-state-endringer i
+   dev-arbeidstreet dekkes av gate (a). De to er et TILLEGG til hverandre, aldri en
+   erstatning: exit 2/1 fra (b) stopper uansett hva (a) sa.
+
+   **«Krymper — lukker ikke» + kjøretidspunkt:** gate (b) er den ENESTE gaten som ser
+   PR-ens innkommende nr mot en fersk base — men den KRYMPER, LUKKER IKKE, TOCTOU-vinduet:
+   den leser `origin/{{BASE_BRANCH}}` på kjøretidspunktet, så vinduet flyttes fra «siden
+   branchen ble skåret» til «siden gaten kjørte». Kjør (b) som **SISTE handling før
+   `gh pr merge`** — ingen steg imellom; endres `{{BASE_BRANCH}}` i mellomtiden (en annen
+   sesjons merge), kjør (b) på nytt. Gate (a) dekker koordinatorens egne ucommitterte
+   delt-state-endringer, som (b) ikke ser.
+
+   **Branch-protection «require branches up to date» vurdert og forkastet:** ville lukket
+   vinduet helt, men koster at HVER åpen PR må oppdateres med fersk base + full CI-runde per
+   parallell merge — i et repo der eier bevisst kjører mange parallelle koordinatorer er det
+   en merge-seriellisering av hele flyten. Ikke-blokkerende, ligger i §6g-eier-
+   beslutningskøen, default = ikke aktivert.
+
+   `todo-nr-guard`-CI-jobben ser PR-ens merge-commit på CI-**tidspunktet** og er backstop for
+   NESTE PR — den fanger IKKE et race mot en `{{BASE_BRANCH}}` som avanserer ETTER PR-ens
+   siste grønne CI-kjøring (GitHub re-kjører ikke en allerede-grønn PR automatisk uten
+   branch-protection «require branches up to date»). Gate (b) kjøres derfor lokalt: den
+   trenger to FERSKE refs (base + branch) som CI-kjøringen ikke har på merge-tidspunktet.
 
    **Worktree-rydding etter merge** (gjelder ALLE agenter som jobbet med denne todoen — planner, reviewer, implementer, evt. fix-mode-runder, code-reviewer — ikke kun implementerens branch; se `git worktree list` for fullstendig liste. Erstatt `<branch>` med hver enkelt branch):
    ```bash
@@ -536,6 +790,9 @@ nullstillings-markøren. Ingen health-rad ennå → tell fra toppen av fila.
 
 **Egen teller, uavhengig av §6c-helsesjekkens teller.** Formålet er ikke prosjekt-kodekvalitet (det er §6c) — det er LOOPENS EGEN ytelse: tid, token, sikkerhet, prosess-friksjon.
 
+**Teller-invariant:** kun `outcome=merged` telles — `outcome=hotfix`-rader (se
+`docs/hotfix-runbook.md`) er per konstruksjon usynlige for denne telleren og for §6c.
+
 Tell rader med `outcome=merged` etter den *siste* raden med `outcome=loop-eval` i run-log (samme mønster som §6c):
 
 ```bash
@@ -593,15 +850,42 @@ Kombinasjonen er dobbel gating: `status: deferred` holder forslaget ute av §1-k
 
 **Triage (gjøres av mennesket):** Et forslag godkjennes ved å flippe `status: deferred → open` OG fjerne `forslag`-taggen (`tags: []`). Begge endringer er nødvendige — kun én av dem er ikke tilstrekkelig for å gjøre forslaget kvalifisert (`elig=YES`). Avviste forslag beholder `status: deferred` og kan slettes eller beholdes som referanse.
 
-**Nummer-reservasjon ved todo-opprettelse (krymper — lukker IKKE — TOCTOU-vinduet):**
+**Nummer-reservasjon ved todo-opprettelse:** se **§8** for hvordan `nr` velges/reserveres, hva
+som teller som reservert, og renummererings-oppskriften (nyttig i det tidskritiske
+exit-1-øyeblikket rett før merge — §6.4).
+
+## 8. Todo-nummer: reservasjon, kollisjon og renummerering
+
+Racet ved *valg* av `nr` kan ikke lukkes uten atomisk reservasjon. §6.4 (gate (b),
+`check-todo-nr-premerge.sh`) evaluerer merge-RESULTATET og fanger den andre siden av en
+kollisjon rett før merge — men KRYMPER, LUKKER IKKE, TOCTOU-vinduet (se §6.4).
+
+**Reservasjon teller FØRST når** minimal frontmatter (tittel + `nr` + status) er committet
+**og pushet** til `{{BASE_BRANCH}}`. Todos som fødes inne i en feature-PR er IKKE reservert —
+det bæres i stedet av §6.4s gate (b).
+
 Velg `nr` for en ny todo/forslag via `sh scripts/check-todo-nr-collisions.sh --next` (mot en
 **fersk** `origin/{{BASE_BRANCH}}`, ikke en lokal branch som kan ligge bak). Reserver deretter
-nummeret ved å committe en minimal todo-fil med kun frontmatteren (tittel + `nr` + status) til
+nummeret ved å committe OG PUSHE en minimal todo-fil med kun frontmatteren til
 `{{BASE_BRANCH}}` FØR resten av innholdet skrives — dette krymper vinduet en annen sesjon kan
 rekke å velge samme `nr` i, men eliminerer det ikke (kun en ekte atomisk reservasjon eller
-ikke-sekvensielle IDer ville gjort det). `scripts/check-todo-nr-collisions.sh`
-(uten `--next`) i §6 er derfor den egentlige gaten; `--next` + tidlig reservasjon er
-bukseseler rundt den, ikke en erstatning.
+ikke-sekvensielle IDer ville gjort det).
+
+**Retningsregel: «sist inn flytter».** Ved kollisjon renummererer den PR-en som ennå ikke har
+merget; den allerede mergede serien står urørt. Uten regelen kan begge sesjoner begynne
+renummereringen samtidig.
+
+**Renummererings-oppskrift** (trigges av §6.4s gate (b) exit 1, eller exit 3 med en
+konfliktsti under `tasks/todos/` som er en reell nr-kollisjon — se §6.4):
+1. Nye nr med `--next` mot fersk `origin/{{BASE_BRANCH}}`; for en epic tas alle N samtidig.
+2. `git mv` filnavn + oppdater `nr`, `order`, `deps`.
+3. Prosa: `git grep -niE 'todo-0*<gammelt-nr>([^0-9]|$)' -- tasks docs` — klassifiser **hvert**
+   treff. Guarden validerer kun `nr`-unikhet og er `exit 0` mens hver prosareferanse peker på
+   feil todo.
+4. Bare-tall-referanser (`438–443`) fanges IKKE av grep — les de flyttede filene manuelt
+   (`git diff --name-only`). Dette er en sjekkliste, ikke en vakt.
+5. Re-kjør `sh scripts/check-todo-nr-premerge.sh <branch>` (§6.4s gate (b)) før nytt
+   merge-forsøk.
 
 ## Pausepunkter (alltid eskalér + release claim)
 

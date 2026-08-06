@@ -67,6 +67,7 @@ autoritativt; tabellen er for mennesker.
 | `{{MODEL_REVIEWER}}` / `{{EFFORT_REVIEWER}}` | `models.reviewer` / `models.reviewer_effort` |
 | `{{MODEL_IMPLEMENTER}}` / `{{EFFORT_IMPLEMENTER}}` | `models.implementer` / `models.implementer_effort` |
 | `{{MODEL_CODE_REVIEWER}}` / `{{EFFORT_CODE_REVIEWER}}` | `models.code_reviewer` / `models.code_reviewer_effort` |
+| `{{MODEL_VERIFIER}}` / `{{EFFORT_VERIFIER}}` | `models.verifier` / `models.verifier_effort` |
 | `{{MODELS_DISPLAY}}` | utledes fra `models.planner/reviewer/implementer/code_reviewer` (valgfri override: `models.display`) |
 | `{{DEV_ENV_ID}}` / `{{PROD_ENV_ID}}` | `environments.dev_id` / `environments.prod_id` |
 | `{{BASE_BRANCH}}` / `{{RELEASE_BRANCH}}` / `{{PROD_BRANCH}}` | `branch_strategy.*` |
@@ -110,7 +111,7 @@ REQUIRED = [
     "project_name","github_repo","language","dev_server_port","dev_server_process",
     "models.planner","models.planner_effort","models.reviewer","models.reviewer_effort",
     "models.implementer","models.implementer_effort","models.code_reviewer",
-    "models.code_reviewer_effort",
+    "models.code_reviewer_effort","models.verifier","models.verifier_effort",
     "environments.dev_id","environments.prod_id",
     "branch_strategy.base_branch","branch_strategy.release_branch","branch_strategy.prod_branch",
     "verification_commands.build","verification_commands.type_check",
@@ -140,6 +141,14 @@ if tras:
     for a in tras:
         lines.append(f"   - Hvis diffen berører {a['trigger']} → dispatcher `{a['name']}`-agenten "
                      f"som frisk sub-agent (egen kontekst, ser kun diffen). Severity-map: {a['severity_map']}.")
+        # Valgfri flerlinjet dispatch-kontrakt. Rendres med 5 mellomrom innrykk (ett nivå under
+        # arm-linjas 3) så den blir en del av samme punkt i charteret. Tomme linjer droppes —
+        # ellers bryter de markdown-lista og etterlater et løsrevet avsnitt.
+        note = a.get("dispatch_note")
+        if note:
+            for nl in note.rstrip("\n").split("\n"):
+                if nl.strip():
+                    lines.append("     " + nl.strip())
     tech_block = "\n".join(lines)
 else:
     tech_block = "   - (Ingen tech-review-agenter konfigurert — hopp over sikkerhets-/domene-armen.)"
@@ -161,6 +170,8 @@ M = {
     "{{EFFORT_IMPLEMENTER}}": c["models"]["implementer_effort"],
     "{{MODEL_CODE_REVIEWER}}": c["models"]["code_reviewer"],
     "{{EFFORT_CODE_REVIEWER}}": c["models"]["code_reviewer_effort"],
+    "{{MODEL_VERIFIER}}": c["models"]["verifier"],
+    "{{EFFORT_VERIFIER}}": c["models"]["verifier_effort"],
     # display UTLEDES fra modell-nøklene (ship-nå #4: config-strengen driftet — viste Sonnet4.6
     # mens faktisk modell var Sonnet5). Valgfri override via models.display hvis satt.
     "{{MODELS_DISPLAY}}": c["models"].get("display") or "/".join(

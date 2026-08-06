@@ -64,7 +64,7 @@ eller et språk — den hører i `loop.config`, ikke i maskineriet.
 
 | Fil | Klasse |
 |---|---|
-| `.claude/agents/PROJECT_NAME-{planner,reviewer,implementer,code-reviewer}.md` | **Universal struktur + config** |
+| `.claude/agents/PROJECT_NAME-{planner,reviewer,implementer,code-reviewer,verifier}.md` | **Universal struktur + config** (verifier er pluggbar — kun relevant hvis registrert i `tech_review_agents`) |
 | `.claude/commands/run-loop.md` | **Universal + config** |
 | `.claude/commands/todo-finish-worker.md` | **Universal + config** |
 | `.claude/commands/loop-health-check.md` | **Universal + config** |
@@ -73,6 +73,7 @@ eller et språk — den hører i `loop.config`, ikke i maskineriet.
 | `docs/superpowers/loop/report-schema.md` | **Universal** (kun `lessons_topics` fra config) |
 | `docs/superpowers/loop/run-log.md` | **Universal** (telemetri-format; tom logg ved generering) |
 | `docs/orchestration-loop.md` | **Universal + config** (operatør-guide) |
+| `docs/hotfix-runbook.md` | **Universal + config** (protokoll for kode merget utenfor loop-sesjonen) |
 | `tasks/todos/README.md`, `tasks/bugs/inbox/README.md` | **Prereq-stillas** |
 | `examples/tech-review-agents/*` | **Pluggbar** — leveres per prosjekt bak code-reviewer-grensesnittet |
 

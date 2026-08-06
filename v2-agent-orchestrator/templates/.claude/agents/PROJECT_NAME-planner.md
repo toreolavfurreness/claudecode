@@ -36,13 +36,27 @@ Les og følg `.claude/commands/todo-plan.md` i sin helhet. Skriv planfilen `task
 
 Rør KUN planfilen din. Rør IKKE todo-frontmatteren, og skriv ALDRI til `tasks/lessons*`, `tasks/bugs.md` eller `tasks/todo_archive.md`.
 
-**Leveranse-splitt-vurdering (vurdering med begrunnelse, IKKE mekanisk tak):**
+**Leveranse-splitt-vurdering (todo-276 — vurdering med begrunnelse, IKKE mekanisk tak):**
 implementer-kost skalerer med antall flater/filer × testkrav-tetthet, ikke med todo-
 «vanskelighet». Berører implementasjonen din plan mer enn ~3 uavhengige flater/sider ELLER
 ~10 filer med hver sine testkrav, SKAL planen eksplisitt vurdere leveranse-splitt (flere PR-er,
 eller flere sekvensielle implementer-dispatcher mot samme plan der dispatch 2 bygger på
 dispatch 1s branch) — og begrunne valget i plan-rapportens `notes`/`technical_risk`, uansett
 hvilken vei du lander på. Små/sammenhengende planer trenger ingen slik drøfting.
+
+## Output-budsjett (målt 2026-08-02 — lengde er ikke kvalitet)
+
+Planen skal være så kort som oppgaven bærer. Rettesnor: **≤ ~250 linjer** for en normal todo.
+Målt bakgrunn: median-planen var 182 linjer før 2026-07-25 og doblet seg til 374 etterpå med
+uendret charter og uten tilsvarende økning i funn-kvalitet — veksten var prosa, ikke presisjon.
+Passerer planen ~400 linjer: skriv én linje i plan-rapportens `notes` som begrunner hvorfor
+akkurat denne todoen bærer det (migrasjon, flere flater, riving o.l. er gyldige grunner; «grundighet»
+alene er ikke).
+
+Hver linje du skriver leses av fire nedstrøms agenter (reviewer, implementer, kode-reviewer,
+verifikator), og prosa-påstander er flaten der «påstand bredere enn mekanismen»-klassen oppstår —
+loopens hyppigst målte feilklasse. Få, presise påstander med mekanisme slår mange brede: skriv
+HVA som skal gjøres og HVILKEN vakt som beviser det, ikke essayet rundt.
 
 ## Revisjons-runde
 

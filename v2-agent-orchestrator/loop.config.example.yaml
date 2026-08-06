@@ -5,15 +5,16 @@
 # fila ved runtime — alt substitueres ved setup-tid (ren A, én mekanisme).
 # Endrer du noe her: kjør `/setup` på nytt for å rekompilere.
 #
-# Eksempelverdiene under er fra Kornerflagget (Next.js + Supabase) — bytt
-# dem ut. Hver nøkkel mapper til ett eller flere {{TOKEN}} i templates/;
-# se token-tabellen i setup.md for den fullstendige mappingen.
+# Eksempelverdiene under er illustrative (Next.js + Supabase-stack) — bytt
+# dem ut med prosjektets egne. Hver nøkkel mapper til ett eller flere
+# {{TOKEN}} i templates/; se token-tabellen i setup.md for den fullstendige
+# mappingen.
 #
 # ALLE nøkler er påkrevd. `/setup` stopper hardt hvis én mangler.
 
 # --- Identitet -------------------------------------------------------------
-project_name: kornerflagget                      # → agent-navn <project>-planner osv. Kebab-case, ingen mellomrom.
-github_repo: toreolavfurreness/kornerflagget     # owner/repo — brukes i PR-URL-eksempler
+project_name: my-project                         # → agent-navn <project>-planner osv. Kebab-case, ingen mellomrom.
+github_repo: your-org/your-repo                  # owner/repo — brukes i PR-URL-eksempler
 language: "norsk bokmål"                          # UI/svar-språk (kode er alltid engelsk)
 dev_server_port: 3000                             # for prosess-rydding (lsof)
 dev_server_process: "next dev"                    # prosessnavn for pkill -f (f.eks. "next dev", "vite", "rails s")
@@ -34,14 +35,19 @@ models:
   implementer_effort: high
   code_reviewer: claude-opus-5
   code_reviewer_effort: high
+  # Verifikator-armen (pluggbar tech-arm, ikke et kjedeledd) — holdes bevisst UTENFOR
+  # display-strengen, som er låst til planner/reviewer/implementer/code-reviewer. Kun
+  # relevant hvis en verifikator er registrert i tech_review_agents under.
+  verifier: claude-opus-5
+  verifier_effort: high
   # display UTLEDES av /setup fra modell-nøklene over — sett den KUN for å
   # overstyre. En hardkodet streng her driftet fra faktisk modell én gang før;
   # la derivasjonen gjøre jobben.
 
 # --- Miljøer (Tier-1-invariant — må aldri glippe) -------------------------
 environments:
-  dev_id: ujuqinujwffbgcqnhqwy                    # daglig arbeid; all loop-aktivitet treffer dette
-  prod_id: xrezrnjhrschjdzkstmu                   # «aldri rør» automatisk
+  dev_id: your-dev-project-ref                    # daglig arbeid; all loop-aktivitet treffer dette
+  prod_id: your-prod-project-ref                  # «aldri rør» automatisk
   # Hvis prosjektet ikke har et eksternt miljø-ID-begrep (ren frontend e.l.):
   # sett dev_id/prod_id til en meningsfull markør, f.eks. "n/a-dev"/"n/a-prod".
 
@@ -67,7 +73,7 @@ verification_commands:
 tier1_invariants: |
   - Norsk bokmål i UI/svar; engelsk i kode/variabler/commits.
   - RLS på alle tabeller fra første migrasjon.
-  - Dev = ujuqinujwffbgcqnhqwy. Prod = xrezrnjhrschjdzkstmu. Bland dem aldri.
+  - Dev = your-dev-project-ref. Prod = your-prod-project-ref. Bland dem aldri.
   - Aldri push/merge/commit til main.
   - Flagg som teknisk risiko: migrasjon, RLS-endring, prod/main-push, env/secrets.
 
@@ -82,6 +88,15 @@ tech_review_agents:
   - name: rls-auditor
     trigger: "supabase/migrations/"
     severity_map: "funn→BLOKKERENDE"
+  # Valgfri: `dispatch_note` er en flerlinjet blokk som rendres under arm-linja i
+  # code-reviewer-charteret. Bruk den når armen har en dispatch-kontrakt som ikke får plass
+  # i `trigger`/`severity_map` (f.eks. en verifikator som må dispatches uten kontekst).
+  # - name: <project>-verifier
+  #   trigger: "vakt-testfiler i diffen ELLER UI-flater i smoke-registryet"
+  #   severity_map: "IKKE DEKKET-par→BLOKKERENDE, UBEVISBAR par→VIKTIG"
+  #   dispatch_note: |
+  #     Send prompten ORDRETT etter malen; oppgi branch + base-SHA, aldri PR-URL.
+  #     Armens rapport bæres ordrett videre i `code_review.tech_arm_reports[]`.
 
 # --- Canary (bevis på fil-lesing) -----------------------------------------
 # Fil planner-canaryen leses fra. Velg en fil med stabilt, prosjektspesifikt
