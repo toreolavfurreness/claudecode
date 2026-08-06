@@ -5,15 +5,16 @@
 # fila ved runtime — alt substitueres ved setup-tid (ren A, én mekanisme).
 # Endrer du noe her: kjør `/setup` på nytt for å rekompilere.
 #
-# Eksempelverdiene under er fra Kornerflagget (Next.js + Supabase) — bytt
-# dem ut. Hver nøkkel mapper til ett eller flere {{TOKEN}} i templates/;
-# se token-tabellen i setup.md for den fullstendige mappingen.
+# Eksempelverdiene under er illustrative (Next.js + Supabase-stack) — bytt
+# dem ut med prosjektets egne. Hver nøkkel mapper til ett eller flere
+# {{TOKEN}} i templates/; se token-tabellen i setup.md for den fullstendige
+# mappingen.
 #
 # ALLE nøkler er påkrevd. `/setup` stopper hardt hvis én mangler.
 
 # --- Identitet -------------------------------------------------------------
-project_name: kornerflagget                      # → agent-navn <project>-planner osv. Kebab-case, ingen mellomrom.
-github_repo: toreolavfurreness/kornerflagget     # owner/repo — brukes i PR-URL-eksempler
+project_name: my-project                         # → agent-navn <project>-planner osv. Kebab-case, ingen mellomrom.
+github_repo: your-org/your-repo                  # owner/repo — brukes i PR-URL-eksempler
 language: "norsk bokmål"                          # UI/svar-språk (kode er alltid engelsk)
 dev_server_port: 3000                             # for prosess-rydding (lsof)
 dev_server_process: "next dev"                    # prosessnavn for pkill -f (f.eks. "next dev", "vite", "rails s")
@@ -45,8 +46,8 @@ models:
 
 # --- Miljøer (Tier-1-invariant — må aldri glippe) -------------------------
 environments:
-  dev_id: ujuqinujwffbgcqnhqwy                    # daglig arbeid; all loop-aktivitet treffer dette
-  prod_id: xrezrnjhrschjdzkstmu                   # «aldri rør» automatisk
+  dev_id: your-dev-project-ref                    # daglig arbeid; all loop-aktivitet treffer dette
+  prod_id: your-prod-project-ref                  # «aldri rør» automatisk
   # Hvis prosjektet ikke har et eksternt miljø-ID-begrep (ren frontend e.l.):
   # sett dev_id/prod_id til en meningsfull markør, f.eks. "n/a-dev"/"n/a-prod".
 
@@ -72,7 +73,7 @@ verification_commands:
 tier1_invariants: |
   - Norsk bokmål i UI/svar; engelsk i kode/variabler/commits.
   - RLS på alle tabeller fra første migrasjon.
-  - Dev = ujuqinujwffbgcqnhqwy. Prod = xrezrnjhrschjdzkstmu. Bland dem aldri.
+  - Dev = your-dev-project-ref. Prod = your-prod-project-ref. Bland dem aldri.
   - Aldri push/merge/commit til main.
   - Flagg som teknisk risiko: migrasjon, RLS-endring, prod/main-push, env/secrets.
 

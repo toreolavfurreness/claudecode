@@ -4,14 +4,12 @@ Denne playbooken er for et prosjekt som allerede kjører **v1** (sekvensiell
 human-orchestrator: commands på rot, monolittisk `tasks/todo.md`, punktvise
 sub-agenter) og vil over til **v2** (autonom agent-orchestrator).
 
-> **Kilden til denne oppskriften er Kornerflagget selv.** Det prosjektet ble
-> migrert v1→v2 i to trinn som speiler stegene under: først en strukturell
-> refaktor `tasks/todo.md` → én-fil-per-todo (todo-system-refaktoren), så
-> bygging av loop-maskineriet (koordinator + fire workers + rapport-kontrakter
-> + run-logg + helsesjekk) oppå det refaktorerte stillaset. Rekkefølgen er ikke
-> tilfeldig: maskineriet forutsetter én-fil-per-todo, så stillaset må på plass
-> først. Se git-historikken i `toreolavfurreness/kornerflagget` for den faktiske
-> sekvensen.
+> **Denne oppskriften er destillert fra en faktisk v1→v2-migrering,** utført i
+> to trinn som speiler stegene under: først en strukturell refaktor
+> `tasks/todo.md` → én-fil-per-todo (todo-system-refaktoren), så bygging av
+> loop-maskineriet (koordinator + fire workers + rapport-kontrakter + run-logg
+> + helsesjekk) oppå det refaktorerte stillaset. Rekkefølgen er ikke tilfeldig:
+> maskineriet forutsetter én-fil-per-todo, så stillaset må på plass først.
 
 **To inngangsstier til v2:** er prosjektet *nytt* (ikke v1 ennå) → bruk
 [`README.md`](README.md) i stedet. Denne fila er for et levende v1-prosjekt med
