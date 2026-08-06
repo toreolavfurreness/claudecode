@@ -1,0 +1,90 @@
+#!/bin/sh
+# Backstop mot delt-checkout-forurensning: nekter en commit på base-branchen
+# i HOVEDCHECKOUTEN hvis stagede filer ligger UTENFOR de tillatte
+# delt-state-stiene. Dette er et sikkerhetsnett bak disiplinen
+# (git status --short FØR delt-state-commits, se coordinator-runbook §7) —
+# IKKE en erstatning for den. Hooken lukker TOCTOU-vinduet disiplinen ikke
+# kan: indeksen evalueres på commit-tidspunktet, etter at et eventuelt
+# parallelt `git add -A` fra en annen sesjon har rukket å legge noe uventet
+# i den delte .git/index.
+#
+# SCAFFOLDING: dette er stillas, ikke en del av setup-scriptet. Sett
+# base_branch til prosjektets base_branch fra loop.config
+# (branch_strategy.base_branch). Aktiver med (idempotent, kun én gang,
+# aldri overstyr eksisterende verdi):
+#   git config core.hooksPath .githooks
+# Dette aktiverer SAMTIDIG en eventuell eksisterende pre-push-hook (samme katalog).
+
+base_branch="dev"   # ← sett til branch_strategy.base_branch fra loop.config
+
+# --- Port (a): kun hovedcheckouten, aldri en worktree/barnesesjon ------------
+# To ABSOLUTTE stier sammenlignes (git ≥2.31 krevd, ingen fallback for eldre
+# git). Naiv sammenligning av --absolute-git-dir (alltid absolutt) mot plain
+# --git-common-dir (RELATIV, f.eks. ".git", i hovedcheckouten) klassifiserer
+# feilaktig hovedcheckouten som en worktree og gjør hooken til et stille
+# dødt vern. --path-format=absolute tvinger --git-common-dir til å være
+# absolutt slik at sammenligningen er entydig.
+abs_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit 0
+abs_git_dir=$(git rev-parse --absolute-git-dir) || exit 0
+
+if [ "$abs_git_dir" != "$abs_common_dir" ]; then
+  # Linked worktree / create_session-barnesesjon — committer feature-kode legitimt. No-op.
+  exit 0
+fi
+
+# --- Port (b): kun på base-branchen ------------------------------------------
+current_branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
+if [ "$current_branch" != "$base_branch" ]; then
+  exit 0
+fi
+
+# --- Filsjekk: stagede filer utenfor tillat-lista ----------------------------
+# Tillatte prefikser (delt-state som legitimt går direkte til base-branchen —
+# TILPASS denne lista til prosjektets faktiske delt-state-flate):
+#   tasks/                        koordinatorens delt state (lessons/bugs/arkiv/todos/plans)
+#   docs/                         bl.a. run-log + plan-/beslutnings-dokumentasjon
+#   copilot-agent-orchestrator/   loop-config/templates/scaffolding (loop-infra) — juster hvis
+#                                 prosjektet har flyttet innholdet til en annen sti
+#   .gitignore                    loop-infra-config, kan ikke bære app-kode
+# Bevisst UTENFOR (eksempel — tilpass per prosjekt): migrasjonskatalogen (går
+# via feat-branch + PR — en staget migrasjonsfil på base-branchen i
+# hovedcheckouten er nettopp symptomet vernet skal fange) og .githooks/ /
+# scripts/ (disse leveres selv via feat-branch + PR — hooken er no-op på
+# feature-brancher, og `--no-verify` er nødutgangen i mellomtiden).
+#
+# Stagede filnavn hentes NUL-separert (git diff --cached --name-only -z) og
+# konverteres til linjeseparert med tr FØR while-løkken leser fra en
+# temp-fil (ikke en pipe) — dette unngår BÅDE (1) at dash sitt `read`
+# mangler `-d`-støtte (ikke POSIX) og (2) det klassiske "while read i en
+# pipe kjører i subshell"-problemet der `violations` ellers ville gått tapt
+# utenfor løkken. Trygt så lenge prosjektet håndhever et filnavnskonvensjon
+# uten newline (f.eks. kebab-case).
+staged_list=$(mktemp) || exit 0
+trap 'rm -f "$staged_list"' EXIT
+git diff --cached --name-only -z | tr '\0' '\n' > "$staged_list"
+
+violations=""
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+    tasks/*|docs/*|copilot-agent-orchestrator/*|.gitignore) ;;
+    *) violations="${violations}${violations:+ }$f" ;;
+  esac
+done < "$staged_list"
+
+if [ -n "$violations" ]; then
+  printf '\n🚫 Commit blokkert: stagede filer utenfor tillatt delt-state-sti på "%s" i hovedcheckouten.\n\n' "$base_branch"
+  printf 'Krenkende filer:\n'
+  for f in $violations; do
+    printf '  - %s\n' "$f"
+  done
+  printf '\nDette ser ut som delt-checkout-forurensning: en annen sesjons feature-kode har\n'
+  printf 'lekket inn i en delt-state-commit.\n\n'
+  printf 'Gjenoppretting:\n'
+  printf '  git restore --staged <fil>     # av-stage én fil\n'
+  printf '  git stash --keep-index         # midlertidig ta vare på uventede endringer\n\n'
+  printf 'Nødutgang (bevisst, ikke rutine): git commit --no-verify\n\n'
+  exit 1
+fi
+
+exit 0

@@ -1,0 +1,94 @@
+# loop.config.yaml — den ENESTE filen du fyller for å ta i bruk loopen
+#
+# Copilot-versjon av kildens loop.config.yaml (Claude Code v2-agent-orchestrator).
+# VIKTIG FORSKJELL fra kilden (se docs/PORTING-DECISIONS.md §3-4): denne filen leses av
+# KOORDINATOREN direkte VED HVER SESJONSSTART av loopen (ikke bare av et engangs /setup-
+# skript). Koordinatoren bruker verdiene som runtime-parametre til `task`/`create_session`
+# (model/effort) og til tekstsubstitusjon i minnet når den bygger dispatch-prompter fra
+# `templates/roles/*.md`. Ingenting under `templates/roles/` eller `templates/commands/`
+# skrives om til disk av dette — kun scaffolding (githooks/CI/tasks-README) rendres én gang
+# til disk, se README.md §Oppsett.
+#
+# ALLE nøkler er påkrevd med mindre annet er nevnt. Oppsett-skriptet stopper hardt hvis en
+# scaffolding-relevant nøkkel mangler.
+
+# --- Identitet -------------------------------------------------------------
+project_name: my-project                         # kebab-case, brukes i branch-navn/PR-titler
+github_repo: your-org/your-repo                  # owner/repo
+language: "norsk bokmål"                          # UI/svar-språk (kode er alltid engelsk)
+dev_server_port: 3000                             # for prosess-rydding
+dev_server_process: "next dev"                    # kun til dokumentasjon/manuell rydding —
+                                                   # bruk ALLTID port-scopet drap (lsof -ti :PORT),
+                                                   # aldri navnebasert (dreper andres dev-servere)
+
+# --- Modeller (tier per rolle) ---------------------------------------------
+# planner/reviewer/code-reviewer = dyp modell+innsats; implementer = rask.
+# Disse leses av koordinatoren ved SESJONSSTART og brukes som runtime-parametre
+# (task-verktøyets `model`/`reasoning_effort`, create_session sin `kickoff.model`/
+# `kickoff.reasoning_effort`) — IKKE kompilert inn i agent-frontmatter (se PORTING-DECISIONS §4).
+# Bruk ALLTID en eksplisitt modell-ID/alias fra Copilot sin faktiske modelliste for
+# koordinator-sesjonen din — aldri en påstått modell som ikke faktisk er tilgjengelig.
+models:
+  planner: claude-opus-5
+  planner_effort: high
+  reviewer: claude-opus-5
+  reviewer_effort: high
+  implementer: claude-sonnet-5
+  implementer_effort: high
+  code_reviewer: claude-opus-5
+  code_reviewer_effort: high
+  verifier: claude-opus-5                         # kun relevant hvis tech_review_agents har en verifier
+  verifier_effort: high
+
+# --- Miljøer (Tier-1-invariant — må aldri glippe) ---------------------------
+environments:
+  dev_id: your-dev-project-ref
+  prod_id: your-prod-project-ref
+  # Rent frontend/uten eksternt miljø-ID-begrep: bruk en meningsfull markør, f.eks. "n/a".
+
+# --- Branch-strategi ---------------------------------------------------------
+branch_strategy:
+  base_branch: dev            # PR-er lages mot denne; loopen merger hit
+  release_branch: main        # produksjon; loopen rører den ALDRI
+  prod_branch: main           # «aldri push/merge/commit»-branchen (oftest == release_branch)
+
+# --- Verifiserings-kommandoer -------------------------------------------------
+# Tomme strenger ("") = steget hoppes over.
+verification_commands:
+  build: "npm run build"
+  type_check: "npx tsc --noEmit"
+  type_check_script: "npm run type-check"
+  lint: "npm run lint"
+  test: "npm run test:run"
+  e2e: "Playwright MCP (playwright-browser_* verktøyene)"   # tom "" hvis ingen e2e
+
+# --- Tier-1-invarianter (sikkerhetsnett i hver rolle-dispatch) ---------------
+tier1_invariants: |
+  - Norsk bokmål i UI/svar; engelsk i kode/variabler/commits.
+  - Dev = your-dev-project-ref. Prod = your-prod-project-ref. Bland dem aldri.
+  - Aldri push/merge/commit til main.
+  - Flagg som teknisk risiko: migrasjon, tilgangskontroll-endring, prod/main-push, env/secrets.
+
+# --- Pluggbare tech-review-agenter -------------------------------------------
+# Samme mønster som kilden: dispatches som friske in-session task-kall av code-reviewer-rollen
+# (rent lesende — ingen isolasjon nødvendig med mindre agenten selv muterer, se verifier).
+# Tom liste [] = code-revieweren kjører uten tech-review-arm.
+tech_review_agents: []
+# Eksempel:
+# tech_review_agents:
+#   - name: security-reviewer
+#     trigger: "src/app/(auth)/, src/lib/auth/"
+#     severity_map: "KRITISK→BLOKKERENDE, HØY→VIKTIG, LAV→MINDRE"
+
+# --- Kanary + lessons + pause-triggere ----------------------------------------
+canary_source: "docs/data-model.md"        # stabil fil planner-canaryen leser fra
+lessons_topics: [auth, database, api, ui, testing, git-workflow, general]
+pause_triggers: "migrasjon, tilgangskontroll-endring, prod/main-push, env/secrets"
+
+# --- Release ------------------------------------------------------------------
+release:
+  command: "npm run release"                # kjøres av MENNESKET, aldri av loopen selv
+  health_check_merge_interval: 5             # kjør helsesjekk hver N. merge
+
+loop_eval:
+  merge_interval: 10                         # kjør selvevaluering hver N. merge

@@ -1,0 +1,37 @@
+name: CI
+# SCAFFOLDING — blokkerende CI-port på PR (type-check / lint / test).
+# Dette er stillas, ikke en del av setup-scriptet. Tilpass branch-navn og
+# kommandoer til prosjektet (loop.config branch_strategy + verification_commands).
+# Eksempelet under er Node/npm — bytt til prosjektets toolchain.
+
+on:
+  pull_request:
+    branches: [main, dev]   # ← prod_branch + base_branch fra loop.config
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run type-check     # ← verification_commands.type_check_script
+      - run: npm run lint           # ← verification_commands.lint
+      - run: npm run test:run       # ← verification_commands.test
+
+  # Blokkerende gate mot todo-nr-kollisjoner mellom parallelle koordinatorer.
+  # Leser samme kilder som koordinatorens pre-merge-kjøring (coordinator-runbook.md §7
+  # punkt 1): frontmatter i tasks/todos/todo-*.md + tasks/todo_archive.md. Kopier
+  # scriptet fra scaffolding/scripts/ til prosjektets scripts/ for at jobben skal virke.
+  # Egen jobb (ikke et steg i `verify`) så den kjører selv om toolchain-steget feiler.
+  todo-nr-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/check-todo-nr-collisions.sh
