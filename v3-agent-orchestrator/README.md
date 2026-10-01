@@ -19,6 +19,16 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.2** (fra et andre prosjekt som kjørte v2-loopen):
+- **Sjekkpunkt ved komprimering (valgfri, av som standard):** koordinatoren skriver et sjekkpunkt
+  ved hver steg-overgang. To hooks legger det tilbake i konteksten etter en auto-komprimering og
+  logger om det var ferskt. Slås på med `hooks.compaction_checkpoint`; mål på din runtime først
+  (`steps/0c-sjekkpunkt.md`).
+- **Ett funn per mekanisme:** et review-funn som nevner flere mekanismer deles i flere funn, og
+  fix-runden kvitterer per mekanisme. Ellers kan én rettet mekanisme lukke hele funnet.
+- **Arbeidstre-vakt i eksempel-lensene:** lensene leser PR-en med `git show <sha>:<sti>` og endrer
+  aldri HEAD, indeks eller refs i kode-reviewerens arbeidstre.
+
 **v3.1** (synk mot opphavsprosjektet per 30.09.2026):
 - **Lessons:** én fil per lesson, `tasks/lessons/<tema>/<dato>-<slug>.md` med `tags`/`kilder`.
   Oppfølginger ligger i `tasks/followups/`. `scripts/split-lessons.py` migrerer gamle temafiler.
@@ -87,7 +97,8 @@ v3-agent-orchestrator/
 │   ├── .claude/commands/      run-loop, todo-finish-worker, loop-health-check, todo-plan(+review),
 │   │                          todo-execute, todo-done, start, status, endsession
 │   ├── .claude/hooks/         guard-main-merge, guard-reviewer-readonly, guard-fix-round-model
-│   │                          (+ harnesser og kontrakt), session-start-lint, typecheck-on-edit
+│   │                          (+ harnesser og kontrakt), session-start-lint, typecheck-on-edit,
+│   │                          sessionstart-/precompact-checkpoint (valgfri, + harness)
 │   ├── .claude/scripts/       bootstrap-worktree.sh
 │   ├── scripts/               check-todo-nr-collisions.sh, check-todo-nr-premerge.sh
 │   ├── docs/                  loop-rules.md, orchestration-loop.md, hotfix-runbook.md,
@@ -138,6 +149,7 @@ v3-agent-orchestrator/
    bash .claude/hooks/test-guard-fix-round-model.sh
    bash tasks/test-gate-f.sh
    python3 tasks/ci-gate.py --self-test
+   bash .claude/hooks/test-checkpoint-hooks.sh   # bare når hooks.compaction_checkpoint er på
    bash tasks/test-worktree-sweep.sh
    bash tasks/test-worktree-landed.sh
    ```
@@ -202,8 +214,13 @@ feiler høyt på gjenværende `{{...}}` eller manglende nøkler. Se [`setup.md`]
   `pre` (default) er den som skal være grønn.
 - **`TODO NNN` / `CF-NNN` i kommentarer** er opphavsprosjektets sporingsnumre og forteller hvor en
   regel kom fra. Du trenger ikke slå dem opp; reglene står fullt ut der de brukes.
-- **Fra v2-prosjektlinjen er ikke med:** verifier-agenten (kode-revieweren dekker samme rolle i
-  v3), og retro-/beslutningslogg-stegene som v3 allerede har egne varianter av.
+- **Verifier-agenten fra v2 er ikke med.** v3 dekker deler av rollen på en annen måte:
+  - At en vakt kan gå rød, bevises av planens mutasjonsrader og gate F.
+  - Rekkefølgen rødt før grønt sjekkes av kode-revieweren.
+  - Det som mangler: implementeren kjører mutasjonene selv, så det finnes ingen uavhengig agent
+    som muterer koden i eget arbeidstre. v3 har heller ingen layout-sjekk ved UI-endringer.
+    Trenger prosjektet det, kopier `PROJECT_NAME-verifier.md` fra v2 og tilpass den.
+- **Retro- og beslutningslogg-stegene fra v2 er ikke med.** v3 har egne varianter av dem.
 - **Enkelte regelsett er utledet fra opphavsprosjektet** og sier det selv i kommentaren
   (`lesson-classes.py`, `vblock-lint.py`, beslutningsklasse A3 i `decision-level.py`). De virker,
   men treffer best i et prosjekt som ligner. Tilpass etter noen runder.

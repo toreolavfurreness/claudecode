@@ -2,7 +2,11 @@
 
 Inngangsstier:
 
-- **Prosjektet kjører v3.0** → [Fra v3.0 til v3.1](#fra-v30-til-v31).
+- **Prosjektet kjører v3.1** → kjør `/setup` på nytt. v3.2 legger bare til nytt innhold og en
+  valgfri nøkkel, `hooks.compaction_checkpoint` (av som standard). Har du kopiert eksempel-lensene
+  inn i `.claude/agents/`, ta med den nye seksjonen «Tilgang til koden under review» og regelen om
+  ett funn per mekanisme selv. `/setup` rører ikke tech-review-agentene dine.
+- **Prosjektet kjører v3.0** → [Fra v3.0 til v3.1](#fra-v30-til-v31), så `/setup`.
 - **Prosjektet kjører v2** (har `v2-agent-orchestrator/` og en fungerende loop) → [Fra v2](#fra-v2-til-v3).
 - **Prosjektet kjører v1** (sekvensiell human-orchestrator) → [Fra v1](#fra-v1-til-v3). Stegene der
   er skrevet for v2 og gjelder uendret med v3-kit-et; v3-nøklene har defaults.

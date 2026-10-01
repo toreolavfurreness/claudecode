@@ -120,7 +120,8 @@ autoritativt; tabellen er for mennesker.
 **Uten token, styrt av config:** `hooks.*` avgjør hvilke hook-filer som genereres
 (`SKIP_WHEN_OFF`) og hvilke som registreres i `.claude/settings.json`. Default: de tre
 vaktene (`main_merge_guard`, `reviewer_readonly_guard`, `implementer_model_guard`) PÅ,
-`session_start_lint` og `typecheck_on_edit_extensions` AV.
+`session_start_lint`, `typecheck_on_edit_extensions` og `compaction_checkpoint` AV.
+`compaction_checkpoint` styrer også om `docs/superpowers/loop/steps/0c-sjekkpunkt.md` genereres.
 
 ## Substitusjons-skript
 
@@ -323,7 +324,7 @@ _hk = c.get("hooks") or {}
 if not isinstance(_hk, dict):
     sys.exit(f"FEIL: hooks må være et objekt, fikk {_hk!r}.")
 _HOOK_BOOLS = {"main_merge_guard": True, "reviewer_readonly_guard": True, "implementer_model_guard": True,
-               "session_start_lint": False}
+               "session_start_lint": False, "compaction_checkpoint": False}
 _hooks_on = {}
 for _k, _default in _HOOK_BOOLS.items():
     _v = _hk.get(_k, _default)
@@ -698,6 +699,9 @@ if not _hooks_on["reviewer_readonly_guard"]:
                       ".claude/hooks/reviewer-readonly.contract"}
 if not _hooks_on["implementer_model_guard"]:
     SKIP_WHEN_OFF |= {".claude/hooks/guard-fix-round-model.sh", ".claude/hooks/test-guard-fix-round-model.sh"}
+if not _hooks_on["compaction_checkpoint"]:
+    SKIP_WHEN_OFF |= {".claude/hooks/sessionstart-checkpoint.sh", ".claude/hooks/precompact-checkpoint.sh",
+                      ".claude/hooks/test-checkpoint-hooks.sh", "docs/superpowers/loop/steps/0c-sjekkpunkt.md"}
 if not _hooks_on["session_start_lint"]:
     SKIP_WHEN_OFF.add(".claude/hooks/session-start-lint.sh")
 if not _hooks_on["typecheck_on_edit"]:
@@ -789,6 +793,8 @@ _HOOKS = [
     ("implementer_model_guard", "PreToolUse", "Agent", '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-fix-round-model.sh"'),
     ("typecheck_on_edit", "PostToolUse", "Edit|Write|MultiEdit", '"$CLAUDE_PROJECT_DIR/.claude/hooks/typecheck-on-edit.sh"'),
     ("session_start_lint", "SessionStart", None, 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start-lint.sh"'),
+    ("compaction_checkpoint", "SessionStart", "compact", 'sh "$CLAUDE_PROJECT_DIR/.claude/hooks/sessionstart-checkpoint.sh"'),
+    ("compaction_checkpoint", "PreCompact", "auto", 'sh "$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-checkpoint.sh"'),
 ]
 _sp = os.path.join(ROOT, ".claude", "settings.json")
 _settings = {}
@@ -819,7 +825,8 @@ if _changed:
         json.dump(_settings, f, indent=2, ensure_ascii=False); f.write("\n")
 
 # --- .gitignore: runtime-filer fra hooks og worktree-rydding --------------------------
-_GI = ["tasks/hook-blocks.log*", "tasks/hook-readonly-gate.log*", ".claude/worktrees/", ".claude/worktree-rescue/"]
+_GI = ["tasks/hook-blocks.log*", "tasks/hook-readonly-gate.log*", ".claude/worktrees/", ".claude/worktree-rescue/",
+       "tasks/.loop-state/"]
 _gp = os.path.join(ROOT, ".gitignore")
 _git = open(_gp).read() if os.path.exists(_gp) else ""
 _missing_gi = [x for x in _GI if x not in _git.splitlines()]
