@@ -9,12 +9,14 @@ er avledet og overskrives; rediger aldri queue-status.md for hånd.
 Kjør fra repo-roten (koordinatoren kan gjøre det i §6-halen):
     python3 tasks/queue-status.py > tasks/queue-status.md
 
-Grupperingen er «neste i køen / venter på deps / pågår / utsatt». Vil prosjektet gruppere
-etter epic eller release, er `group_of` stedet å utvide.
+Grupperingen er «neste i køen / venter på deps / pågår / utenfor aktiv release / utsatt». Med en
+aktiv release (tasks/releases/) står fremdriften fra `tasks/release.py status` øverst.
 """
 import glob
+import os
 import pathlib
 import re
+import subprocess
 import sys
 from datetime import datetime
 
@@ -27,7 +29,10 @@ def fm(path):
         for line in m.group(1).splitlines():
             mm = re.match(r"(\w+):\s*(.*)", line)
             if mm:
-                d[mm.group(1)] = mm.group(2).strip().strip('"')
+                # Innholdet i "…", ellers alt før en ` #`-kommentar (samme regel som release.py).
+                v = mm.group(2).strip()
+                q = re.match(r'"([^"]*)"', v)
+                d[mm.group(1)] = q.group(1) if q else re.sub(r"\s+#.*$", "", v)
     body = t[m.end():] if m else t
     d["_brainstorm"] = bool(
         re.search(r"krever[^.\n]*brainstorm|brainstorm\s+f.?r\s+plan|spec\s+f.?r\s+plan", body, re.I)
@@ -48,6 +53,12 @@ for p in glob.glob("tasks/todos/todo-*.md"):
     d = fm(p)
     if d.get("nr"):
         todos[d["nr"]] = d
+
+
+# Samme release-filter som §1: bare todoer i den aktive releasen er kvalifisert.
+_active = [p for p in glob.glob("tasks/releases/*.md")
+           if os.path.basename(p) != "README.md" and fm(p).get("status") == "active"]
+REL = os.path.basename(_active[0])[:-3] if len(_active) == 1 else None
 
 
 def deps_of(d):
@@ -81,7 +92,8 @@ def eligible(d):
         and d.get("claimed_by", "null") in ("null", "", None)
         and not d["_brainstorm"]
         and all(dep_done(x) for x in deps_of(d))
-        and not re.search(r"\bforslag\b", d.get("tags", "") or "")
+        and not re.search(r"\bforslag\b|\bprod-release\b", d.get("tags", "") or "")
+        and (REL is None or d.get("release") == REL)
     )
 
 
@@ -109,14 +121,16 @@ def group_of(d):
         return "Pågår"
     if eligible(d):
         return "Neste i køen"
+    if s in ("open", "reviewed") and REL and d.get("release") != REL:
+        return "Utenfor aktiv release"
     if s in ("open", "reviewed"):
-        return "Venter (deps, brainstorm eller forslag)"
+        return "Venter (deps, brainstorm, forslag eller prod-release)"
     if s == "deferred":
         return "Utsatt"
     return None  # done/split vises ikke
 
 
-GROUPS = ["Pågår", "Neste i køen", "Venter (deps, brainstorm eller forslag)", "Utsatt"]
+GROUPS = ["Pågår", "Neste i køen", "Venter (deps, brainstorm, forslag eller prod-release)", "Utenfor aktiv release", "Utsatt"]
 
 out = [
     "<!-- GENERERT av tasks/queue-status.py — IKKE rediger for hånd. -->",
@@ -125,6 +139,9 @@ out = [
     f"{len(todos)} todo-filer. Rekkefølge = §1: `priority: prioritert` først, så `order`.",
     "",
 ]
+if REL or len(_active) > 1:
+    _r = subprocess.run([sys.executable, "tasks/release.py", "status"], capture_output=True, text=True)
+    out += ["> " + line for line in (_r.stdout or _r.stderr).splitlines()] + [""]
 live = sorted((d for d in todos.values() if group_of(d)), key=key)
 for g in GROUPS:
     rows = [d for d in live if group_of(d) == g]

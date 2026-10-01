@@ -8,6 +8,7 @@ Bruk: python3 tasks/measure-cost.py <since-iso> [<session-dir>...] [--html <sti>
   --trend          skriver trend-dommene som tekst (for §8c i coordinator-runbook.md) og
                    avslutter med exit 1 hvis minst én måling har gått i feil retning.
   --cutover <iso>  skillet før/etter kostnadsgrepene (standard 2026-09-15T18:30Z).
+  --release <ver>  bare todoene i releasens scope (`tasks/release.py scope <ver>`): kost per release.
   MEASURE_ROWS=<sti.json> skriver i tillegg radene som JSON (legg den i scratchpad, ikke i repoet).
 Merk: Claude Code sletter transkripter eldre enn `cleanupPeriodDays` (standard 30 dager), så et
 vindu lenger tilbake blir stille ufullstendig. Hev innstillingen før du måler lengre perioder.
@@ -23,6 +24,7 @@ def _opt(flag, default=None):
         i = args.index(flag); v = args[i + 1]; del args[i:i + 2]; return v
     return default
 html_path = _opt('--html')
+release = _opt('--release')
 # Fjern flagget FRA args, ikke bare les det fra sys.argv: `dirs = args[1:]` tolker ellers
 # «--trend» som en sesjonskatalog, og hele kostnadssiden blir tom uten at noe feiler.
 want_trend = '--trend' in args
@@ -171,6 +173,15 @@ for r in rows:
     p = r['parent']
     while r['todo'] == '-' and p and p in by_id:
         r['todo'] = todo_of(by_id[p]['desc']); p = by_id[p]['parent']
+
+if release:
+    # Tomt scope gir ellers «SUM: $0.00» med exit 0, som ser ut som en billig release.
+    _sc = subprocess.run([sys.executable, 'tasks/release.py', 'scope', release], capture_output=True, text=True)
+    scope = set(_sc.stdout.split())
+    if _sc.returncode != 0 or not scope:
+        sys.exit(f"FEIL: fant ingen todoer i scope for release {release} ({_sc.stderr.strip() or 'tomt scope'})")
+    rows = [r for r in rows if r['todo'] in scope]
+    print(f"Release {release}: {len(scope)} todoer i scope, {len(rows)} agenter knyttet til dem")
 
 def fmt(n): return f"{n/1000:,.0f}k"
 

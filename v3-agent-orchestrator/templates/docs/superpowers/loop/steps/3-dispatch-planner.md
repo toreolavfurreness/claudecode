@@ -36,7 +36,7 @@ stille anta at et tomt/manglende snapshot betyr «ren». Én fil per dispatch �
 tvers av dispatches (se §0b, R21).
 
 `Agent`: `subagent_type: {{PROJECT_NAME}}-planner`. Prompt:
-> TODO <nr> (`tasks/todos/todo-<nr>-<slug>.md`). Relevante lessons-tema: <liste>. Eksisterende løsning: <`sti:linje` eller «ingen funnet»>. Kjerne-anslag: <linjer>/<filer>. Budsjett: <linjer>/<filer>. Canary: tell til linje <N> i `{{CANARY_FILE}}` og returner BÅDE linjenummeret du landet på OG de første 8 ordene på den linja. Følg charteret ditt. Returner plan-rapport som JSON.
+> TODO <nr> (`tasks/todos/todo-<nr>-<slug>.md`). Relevante lessons-tema: <liste>. Eksisterende løsning: <`sti:linje` eller «ingen funnet»>. Kjerne-anslag: <linjer>/<filer>. Budsjett: <linjer>/<filer>. Release-mål: <`goal` fra den aktive releasen, eller «ingen aktiv release»> — planen tjener målet, og arbeid utover todoen blir funn i rapporten, ikke steg. Canary: tell til linje <N> i `{{CANARY_FILE}}` og returner BÅDE linjenummeret du landet på OG de første 8 ordene på den linja. Følg charteret ditt. Returner plan-rapport som JSON.
 
 Verifiser `canary` mot den faktiske teksten du noterte. Riktig tekst og riktig nummer → OK. Teksten
 er ekte, men fra en annen linje enn <N> (nummeret workeren oppga stemmer med teksten) → telle-drift,

@@ -26,6 +26,7 @@ Ingen kvalifisert todo → IKKE stopp tomt. Foreslå inntil **3** nye todos/bugs
 status: deferred
 tags: [forslag]
 ```
+Et forslag får aldri `release:`. Mennesket legger det i en release ved triage.
 Kombinasjonen er dobbel gating: `status: deferred` holder forslaget ute av §1-køen (som kun plukker `status: open`), og `tags: [forslag]` holder det ute selv om noen ved uhell flipper statusen uten å fjerne taggen.
 
 **Persistering:** de nye todo-utkast-filene under `tasks/todos/` er delt state. Kjør

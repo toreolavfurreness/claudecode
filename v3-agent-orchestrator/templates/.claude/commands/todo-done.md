@@ -45,6 +45,8 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
    **Status:** ferdig
    **Branch:** [feature/branch-navn]
    **PR:** [PR-nummer hvis relevant]
+   **Release:** [`release`-feltet fra todoen, eller -]
+   **Epic:** [`epic`-feltet fra todoen, eller -]
 
    ### Beskrivelse
    [original beskrivelse fra todofilen]

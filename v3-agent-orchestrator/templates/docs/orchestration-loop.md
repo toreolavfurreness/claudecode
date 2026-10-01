@@ -64,6 +64,7 @@ Du trenger ikke røre koordinatoren for å endre hva som blir gjort. Rediger **e
 | Ta noe ut av køen midlertidig | Sett `status: deferred` |
 | Legge til ny oppgave | Lag en ny `tasks/todos/todo-NN-slug.md` |
 | Tvinge en rekkefølge | Sett `deps: ["NN"]` |
+| Sette et mål loopen jobber mot | Lag `tasks/releases/<versjon>.md` med `goal` og `done_when`, sett `release:` på todoene og `status: active` (se `tasks/releases/README.md`) |
 | Sørge for at loop-forbedringer ikke sulter | Sett `priority: prioritert` på en `loop`-tagget todo. Koordinatoren rapporterer kø-sammensetningen (`N av M åpne todos er loop-taggede`) i §1 hver runde. |
 
 Koordinatoren leser dette på nytt ved hver runde, så endringene slår inn umiddelbart.
@@ -105,6 +106,7 @@ Review-kadansen din går altså fra *per plan* til *per release* + stikkprøver.
 | **Reviewer-no-go som ikke løses** | Planen har blokkerende svakheter etter 1–2 revisjoner |
 | **Kode-reviewer revise-gate etter 2/2 — pausepunkt-regel B1 (TODO 246)** | Koordinatoren velger selv (én ekstra fix-runde, merge m/carry-forwards, eller stopp) og logger valget i `decision-log.md`; eskalerer til deg (nivå A) kun hvis den ene ekstra runden også er brukt og gaten fortsatt ikke er tom (§5b) |
 | **Agent-probe i preflight feiler («Agent type not found», dekker §5b)** | Start en fersk koordinator-sesjon (se sesjonsstart-noten (B1) over) |
+| **Release: scope tomt eller blokkert** | Med en aktiv release stopper loopen når scopet er tomt (`MÅL NÅDD` → prod-release-todoen er din; `MÅL IKKE NÅDD` → legg til todoer eller juster `done_when`), eller når åpne todoer i scope ikke kan velges. Den henter ikke arbeid utenfor releasen uten ditt ord. |
 | **Helsesjekk rød** | Regresjon eller infra-feil i integrert `{{BASE_BRANCH}}` — koordinatoren eskalerer med detaljer, du bestemmer neste steg |
 | **Uventet feil / merge-konflikt** | Loopen gjetter ikke — den stopper og rapporterer |
 
@@ -132,6 +134,8 @@ Loopen og du kan jobbe «samtidig» så lenge dere holder dere til hver deres fi
 | Ny `tasks/bugs/inbox/bug-*.md` | Deg | ✅ ny fil = null konflikt |
 | `priority` / `order` / `status: deferred` på **u-claimet** todo | Deg | ✅ trygt |
 | `status: deferred↔open` + `tags`-endring på **u-claimet** todo (triage av grooming-forslag) | Deg | ✅ trygt — dette er triage-handlingen (se Grooming-seksjonen) |
+| `tasks/releases/<versjon>.md`: ny fil, `status`, `goal`, `cutoff`, `## Epics`; `release:`/`epic:` på u-claimet todo | Deg | ✅ trygt |
+| Avkrysning i `## done_when` (med bevis), utkast til `## Retro` | Koordinator | ✅ du kan krysse av selv |
 | `claimed_by`, `status: in_progress/done` | Koordinator | ❌ ikke rør (= «in-flight»-signal) |
 | `plan:` på en **u-claimet** todo (pipelinet plan) | Koordinator | ❌ ikke rør — men todoen er IKKE under arbeid: `priority`/`order`/`deferred` er fortsatt trygt |
 | `lessons*`, `followups/`, `todo_archive.md`, `bugs.md` | Koordinator | ❌ ikke rør manuelt |

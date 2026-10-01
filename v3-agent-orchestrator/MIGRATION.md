@@ -2,6 +2,11 @@
 
 Inngangsstier:
 
+- **Prosjektet kjører v3.3** → kjør `/setup` på nytt. Releaser er valgfrie: uten en fil i
+  `tasks/releases/` med `status: active` er køutvalget som før. Vil du ta dem i bruk, følg
+  `tasks/releases/README.md`. Arkivoppføringer skrevet før v3.4 mangler `**Release:**`-linja og
+  teller ikke i releasens fremdrift; legg linja til for hånd på dem som hører til den aktive
+  releasen.
 - **Prosjektet kjører v3.2** → kjør `/setup` på nytt. To endringer merkes utenfor kit-filene:
   plan-rapporten har et nytt felt, `planned_diff`, og kanarien har nytt format, `L<N>: <tekst>`.
   Har du egne verktøy som leser plan-rapporter, oppdater dem. Har du skrevet om plan-malen, sjekk at

@@ -19,6 +19,22 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.4** (releaser med mål):
+- **Release-filer:** `tasks/releases/<versjon>.md` har `status` (`planned`, `active` eller
+  `shipped`), `goal`, `cutoff`, en `## done_when`-sjekkliste (releasens definition of done) og
+  epics. Todoer peker på releasen med `release:` og eventuelt `epic:`.
+- **Loopen jobber mot målet:** med en aktiv release velger §1 bare todoer i scope. Når scopet er
+  tomt, stopper loopen med `MÅL NÅDD` eller `MÅL IKKE NÅDD`, i stedet for å hente annet arbeid.
+  Planneren får release-målet i dispatchen.
+- **Prod-release-todo per release:** en todo med `tags: [prod-release]`, eid av mennesket. Loopen
+  velger den aldri og peker på den når målet er nådd.
+- **Scope-vakt:** nye funn får ikke `release:` automatisk. Etter cut-off slipper bare
+  `release_blocker: true` inn, og `release.py status` advarer om resten.
+- **`tasks/release.py`:** `status` (fremdrift, også per epic, og DOM), `scope` og `notes` (release
+  notes fra arkivet). Helsesjekken og køoversikten viser fremdriften, og
+  `measure-cost.py --release <versjon>` gir kostnaden per release.
+- Uten en aktiv release oppfører loopen seg som før.
+
 **v3.3** (mer fra det samme andre prosjektet):
 - **Plan-lint før review:** `tasks/vblock-lint.py` har en hard regel R0 (planen må ha en
   `## Steg`-seksjon med minst ett steg), og §4 kjører linten før reviewer-dispatch. En rød plan går
@@ -167,6 +183,7 @@ v3-agent-orchestrator/
    python3 tasks/ci-gate.py --self-test
    python3 tasks/vblock-lint.py --self-test
    python3 tasks/loop-cadence.py --self-test
+   python3 tasks/release.py --self-test
    bash .claude/hooks/test-checkpoint-hooks.sh   # bare når hooks.compaction_checkpoint er på
    bash tasks/test-worktree-sweep.sh
    bash tasks/test-worktree-landed.sh
