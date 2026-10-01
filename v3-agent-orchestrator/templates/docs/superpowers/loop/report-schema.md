@@ -35,7 +35,8 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
   "technical_risk": { "flagged": false, "kind": null, "executable_gate": null, "detail": null },
   "deps_ok": true,
   "verification_criteria": ["Uinnlogget bruker på dyp lenke → /login?next=<url>"],
-{{SCOUT_USAGE_LINE}}  "canary": "<eksakt tekst fra fil+linje koordinatoren oppga i dispatch>",
+  "planned_diff": { "lines": 40, "files": 2 },
+{{SCOUT_USAGE_LINE}}  "canary": "L<linjenummeret du landet på>: <de første 8 ordene på den linja>",
   "evidence": { "toplevel": "<ordrett output av `git rev-parse --show-toplevel`>", "plan_tail": "<ordrett `tail -5` av planfilen>" },
   "status": "reviewed",
   "notes": "Forbehold eller funn."
@@ -45,7 +46,8 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
 - `technical_risk.flagged`: `true` hvis planen krever noe under pause-triggerne. `kind` ∈ `"migration"|"rls"|"prod_push"|"secrets"|"docs_selfmod"|"hook_selfmod"` (de to siste, TODO 246, dekker kit-selvmodifisering). `docs_selfmod` = `v3-agent-orchestrator/templates/`, `.claude/commands/setup.md` — IKKE prosjektets øvrige dokumentasjon. `hook_selfmod` = ikke-A-håndhevende hooks i `.claude/hooks/` (i dag: `typecheck-on-edit.sh`, `session-start-lint.sh`, `guard-reviewer-readonly.sh` + tilhørende test-script) — **eksplisitt UTENFOR scope:** hooks som håndhever en nivå-A-invariant (`guard-main-merge.sh` = A4 push/merge til `{{PROD_BRANCH}}`; `guard-supabase-ref.sh` = A1/A7 prod/dev-prosjektref-skille) forblir ALLTID nivå A uansett `executable_gate`, fordi B5s koordinator-selv-godkjenning ellers ville latt koordinatoren godkjenne endring av vakten som håndhever sin egen A-plikt. Tilpass ellers til prosjektets pause-triggere.
 - `technical_risk.executable_gate` (TODO 246, kun relevant når `kind` er `docs_selfmod`/`hook_selfmod`): `true` hvis planen har en KJØRBAR testtabell/differensial/mutasjonstest for endringen (ikke bare prosa-verifisering). `null` for de øvrige `kind`-verdiene. Koordinatoren klassifiserer `flagged: true` med `kind ∈ {docs_selfmod, hook_selfmod}` og `executable_gate: true` som **pausepunkt-regel B5** (`tasks/decision-level.py`) — bestemmer selv og logger i stedet for å spørre. Enhver annen `technical_risk` (inkludert ALT flagget av en REVIEWER, som aldri bærer `kind`/`executable_gate` — se «Kode-review-rapport» under) forblir nivå A.
 - `deps_ok`: `false` → `status: "blocked"`.
-- `canary`: stikkprøve på at filene faktisk ble lest. Koordinatoren oppgir et mål (fil + linje som IKKE er gjentatt i prompten); planneren returnerer den eksakte teksten. Mismatch = lesing hoppet over. NB: dette beviser at lesing *skjedde*, ikke at *alle* bootstrap-filer ble lest fullt.
+- `planned_diff`: planens anslag for diffen, i linjer og filer. §4 sammenligner det med budsjettet fra §3-dispatchen (proporsjonalitet).
+- `canary`: stikkprøve på at filene faktisk ble lest. Koordinatoren oppgir et mål (fil + linje som IKKE er gjentatt i prompten); planneren returnerer linjenummeret den landet på og den eksakte teksten der. Mismatch = lesing hoppet over. NB: dette beviser at lesing *skjedde*, ikke at *alle* bootstrap-filer ble lest fullt.
 - `evidence`: `toplevel` beviser at planneren skriver i EGEN worktree (feil-cwd er en observert bug-klasse — planneren skrev en gang planfilen til hovedsjekkuten); `plan_tail` beviser at planfilen faktisk ble skrevet på disk. I probe-modus (se «Bevis-regel» over): utelates helt.
 - `status` ∈ `"reviewed"|"blocked"`.
 - `scout_usage`: summen av `measurement`-objektene fra scout-rapportene denne rollen dispatchet
@@ -300,7 +302,12 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
 }
 ```
 
-- `status` ∈ `"implemented"|"blocked"|"failed"`.
+- `status` ∈ `"implemented"|"blocked"|"failed"|"plan_invalid"`.
+- `plan_invalid` = **planen selv holdt ikke**: en antakelse den bygger på stemmer ikke med koden
+  slik den faktisk er. Skilles fra `failed` (planen var god, implementeringen strandet) og `blocked`
+  (planen er god, men et steg krever eier-fullmakt). `pr_url: null`. `notes` MÅ navngi HVILKEN
+  antakelse som brast og HVILKET målt funn som felte den; uten det er rapporten ugyldig, fordi den
+  ber om en ny plan uten å levere fakta til den. Koordinatoren ruter den tilbake til planlegging (§5).
 - `verification.tdd`: `required_steps` = antall `TDD-STEG` i planen (ikke implementerens skjønn);
   `deviations[]` = merkede steg uten rødt-par, med målt grunn. Tomt felt = «ingen», manglende felt =
   «ikke gjort». Ingen `TDD-STEG` ⇒ `{"required_steps": 0, "pairs": [], "deviations": []}`. Hele

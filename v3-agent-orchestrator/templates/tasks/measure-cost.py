@@ -9,6 +9,8 @@ Bruk: python3 tasks/measure-cost.py <since-iso> [<session-dir>...] [--html <sti>
                    avslutter med exit 1 hvis minst én måling har gått i feil retning.
   --cutover <iso>  skillet før/etter kostnadsgrepene (standard 2026-09-15T18:30Z).
   MEASURE_ROWS=<sti.json> skriver i tillegg radene som JSON (legg den i scratchpad, ikke i repoet).
+Merk: Claude Code sletter transkripter eldre enn `cleanupPeriodDays` (standard 30 dager), så et
+vindu lenger tilbake blir stille ufullstendig. Hev innstillingen før du måler lengre perioder.
 Dedupliserer usage per message.id (strømmede svar gjentar usage per content-blokk).
 Vektet = input + 1.25*cache_create + 0.1*cache_read + 5*output (relativ til input-pris, samme modell).
 """

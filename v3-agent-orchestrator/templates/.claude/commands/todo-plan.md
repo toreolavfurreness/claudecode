@@ -73,7 +73,7 @@ Etter at du godkjenner planen:
      # TODO <nr> — <tittel>
      **Dato:** [dato]
      **Plan-SHA:** [full 40-tegns SHA — `git rev-parse origin/{{BASE_BRANCH}}` etter synk]
-     **Status:** reviewet — klar for /todo-execute
+     **Status:** utkast — ikke reviewet (reviewen avgjør om planen er klar for /todo-execute)
 
      ## Analyse
      [analysedel]

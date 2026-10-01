@@ -51,7 +51,12 @@ RULES = []
 #          lessonen beskriver, OG ren på den fiksede formen. Gir exit 1.
 #   SOFT — mønsteret er ekte, men presisjonen er ikke etablert. Vises, blokkerer ikke.
 #
-# **I dag er INGEN regel HARD, og det er en målt konklusjon, ikke forsiktighet.**
+# **Unntak: R0 er HARD fra start.** Den er strukturell, ikke et mønster-gjett: planen har en
+# Steg-seksjon med avkrysningsbokser eller ikke, og det er samme test kode-revieweren og §4 teller
+# med. Motprøvd begge veier i `--self-test`. Målt i et annet prosjekt med samme loop: to plannere
+# på rad leverte uten Steg-seksjon, og hver gang kostet det en full review-runde.
+#
+# **Utover R0 er INGEN regel HARD, og det er en målt konklusjon, ikke forsiktighet.**
 # Kode-review av PR #852 (2026-09-17) viste to ting over 259 arkiverte planfiler:
 #   1. Mønsteret til de to kandidatene forekom ÉN gang hver i hele korpuset. Med base
 #      rate 1 kan presisjon ikke måles, og `exit 1` har aldri vært oppnåelig for en
@@ -150,6 +155,33 @@ def m_rows(text):
         if in_mutants and re.match(r'^\|\s*\*?\*?M\d', line):
             out.append((i, line))
     return out
+
+
+STEG_HEAD = re.compile(r'^#{1,4} .*\bsteg\b', re.I)   # «## Steg», «## §8 Steg», «## 9. Fremgangsmåte (steg)»
+
+
+@rule('R0', 'plan uten Steg-seksjon med avkrysningsbokser', 'N1')
+def r0(_text, _v, _m):
+    # Leser RÅ tekst: strippingen av forklarende linjer skal aldri kunne skjule en steg-linje.
+    # Et steg er en avkrysningsboks, et nummerert punkt, en tabellrad med nummer i første celle
+    # eller en `### Steg N`-overskrift. Målt mot 319 planer i opphavsprosjektet: et krav om bokser
+    # alene ga 41 røde, og de fleste var reviewede og mergede planer med stegene i liste eller tabell.
+    # Med dagens regel er 17 røde: 15 er eldre enn malen, ett er et målenotat, og én av 223 nyere
+    # planer har stegene under «Rekkefølge». Den siste er en ekte avvisning: malen krever `## Steg`.
+    in_steg, steps = False, 0
+    for line in RAW.splitlines():
+        if STEG_HEAD.match(line):
+            in_steg = True
+            steps += bool(re.match(r'#{3,4} .*\bsteg \d', line, re.I))
+        elif line.startswith('## '):
+            in_steg = False
+        elif in_steg and re.match(r'- \[[ xX]\]|\d+\.\s|\|\s*\**[A-Z]?\d+', line):
+            steps += 1
+    if steps:
+        return []
+    return [(1, 'planen mangler en `## Steg`-seksjon med minst ett steg (`- [ ]`, `1.` eller '
+                '`### Steg 1`). §4, TDD-STEG-tellingen og kode-reviewerens L1 leser stegene derfra. '
+                'Send planen tilbake til planneren før review')]
 
 
 @rule('R1', '-t-filter i testkommando', 'TODO 306', SOFT)
@@ -348,7 +380,34 @@ def log_run(path, findings, n_v, n_m, sk_v, sk_m, n_stripped):
         fh.write(json.dumps(row, ensure_ascii=False) + '\n')
 
 
-KNOWN_FLAGS = {'--json', '--log'}
+KNOWN_FLAGS = {'--json', '--log', '--self-test'}
+
+
+def self_test():
+    import tempfile
+    good = '# Plan\n\n## Steg\n- [ ] Steg 1: gjør X TDD-STEG\n\n## Verifisering\n'
+    cases = [
+        (good, 0, 'plan med Steg-seksjon og boks → exit 0'),
+        ('# Plan\n\n## Analyse\n- [ ] ikke et steg\n', 1, 'boks utenfor Steg-seksjon → R0'),
+        ('# Plan\n\n## Steg\nGjør X, så Y.\n', 1, 'Steg-seksjon uten steg → R0'),
+        ('# Plan\n\n## Steg\n\n1. **Synk.** git fetch\n2. **Kode.**\n', 0, 'nummererte steg → exit 0'),
+        ('# Plan\n\n## Løsningen\n### Steg 1 — del predikatet\ntekst\n', 0, '### Steg 1-overskrift → exit 0'),
+        ('# Plan\n\n## Implementering\n1. gjør X\n', 1, 'nummerert liste uten Steg-seksjon → R0'),
+        ('# Plan\n\n## §3 Fremgangsmåte (steg)\n| # | Steg |\n|---|---|\n| 1 | gjør X |\n', 0,
+         'nummerert Steg-overskrift med tabell → exit 0'),
+        ('# Plan\n\n### 2. Steg\n- [x] Steg 1: ALDRI hopp over\n', 0,
+         'nummerert overskrift + ALDRI-linje (stripping skal ikke skjule den) → exit 0'),
+    ]
+    fails = 0
+    for body, want, msg in cases:
+        with tempfile.NamedTemporaryFile('w', suffix='.md', delete=False, encoding='utf-8') as fh:
+            fh.write(body)
+        findings = lint(fh.name)[0]
+        os.unlink(fh.name)
+        got = 1 if any(f['level'] == HARD for f in findings) else 0
+        print(('PASS ' if got == want else 'FAIL ') + msg)
+        fails += got != want
+    return 1 if fails else 0
 
 
 def main():
@@ -361,6 +420,8 @@ def main():
         print(f'ukjent flagg: {" ".join(unknown)}. Kjente: '
               f'{" ".join(sorted(KNOWN_FLAGS))}', file=sys.stderr)
         return 2
+    if '--self-test' in args:
+        return self_test()
     as_json = '--json' in args
     do_log = '--log' in args
     paths = [a for a in args if not a.startswith('--')]

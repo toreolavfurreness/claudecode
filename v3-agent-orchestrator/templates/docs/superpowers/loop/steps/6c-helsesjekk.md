@@ -16,18 +16,17 @@ kontrakten gjelder.
 **Trigger 1 — Kø tom / grooming (§7):** Kjør §6c FØR grooming-forslag, slik at mennesket får
 en samlet statusrapport samtidig. Helseraden som skrives nullstiller merge-telleren (Trigger 2).
 
-**Trigger 2 — Hver N-te merge (N={{HEALTH_CHECK_INTERVAL}}):** Tell rader med `outcome=merged` etter den *siste* raden
-med `outcome=health` i `docs/superpowers/loop/run-log.md`:
+**Trigger 2 — Hver N-te merge (N={{HEALTH_CHECK_INTERVAL}}):** Kjør kadens-gaten etter
+hver merged-rad (§6 steg 5) og før neste dispatch:
 
 ```bash
-awk '
-  /\| health \|/ { count=0; next }
-  /\| merged \|/ { count++ }
-  END { print count }
-' docs/superpowers/loop/run-log.md
+python3 tasks/loop-cadence.py
 ```
 
-Count ≥ {{HEALTH_CHECK_INTERVAL}} → kjør §6c nå (før neste dispatch). Helseraden som §6c skriver blir den nye
+Den teller `outcome=merged` etter den *nyeste* `outcome=health`-raden, sortert på tidsstempel
+(run-loggen står ikke alltid i tidsrekkefølge, så «siste health-rad i fila» kan være en eldre rad).
+Exit 1 (`FORFALT`) → kjør §6c nå, før neste dispatch. Ikke en huskeregel: målt i opphavsprosjektet
+kom helsesjekkene etter 44, 13, 11, 9 og 7 merger med intervall 5. Helseraden som §6c skriver blir den nye
 nullstillings-markøren. Ingen health-rad ennå → tell fra toppen av fila.
 
 **Begge triggere skriver en health-rad** → telleren nullstilles alltid uansett hvilken som fyrer.

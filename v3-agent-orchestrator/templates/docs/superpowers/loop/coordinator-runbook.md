@@ -72,20 +72,20 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 ## 3. Dispatch planner
 → `steps/3-dispatch-planner.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: velg canary, ta pre-snapshot, dispatch, verifiser canary + `evidence.toplevel`, overlever planfila (`cp` + `cmp -s`), commit/push med speil-guard, §0b-rydding; re-dispatch akkumulerer per forsøk.
-- [ ] Vakt/kommando: `git worktree list --porcelain > "<scratch>/wt-pre-3-planner-<runde>.txt"`; `cmp -s`
+- [ ] Vakt/kommando: proporsjonalitetsport (grep etter eksisterende løsning, kjerne-anslag, budsjett i dispatchen); canary med linjenummer; `git worktree list --porcelain > "<scratch>/wt-pre-3-planner-<runde>.txt"`; `cmp -s`
 - [ ] Pausepunkt: `canary`-mismatch som ikke løses (§3)
 
 ## 4. Dispatch reviewer + gate
 → `steps/4-dispatch-reviewer.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: pre-snapshot, dispatch, bevis-sjekk (`evidence.reviewed_head`), gate på `verdict` (no-go → Konsolideringsgate (≥ 400 linjer og tidligere runde) → §3-revisjon, maks 2 runder; go → re-mål `effort`, bær VIKTIG/MINDRE til §5); `technical_risk` → STOPP med mindre klassifiseringen gir B5.
-- [ ] Vakt/kommando: `python3 tasks/decision-level.py --event technical_risk`
-- [ ] Pausepunkt: Reviewer no-go som ikke konvergerer etter 2 runder (§4); Teknisk risiko flagget (§4) eller truffet (§5/§6); B5; B7
+- [ ] Vakt/kommando: `python3 tasks/vblock-lint.py <plan> --log` FØR dispatch (exit 1 ⇒ tilbake til planneren, teller ikke som runde); `planned_diff` > ~5× budsjettet ⇒ pausepunkt; `python3 tasks/decision-level.py --event technical_risk`
+- [ ] Pausepunkt: Reviewer no-go som ikke konvergerer etter 2 runder (§4); Proporsjonalitet: `planned_diff` > ~5× budsjettet (§4); Teknisk risiko flagget (§4) eller truffet (§5/§6); B5; B7
 
 ## 5. Dispatch implementer
 → `steps/5-dispatch-implementer.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: pipelining på → §5c dispatcher par 1; ellers pre-snapshot + dispatch med plan-review-funnene; `status: failed|blocked` → STOPP; noter `F3a_ref`; akkumuler (toplevel, snapshot)-par for §6; bevaringsregel ved abort.
 - [ ] Vakt/kommando: `git worktree list --porcelain > "<scratch>/wt-pre-5-implementer-<runde>.txt"`; `F3a_ref`
-- [ ] Pausepunkt: Teknisk risiko flagget (§4) eller truffet (§5/§6); ingen egen rad for STOPP ved `status: failed|blocked` (pre-eksisterende — står kun i stegfilen)
+- [ ] Pausepunkt: Teknisk risiko flagget (§4) eller truffet (§5/§6); andre `plan_invalid` på samme todo (§5); ingen egen rad for STOPP ved `status: failed|blocked` (pre-eksisterende — står kun i stegfilen)
 
 ## 5b. Uavhengig kode-review
 → `steps/5b-kode-review.md` — les hele fila FØR steget kjøres.
@@ -120,7 +120,7 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 ## 6c. Helsesjekk + release-rådgiver (betinget, kun koordinator)
 → `steps/6c-helsesjekk.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: kjør `/loop-health-check` ved Trigger 1 (kø tom, før §7) eller Trigger 2 (hver 5. merge, telleren i stegfilen); grønn → §8b + §8c; rød → PAUSEPUNKT, §8b/§8c kjøres IKKE; Del D er del av sjekken.
-- [ ] Vakt/kommando: `/loop-health-check`
+- [ ] Vakt/kommando: `python3 tasks/loop-cadence.py` etter hver merged-rad (exit 1 = forfalt); `/loop-health-check`
 - [ ] Pausepunkt: Helsesjekk rød (§6c) — regresjon eller infra-feil
 
 ## 6d. Worktree-sweep (hver syklus, kun koordinator)
@@ -189,6 +189,8 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A | Ferskhets-gaten for en pipelinet plan er fortsatt ikke-tom etter én re-plan-runde (§5c) |
 | A | `git`/working-tree ikke ren (§0) |
 | A | `canary`-mismatch som ikke løses (§3) |
+| A | Proporsjonalitet: planens `planned_diff` > ~5× budsjettet fra §3 (§4, før review) |
+| A | Andre `plan_invalid` på samme todo (§5) |
 | A | Helsesjekk rød (§6c) — regresjon eller infra-feil i integrert `{{BASE_BRANCH}}` |
 | A1 | Skriving mot prod-miljøet (`{{PROD_ENV_ID}}`) eller kjøring av `{{RELEASE_COMMAND}}` |
 | A2 | Env-variabler, secrets eller vault |

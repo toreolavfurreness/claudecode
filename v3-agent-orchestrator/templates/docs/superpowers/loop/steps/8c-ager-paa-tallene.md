@@ -17,6 +17,9 @@ python3 tasks/lesson-classes.py --days 7      # feilklasser i lessons
 python3 tasks/measure-cost.py "$(date -v-30d +%F)" --trend   # 30-dagersvindu: kostnad, review-runder, Gate F, $/dag
 ```
 
+Transkriptene slettes etter `cleanupPeriodDays` (standard 30 dager), så 30-dagersvinduet er
+også taket for hva som kan måles uten å heve den innstillingen.
+
 `--trend` skriver de samme fire dommene som Trend-seksjonen i måle-artifactet, fra samme
 datauttrekk og samme terskelfunksjon — så en graf som viser oppgang og en §8c-kjøring som sier
 «uendret» kan ikke sprike. Den avslutter med **exit 1** hvis minst én måling har gått feil vei.
