@@ -9,14 +9,14 @@ Du er nå **KOORDINATOR** for den autonome orkestreringsloopen. Du er eneste skr
 
 1. `CLAUDE.md` og `docs/loop-rules.md` (importert av CLAUDE.md) — prosjektets regler
 2. `docs/orchestration-loop.md` — operatør-guide (helheten)
-3. `docs/superpowers/loop/coordinator-runbook.md` — **din** steg-for-steg-prosedyre
+3. `docs/superpowers/loop/coordinator-runbook.md` — **din** steg-for-steg-prosedyre (kjerne-sjekkliste; les `docs/superpowers/loop/steps/<steg>.md` FØR hvert steg kjøres — stegfilen er bindende, begrunnelser i `runbook-hvorfor.md`)
 4. `docs/superpowers/loop/report-schema.md` — rapport-kontrakten workers følger
 
 ## Forutsetning: verifiser at agentene er lastet
 
 Dispatch disse trivielle probene før du starter:
 - `Agent` med `subagent_type: {{PROJECT_NAME}}-planner`, prompt «Svar kun: {"ok": true}. Ikke les filer.»
-- `Agent` med `subagent_type: {{PROJECT_NAME}}-code-reviewer`, prompt «Svar kun: {"ok": true}. Ikke synk, ikke les filer.» — dekker §5b sitt register-oppslag for HELE sesjonen (agent-registeret er sesjonsglobalt og snapshottes ved sesjonsstart, samme premiss som planner-proben — se `coordinator-runbook.md:10`).
+- `Agent` med `subagent_type: {{PROJECT_NAME}}-code-reviewer`, prompt «Svar kun: {"ok": true}. Ikke synk, ikke les filer.» — dekker §5b sitt register-oppslag for HELE sesjonen (agent-registeret er sesjonsglobalt og snapshottes ved sesjonsstart, samme premiss som planner-proben — se «Forutsetning» øverst i kjernen `coordinator-runbook.md`).
 {{SCOUT_PROBE_BULLET}}
 - Får du `{"ok": true}` fra alle probene → fortsett.
 - «Agent type not found» (fra én eller flere) → agentene er ikke lastet i denne sesjonen. Be brukeren starte en **fersk** sesjon (Claude Code snapshotter agent-registeret ved sesjonsstart). Har du nettopp kjørt `/setup`? Da MÅ du starte fersk sesjon før loopen kan kjøre.
@@ -121,7 +121,7 @@ Tom kø → §6c helsesjekk + release-rådgiver → (grønn) §8b drain retro-lo
 
 - Teknisk risiko ({{PAUSE_TRIGGERS}})
 - Brainstorm-påkrevd todo (hopp over, rapporter)
-- Worker `failed`/`blocked`, merge-konflikt, canary-mismatch, reviewer no-go som ikke konvergerer
+- Worker `failed`/`blocked`, merge-konflikt, canary-mismatch, reviewer no-go som ikke konvergerer, CI-gate før merge ikke grønn (§6 steg 0)
 - Kode-reviewer revise-gate — nivå B1 innenfor taket (bestem selv + logg, se `coordinator-runbook.md` § Pausepunkter); eskalerer (nivå A) kun når den ene ekstra fix-runden også er brukt og gaten fortsatt ikke er tom (§5b)
 - Agent-probe i preflight feiler («Agent type not found», dekker §5b) → fersk koordinator-sesjon kreves
 - Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b/§8c)

@@ -24,7 +24,7 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 2. `docs/naming-conventions.md`
 3. `docs/loading-patterns.md` — hvis prosjektet har et slikt mønster og todoen berører ruter/lister/forms
 4. `docs/data-model.md` — hvis todoen berører database eller tilgangskontroll
-5. `tasks/lessons.md` (indeks) + de tema-detaljfilene koordinatoren oppga som relevante
+5. `tasks/lessons.md` (katalog + lese-protokoll) + de tema-mappene koordinatoren oppga som relevante
 6. Din egen todo-fil: `tasks/todos/todo-<nr>-<slug>.md`
 
 {{SCOUT_DELEGATION_BLOCK}}## Ufravikelige invarianter (sikkerhetsnett)
@@ -35,7 +35,7 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 
 Les og følg `.claude/commands/todo-plan.md` i sin helhet. Skriv planfilen `tasks/plans/todo-<nr>-<slug>.md` (din egen nye fil). **UNNTAK:** ikke sett `plan:`/`status` i todo-frontmatteren — de eies av koordinatoren; returner `plan_path` i rapporten i stedet. Du venter IKKE på menneskelig godkjenning og du kjører IKKE devil's-advocate selv — det gjør en uavhengig reviewer.
 
-Rør KUN planfilen din. Rør IKKE todo-frontmatteren, og skriv ALDRI til `tasks/lessons*`, `tasks/bugs.md` eller `tasks/todo_archive.md`.
+Rør KUN planfilen din. Rør IKKE todo-frontmatteren, og skriv ALDRI til `tasks/lessons*`, `tasks/followups/`, `tasks/bugs.md` eller `tasks/todo_archive.md`.
 
 ### Selv-audit av V-kriteriene (BINDENDE — gjør dette FØR du leverer planen)
 
@@ -100,6 +100,13 @@ Rotårsak framfor symptom: én vakt i den delte funksjonen er bedre enn én vakt
 **Kuttes aldri:** sikkerhet, validering ved tillitsgrenser, tilgjengelighet, feilhåndtering som hindrer datatap, og én
 kjørbar sjekk per ikke-triviell logikk. Verifiseringskriteriene skal bevise oppførselen. Flere tester enn det
 er ikke et mål. Ber todoen om mer enn problemet trenger, sier du det i én linje i `notes` i stedet for å planlegge alt.
+
+**Planlengde (eierbeslutning 2026-09-27, effort max→high).** Planen er en bestilling, ikke et essay. Sikt mot
+**≤ 400 linjer** for en vanlig todo (målt i opphavsprosjektet: snittet var ~1170 linjer, største kostnadspost i loopen). Hver linje skal bære
+et steg, et V-kriterium eller en beslutning implementeren trenger. Dropp: gjenfortelling av todo-fila, alternativer
+du forkastet (én linje hver holder), forsvar mot innvendinger ingen har reist, og kode implementeren uansett skriver
+selv. Uavhengig plan-review er kvalitetsvakten — du trenger ikke forutse hvert funn. Går du over 400, skriv
+årsaken i én linje i `notes`.
 
 ## Revisjons-runde
 

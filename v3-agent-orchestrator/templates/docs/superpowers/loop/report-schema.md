@@ -122,7 +122,7 @@ kode-reviewerens (synthesizerens) ansvar alene, aldri lensens (TODO 180B).
   synthesizerens egen» — aldri en universell påstand om at den ALLTID ER det: målingen er
   HARNESS-AVHENGIG og generaliseres IKKE til andre prosjekter som bruker dette kit-et. Den daterte
   målingen (arkiv-stabil referanse — planfiler flyttes til `tasks/plans/archive/` ved `/todo-done`)
-  står i `coordinator-runbook.md`s «Liveness-vakt (TODO 250C)» pkt. 7.
+  står i `steps/5b-kode-review.md` «Liveness-vakt (TODO 250C)» pkt. 7.
 - `reviewed_sha` er lensens PRIMÆRE bevis og kan kryss-sjekkes mot `code_review.evidence.pr_head_sha`
   (stale-diff-tripwire). `null` er lovlig og betyr «ikke oppgitt». **Oppgi FULL 40-tegns SHA, aldri
   kortform** — en kort SHA kan bli ikke-normaliserbar i mottakerens R10-sjekk.
@@ -199,7 +199,7 @@ går til oppdragsgiveren (planner eller implementer), aldri til koordinatoren.
     { "severity": "VIKTIG", "ref": "src/lib/auth/safe-next.ts:17", "issue": "…", "fix": "…", "source_agent": "rls-migration-reviewer" },
     { "severity": "MINDRE", "ref": "src/components/ui/Button.tsx:5", "issue": "…", "fix": "…", "source_agent": "{{PROJECT_NAME}}-code-reviewer" }
   ],
-  "fan_in": { "triggered": ["rls-migration-reviewer"], "dispatched": ["rls-migration-reviewer"], "returned": ["rls-migration-reviewer"], "expected_by_selector": [], "attestations": [ { "agent": "rls-migration-reviewer", "toplevel": "…", "reviewed_sha": "…" } ] },
+  "fan_in": { "triggered": ["rls-migration-reviewer"], "dispatched": ["rls-migration-reviewer"], "returned": ["rls-migration-reviewer"], "expected_by_selector": [], "attestations": [ { "agent": "rls-migration-reviewer", "toplevel": "…", "reviewed_sha": "…" } ], "worktree_guard": { "before": "…", "after": "…" } },
   "evidence": { "toplevel": "<ordrett output av `git rev-parse --show-toplevel` — SVAKT, se under>", "pr_head_sha": "<ordrett `gh pr view <pr> --json headRefOid`-output — PRIMÆR>" },
   "tdd_check": { "required": 0, "red_commits": 0, "l2_status": "ikke utløst", "pairs_replayed": 0, "reason": null },
   "verdict": "no-go",
@@ -238,12 +238,13 @@ går til oppdragsgiveren (planner eller implementer), aldri til koordinatoren.
   (eneste kontroll av selve funnet) og sjekker fra r≥2 at forrige fix-runde bare endret ordlyd i
   ref-fila — rettelsen av det unntatte funnet selv verifiseres aldri (`coordinator-runbook.md`
   §5b). Enhver annen verdi gir `violations[]` og usignert rapport.
-- `fan_in` (TODO 180A — erstatter den tidligere `tech-review fan-in: n/n/n`-linja i `notes`, ikke en tilføyelse til den): et objekt med FEM felt — de fire PÅKREVDE arrayene pluss `attestations`, som er PÅKREVD når `returned` er ikke-tom (TODO 250B) — i rapporten din, PÅKREVD i full modus. **Mangler `fan_in` helt i en full-modus-rapport → kontraktbrudd, behandles som usignert** — samme prinsipp som 179s vakt (fravær er utvetydig bevis på at vakten ble ignorert, aldri stilltiende «alt er fint»).
+- `fan_in` (TODO 180A — erstatter den tidligere `tech-review fan-in: n/n/n`-linja i `notes`, ikke en tilføyelse til den): et objekt med FEM felt (seks med `worktree_guard`, se under) — de fire PÅKREVDE arrayene pluss `attestations`, som er PÅKREVD når `returned` er ikke-tom (TODO 250B) — i rapporten din, PÅKREVD i full modus. **Mangler `fan_in` helt i en full-modus-rapport → kontraktbrudd, behandles som usignert** — samme prinsipp som 179s vakt (fravær er utvetydig bevis på at vakten ble ignorert, aldri stilltiende «alt er fint»).
   - `triggered` (reviewer-fylt): agenter kode-revieweren selv vurderer at `trigger:`-prosaen treffer for denne diffen.
   - `dispatched` (reviewer-fylt): agenter kode-revieweren faktisk sendte til som frisk sub-agent.
   - `returned` (reviewer-fylt): agenter som faktisk svarte.
   - `expected_by_selector` (**koordinator-fylt, ALDRI av revieweren**): revieweren SKAL levere dette feltet som en TOM array (`"expected_by_selector": []`, se eksempelet over) — ALDRI utelate nøkkelen. Koordinatorens egen utregning via `tasks/review-lens-select.py` (`trigger_globs`-gulvet i `loop.config.yaml`) fylles inn i feltet ETTER at rapporten er mottatt, ALDRI av revieweren selv. «Utfylt» betyr her en IKKE-TOM array: en `code_review`-rapport som ankommer med en ikke-tom `expected_by_selector` er et **kontraktbrudd** og behandles som usignert. En tom array er forventet og korrekt fra revieweren.
   - `attestations` (**ATTESTASJONSPÅBUD, revieweren, TODO 250B**): for hver agent i `returned` — SKAL — en entry med `agent` (streng, påkrevd) + `toplevel`/`reviewed_sha` (streng eller `null`), sitert fra lensens egen `evidence`. Når nøkkelen finnes, gjelder form-regelen `{a.agent for a in attestations} == set(returned)`. Er session-predikatet i `coordinator-runbook.md` §5b usant (form A), er manglende nøkkel fortsatt `legacy` og ikke et kontraktbrudd — se `coordinator-runbook.md` §5b og `tasks/review-fan-in-verify.py`.
+  - `worktree_guard` (**revieweren, TODO 292** — sjette felt, PÅKREVD når `dispatched` er ikke-tom): `{ "before": "<ordrett>", "after": "<ordrett>" }` — utskriften av arbeidstre-snapshotet i kode-reviewer-charterets «Arbeidstre-vakt», tatt rett før og rett etter lens-fanouten. Ulike verdier (sammenlignet ord for ord) ⇒ arbeidstreet ble endret under lens-runden ⇒ rapporten behandles som usignert (`steps/5b-kode-review.md` «Arbeidstre-vakt (TODO 292)»). Manglende felt stopper ingenting, men logges (`wtguard=missing`).
   - Alle fire PÅKREVDE arrayer skal finnes (kan være tomme) i **full modus**; hele `fan_in`-feltet utelates i **probe-modus**. `attestations` er PÅKREVD når session-predikatet i `coordinator-runbook.md` §5b er sant og `returned` er ikke-tom (manglende nøkkel ⇒ `attest=attestations-missing`, stoppende). Er predikatet usant, er manglende nøkkel `attest=legacy` og IKKE et kontraktbrudd — se `coordinator-runbook.md` §5b.
 - `evidence`: kode-revieweren leser PR-diffen via `gh`, ikke via workerens worktree-filer — `toplevel` beviser derfor kun egen cwd og merkes SVAKT. `pr_head_sha` (fra `gh pr view <pr> --json headRefOid`) er PRIMÆRT bevis og tetter stale-worktree-tech-review-funn (én PR kan bli oppdatert mellom dispatch og review). **Probe-modus (Step 0 i code-reviewer-charteret):** når prompten KUN ber om `{"ok": true}`, returneres bart `{"ok": true}` — ingen `evidence`, ingen `gh pr view`, ingen `fan_in`.
 - `severity` ∈ `"BLOKKERENDE"|"VIKTIG"|"MINDRE"`, satt av kode-revieweren (synthesizeren) ut fra hele
@@ -315,7 +316,7 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
   `scout=unknown` ved kilden. Forbeholdet om hva `bytes_read`
   ER og ikke er, står i § Scout-rapport.
 - `evidence`: slanket sammenlignet med planner/reviewer — koordinatorens uavhengige `gh pr view`/`gh pr diff` er OFFISIELT bevis for PR-innholdet (verifiseres eksternt uansett), så implementeren siterer kun `toplevel` (egen worktree) + `branch` (riktig PR-branch). Ingen ordrett bygg-/testoutput kreves i selve rapporten.
-- `topic` MÅ være ett av: {{LESSONS_TOPICS}}.
+- `topic` MÅ være en tema-mappe under `tasks/lessons/` (`ls tasks/lessons/`); passer ingen, foreslå et nytt kebab-case-navn. Carry-forwards er ikke lessons — legg dem i `notes`.
 - `security_findings`/`review_findings`: kun KRITISK/HØY/Important som IKKE ble fikset (tom = alt fikset).
 - `min_diff_net`/`min_diff_findings`: resultatet av `/todo-finish-worker` steg 3 (minste diff). `min_diff_net` er netto
   linjer fjernet i steget, og `min_diff_findings` er antall funn. 0/0 er gyldig. Koordinatoren kan føre dem i
@@ -343,7 +344,7 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
 
   Koordinatoren avleder `degradation`-kolonnen i run-log fra BEGGE feltene sammen — se
   `run-log.md` for den fullstendige formelen (begge carve-outs).
-- Implementeren skriver `lessons`/`bugs_*` som DATA. Den skriver ALDRI til `tasks/lessons*`, `tasks/bugs.md` eller `tasks/todo_archive.md`, og rører ikke todo-frontmatteren — det gjør koordinatoren.
+- Implementeren skriver `lessons`/`bugs_*` som DATA. Den skriver ALDRI til `tasks/lessons*`, `tasks/followups/`, `tasks/bugs.md` eller `tasks/todo_archive.md`, og rører ikke todo-frontmatteren — det gjør koordinatoren.
 
 ## `run-log.md`s frittekst-notatfelt (kalt «felt 11» i `coordinator-runbook.md`, TODO 246)
 
@@ -353,7 +354,7 @@ appender selv: `selector=<agenter>` (TODO 180A), `floor=<n> viol=<n>` (TODO 180B
 `floor_exempt=<g>:godtatt,<a>:avvist` (TODO 321),
 `pipelined_from=<todo>` (§5c), `auto_decided=<rad-eier>:<antall>` (TODO 246), `attest=<verdi>`
 (TODO 250A), `vblock=<ok|stale|missing|legacy|stuck>` (TODO 252, med F5s valgte V-ID i parentes:
-`vblock=ok(F5:V4)`), og `scout=<dispatches>d/<KB>kb` (lokaliserings-workeren). Feltets EKSAKTE
+`vblock=ok(F5:V4)`), `wtguard=<none|missing|ok|violation>` (TODO 292), og `scout=<dispatches>d/<KB>kb` (lokaliserings-workeren). Feltets EKSAKTE
 nummer i forhold til spec-tabellens navngitte kolonner er omstridt (nummereringen avklares i
 TODO 210, deferred) — denne setningen dokumenterer kun INNHOLDET, ikke posisjonen.
 
@@ -379,7 +380,7 @@ oppdragsgiveren — en øvre grense, ikke en besparelse (§ Scout-rapport). Seri
 over mange runder sammenlignet med rundenes øvrige form (antall fix-runder, `plan_review_rounds`),
 aldri som et regnskap per runde.
 
-`attest=` er, sammen med `pipelined_from=` og `vblock=`, blant tokenene i registeret over hvis
+`attest=` er, sammen med `pipelined_from=`, `vblock=` og `wtguard=`, blant tokenene i registeret over hvis
 FRAVÆR IKKE er et kontraktbrudd — i motsetning til `floor=`, `floor_exempt=`, `auto_decided=` og
 `scout=` (sistnevnte kun når `scout.enabled` er `true`), som ALLE gjør fravær til et kontraktbrudd:
 
@@ -392,9 +393,10 @@ FRAVÆR IKKE er et kontraktbrudd — i motsetning til `floor=`, `floor_exempt=`,
 | `attest=` | Nei (`observe`) | — |
 | `pipelined_from=` | Nei | — |
 | `vblock=` | Nei | — |
+| `wtguard=` | Nei | — |
 
-Verdienes semantikk for `vblock=` står i `coordinator-runbook.md`s Gate F-
-seksjon («Telemetri») — den dokumenteres KUN som enum her, slik at de to filene ikke får hver sin
+Verdienes semantikk for `vblock=` står i `steps/5b-kode-review.md` Gate F-
+seksjonen («Telemetri») — den dokumenteres KUN som enum her, slik at de to filene ikke får hver sin
 definisjon som kan drifte fra hverandre. Samme
 «dokumenterer INNHOLD, ikke posisjon»-forbehold gjelder: dette dokumenterer at tokenet finnes i
 feltet, ikke hvilken posisjon det har i den frie teksten.

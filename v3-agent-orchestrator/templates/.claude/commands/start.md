@@ -1,5 +1,5 @@
 ---
-description: "Sesjonsstart: full kontekstlasting (CLAUDE.md, lessons-indeks, todo-kø)."
+description: "Sesjonsstart: full kontekstlasting (CLAUDE.md, lessons-katalog, todo-kø)."
 ---
 <!--
   GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
@@ -7,7 +7,7 @@ description: "Sesjonsstart: full kontekstlasting (CLAUDE.md, lessons-indeks, tod
 -->
 Les følgende filer i denne rekkefølgen:
 1. CLAUDE.md (importerer docs/loop-rules.md — les begge)
-2. tasks/lessons.md (indeks — peker til detaljfiler under tasks/lessons/)
+2. tasks/lessons.md (katalog — tema-scope + lese- og skriveprotokoll; lessons ligger én per fil under tasks/lessons/<tema>/)
 3. tasks/bugs.md
 4. `tasks/todos/README.md` — forstå frontmatter-skjema og status-enum
 

@@ -19,13 +19,30 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.1** (synk mot opphavsprosjektet per 30.09.2026):
+- **Lessons:** én fil per lesson, `tasks/lessons/<tema>/<dato>-<slug>.md` med `tags`/`kilder`.
+  Oppfølginger ligger i `tasks/followups/`. `scripts/split-lessons.py` migrerer gamle temafiler.
+- **Runbook:** delt i en kjerne-sjekkliste, én stegfil per steg (`docs/superpowers/loop/steps/`) og
+  en `runbook-hvorfor.md` med begrunnelser.
+- **Ny vakt `guard-fix-round-model.sh`:** krever eksplisitt `model` på hver implementer-dispatch,
+  og dyp modell fra fix-runde 3.
+- **Nye gater:** `tasks/ci-gate.py` (CI-dom for pinnet head-SHA før merge) og `tasks/gate-f.sh`
+  (V-blokk-gaten som ett kall).
+- **Oppdatert read-only-vakt:** slipper `SubagentHandback`. Uten den kan ingen read-only-rolle
+  levere rapport på nyere runtime.
+- **Mindre endringer:**
+  - Arbeidstre-vakt for tech-review-lensene.
+  - Worker-e2e på egen port med lås.
+  - Grense på planlengde.
+  - Feilrettinger i målescriptet.
+
 | | v2 | v3 |
 |---|---|---|
-| **Vakter (hooks)** | Ingen — reglene sto kun i prosa | `guard-main-merge.sh` (blokkerer push/PR/merge mot prod-branchen) og `guard-reviewer-readonly.sh` (read-only-rollene *kan* ikke skrive), hver med regresjonsharness (126 / 204 caser) |
+| **Vakter (hooks)** | Ingen — reglene sto kun i prosa | `guard-main-merge.sh` (blokkerer push/PR/merge mot prod-branchen) og `guard-reviewer-readonly.sh` (read-only-rollene *kan* ikke skrive), hver med regresjonsharness (126 / 205 caser); `guard-fix-round-model.sh` (eksplisitt modell på implementer-dispatch) |
 | **Read-only-kontrakt** | — | `reviewer-readonly.contract` **genereres fra config** (reviewer, code-reviewer, scout, tech-agenter). Kontrakten kan ikke lenger drifte fra agent-lista |
 | **`.claude/settings.json`** | Manuelt | `/setup` *merger* hook-registreringene inn: idempotent, bevarer alt annet, feiler høyt på ugyldig JSON, sletter aldri |
 | **Regler vs. prosjekt-CLAUDE.md** | Loop-reglene skulle limes inn i `CLAUDE.md` for hånd | Kit-eide regler i generert `docs/loop-rules.md`; `CLAUDE.md` er prosjektets egen og importerer den (`@docs/loop-rules.md`) |
-| **Lessons** | Én fil | Wiki: `tasks/lessons.md`-indeks + én tema-fil per `lessons_topics`, splitt-terskel, Se også-pekere |
+| **Lessons** | Én fil | Én fil per lesson i `tasks/lessons/<tema>/`; statisk katalog med lese- og skriveprotokoll i `tasks/lessons.md`; tagger i stedet for Se også-pekere; oppfølgingskø i `tasks/followups/` |
 | **Kunnskapsbaser** | — | T0–T3-testene for lessons vs. agent-minne, ingen-kopi-regelen, akseptansetesten |
 | **Agent-minne** | Frontmatter | + seedet `.claude/agent-memory/<agent>/MEMORY.md` med `BOOTSTRAP-UNVERIFIED`-blokk |
 | **Scout** | — | Valgfri Haiku-lokaliseringsworker for planner/implementer (`scout.enabled`) |
@@ -33,7 +50,7 @@ v3-formatene.
 | **Worktree-bootstrap** | — | `.claude/scripts/bootstrap-worktree.sh`: install + default-deny env-kopi (kun tillatte nøkler) |
 | **Komfort-hooks** | — | Valgfri myk lint ved sesjonsstart og typecheck etter Edit/Write |
 | **Måling** | — | `tasks/measure-cost.py` (+ `--html`), køvisning `tasks/queue-status.py` |
-| **Runbook** | v2-runbook | + gate F-regex, sannhetskrav for ny tekst i FIX-MODE, effort-remåling etter `go`, sweep-målinger |
+| **Runbook** | v2-runbook | Kjerne + stegfiler + `runbook-hvorfor.md`; CI-gate før merge; gate F-regex, sannhetskrav for ny tekst i FIX-MODE, effort-remåling etter `go`, sweep-målinger |
 | **Todo-nummer** | Kollisjonsvakt | Samme vakt, nå for v3-formatet: `scripts/check-todo-nr-collisions.sh` (+ `--next`) og `check-todo-nr-premerge.sh`, kjørt i §6 før merge og som CI-jobb. Runbook §9 for reservasjon og renummerering |
 | **Hotfix** | Hotfix-runbook | `docs/hotfix-runbook.md` + `outcome=hotfix` i run-loggen; `/run-loop` preflight 4 avstemmer PR-er uten rad og fanger commits på prod-branchen som mangler i base |
 | **TDD-orden** | Rødt-før-grønt | Planen merker `TDD-STEG`, implementeren committer `test(red):` før fiksen, code-revieweren sjekker rekkefølgen (L1) og spiller av opptil tre par (L2) |
@@ -69,14 +86,16 @@ v3-agent-orchestrator/
 │   ├── .claude/agents/        PROJECT_NAME-{planner,reviewer,implementer,code-reviewer,scout}.md
 │   ├── .claude/commands/      run-loop, todo-finish-worker, loop-health-check, todo-plan(+review),
 │   │                          todo-execute, todo-done, start, status, endsession
-│   ├── .claude/hooks/         guard-main-merge, guard-reviewer-readonly (+ harnesser og kontrakt),
-│   │                          session-start-lint, typecheck-on-edit
+│   ├── .claude/hooks/         guard-main-merge, guard-reviewer-readonly, guard-fix-round-model
+│   │                          (+ harnesser og kontrakt), session-start-lint, typecheck-on-edit
 │   ├── .claude/scripts/       bootstrap-worktree.sh
 │   ├── scripts/               check-todo-nr-collisions.sh, check-todo-nr-premerge.sh
-│   ├── docs/                  loop-rules.md, orchestration-loop.md, hotfix-runbook.md, superpowers/loop/*,
+│   ├── docs/                  loop-rules.md, orchestration-loop.md, hotfix-runbook.md,
+│   │                          superpowers/loop/ (kjerne-runbook, steps/, runbook-hvorfor.md, logger),
 │   │                          naming-conventions.md + data-model.md (seed)
-│   └── tasks/                 todos/ + bugs/inbox/ README, lessons-indeks + open-followups (seed),
-│                              worktree-sweep/-landed (+ tester), måle- og loop-skript
+│   └── tasks/                 todos/ + bugs/inbox/ + followups/ README, lessons-katalog (seed),
+│                              worktree-sweep/-landed, ci-gate, gate-f (+ tester), måle- og loop-skript
+├── scripts/split-lessons.py   Engangsmigrering: temafiler → én fil per lesson
 ├── examples/
 │   ├── tech-review-agents/    rls-auditor, security-reviewer, race-reviewer (pluggbare EKSEMPLER)
 │   └── hooks/                 guard-supabase-ref.example.sh (miljø-vakt for Supabase-prosjekter)
@@ -90,7 +109,7 @@ v3-agent-orchestrator/
 
 - **Generert** (det meste): overskrives ved hver `/setup` og bærer en «GENERERT — ikke rediger
   her»-header. Endre malen, ikke den genererte fila.
-- **Seed** (`CLAUDE.md`, `tasks/lessons.md`, lessons-tema-filene, `open-followups.md`,
+- **Seed** (`CLAUDE.md`, `tasks/lessons.md`, én mappe per lessons-tema,
   `naming-conventions.md`, `data-model.md`, agent-minne): skrives kun hvis fila mangler. Etter
   det eier prosjektet dem.
 - **Merget** (`.claude/settings.json`, `.gitignore`, import-linja i en eksisterende `CLAUDE.md`):
@@ -116,6 +135,9 @@ v3-agent-orchestrator/
    ```bash
    bash .claude/hooks/test-guard-main-merge.sh
    bash .claude/hooks/test-guard-reviewer-readonly.sh
+   bash .claude/hooks/test-guard-fix-round-model.sh
+   bash tasks/test-gate-f.sh
+   python3 tasks/ci-gate.py --self-test
    bash tasks/test-worktree-sweep.sh
    bash tasks/test-worktree-landed.sh
    ```
@@ -189,5 +211,9 @@ feiler høyt på gjenværende `{{...}}` eller manglende nøkler. Se [`setup.md`]
   prosjektspesifikke. `guard-supabase-ref` ligger kun som eksempel.
 - **`/setup`-robusthet:** validerer config-*nøkler* og tegnsett, ikke at *verdiene* er
   meningsfulle (f.eks. at `install_cmd` faktisk virker).
+- **Ikke med fra v3.1-synken:**
+  - HTML-visningen i målescriptet og release-sporene i køoversikten (begge prosjektspesifikke).
+  - Prosjektlokale unntak i modellvakten (f.eks. for modellforsøk). Legg dem inn i hooken
+    selv ved behov.
 - **Fortsatt ikke gjort** (fra v2): kostnadstak, self-mod-gate, secret-scan i CI, Workflow-port,
   cloud/headless-kjøring. Se [`docs/PORTING.md §7`](docs/PORTING.md).

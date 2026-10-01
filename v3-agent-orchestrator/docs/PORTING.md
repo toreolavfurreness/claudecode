@@ -60,7 +60,7 @@ fullstendige, kommenterte malen og [`../setup.md`](../setup.md) for token-mappin
 | `tier1_invariants` | språk-regel, sikkerhetsregler | Hver charters «Ufravikelige invarianter» |
 | `tech_review_agents` | hvilke domene-reviewere code-reviewer dispatcher (pluggbare) | code-reviewer-charteret |
 | `canary_source` | fil planner-canary leses fra (bevis på fil-lesing) | Runbook §3 |
-| `lessons_topics` | gyldige tema-filnavn | `report-schema.md` + charterne |
+| `lessons_topics` | gyldige tema-mapper (`tasks/lessons/<tema>/`) | `report-schema.md` + charterne |
 | `pause_triggers` | hva som teller som teknisk risiko | Pausepunkt-lister |
 | `release` | release-kommando, N-merges helsesjekk-intervall | Runbook §6c |
 | `pipelining` | tak for hvor mange todos som kan ligge i pipeline (plan uten claim) samtidig; **valgfri**, fravær ⇒ `0` ⇒ av | Runbook §5c |
@@ -82,7 +82,7 @@ eller et språk — den hører i `loop.config`, ikke i maskineriet.
 | `.claude/commands/todo-finish-worker.md` | **Universal + config** |
 | `.claude/commands/loop-health-check.md` | **Universal + config** |
 | `.claude/commands/{todo-plan,todo-plan-review,todo-execute,todo-done,start,status,endsession}.md` | **Prereq-stillas + config** |
-| `docs/superpowers/loop/coordinator-runbook.md` | **Universal + config** (kø-skript universelt) |
+| `docs/superpowers/loop/coordinator-runbook.md` + `steps/*.md` + `runbook-hvorfor.md` | **Universal + config** (kjerne-sjekkliste, én fil per steg, begrunnelser) |
 | `docs/superpowers/loop/report-schema.md` | **Universal** (kun `lessons_topics` fra config) |
 | `docs/superpowers/loop/run-log.md` | **Universal** (telemetri-format; tom logg ved generering) |
 | `docs/orchestration-loop.md` | **Universal + config** (operatør-guide) |
@@ -98,7 +98,7 @@ Loopen sitter oppå et todo-/workflow-system. v2 leverer dette i `templates/` og
 
 - **Én-fil-per-todo:** `tasks/todos/todo-NN-slug.md` + frontmatter-skjema + `tasks/todo_archive.md`.
 - **Workflow-commands:** `todo-plan`, `todo-plan-review`, `todo-execute` (charterne peker hit).
-- **Lessons:** `tasks/lessons.md` (indeks) + `tasks/lessons/<tema>.md`.
+- **Lessons:** `tasks/lessons.md` (katalog) + én fil per lesson i `tasks/lessons/<tema>/`.
 - **`CLAUDE.md`** (charterne sier «les og adlyd»).
 - **Konvensjons-docs:** naming-conventions, (loading-patterns, data-model hvis relevant).
 - **CI som blokkerende port** på PR (se `scaffolding/`).

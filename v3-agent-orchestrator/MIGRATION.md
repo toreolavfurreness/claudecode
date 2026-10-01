@@ -1,11 +1,51 @@
 # MIGRATION — til v3 i et eksisterende prosjekt
 
-To inngangsstier:
+Inngangsstier:
 
+- **Prosjektet kjører v3.0** → [Fra v3.0 til v3.1](#fra-v30-til-v31).
 - **Prosjektet kjører v2** (har `v2-agent-orchestrator/` og en fungerende loop) → [Fra v2](#fra-v2-til-v3).
 - **Prosjektet kjører v1** (sekvensiell human-orchestrator) → [Fra v1](#fra-v1-til-v3). Stegene der
   er skrevet for v2 og gjelder uendret med v3-kit-et; v3-nøklene har defaults.
 - **Nytt prosjekt** → [`README.md`](README.md).
+
+---
+
+## Fra v3.0 til v3.1
+
+v3.1 endrer to ting som `/setup` ikke kan gjøre for deg:
+- Lessons blir én fil per lesson.
+- Oppfølgingskøen flytter til `tasks/followups/`.
+
+Resten er en vanlig rekompilering. Commit alt før du starter. Da er git-historikken backupen.
+
+1. **Erstatt kit-et:** kopier inn det nye `v3-agent-orchestrator/` og `setup.md` →
+   `.claude/commands/setup.md`.
+   - Sjekk først om du har redigert genererte filer direkte. Bruk diff-oppskriften i
+     [steg 2 under](#2-finn-lokale-endringer-før-du-overskriver).
+   - Merk: runbooken er nå delt i en kjerne og stegfiler. En lokal endring i
+     `coordinator-runbook.md` hører nå hjemme i riktig `steps/<steg>.md`.
+2. **Config:**
+   - `lessons_topics` er nå navn på tema-*mapper*. Bruk temanavnet uten periode-suffiks
+     (`workflow-process`, ikke `workflow-process-sep2026`).
+   - Fjern `open-followups` fra `lessons_topics` (oppfølgingskøen er ikke et tema lenger).
+   - Ny valgfri vakt: `hooks.implementer_model_guard`. Den er på som standard og trenger `jq`.
+3. **Kjør `/setup`.** Den seeder `tasks/lessons/<tema>/` for hvert tema og
+   `tasks/followups/README.md`. Finnes en gammel `tasks/lessons/<tema>.md`, sier rapporten fra.
+4. **Splitt lessons:** kjør fra prosjektroten:
+   ```bash
+   python3 v3-agent-orchestrator/scripts/split-lessons.py
+   ```
+   - Les planen. Antall blokker inn må være lik antall filer ut.
+   - Sub-tema-filer blir egne mapper. Slå dem sammen med `--map gammel=ny` hvis du vil.
+   - Kjør på nytt med `--apply`. Skriptet skriver filene og sletter de gamle temafilene.
+     `open-followups.md` går til `tasks/followups/`.
+5. **Etterarbeid** (skriptet skriver ut det som gjenstår):
+   - Gi hver lesson minst én emne-tag.
+   - Gjør gamle `## Se også`-pekere om til tagger.
+   - Fyll scope-linja per tema i `tasks/lessons.md`.
+6. **Valider:**
+   - Kjør harnessene i README steg 6, alle grønne.
+   - Commit, og start en **fersk** sesjon. Nye hooks lastes ved sesjonsstart.
 
 ---
 
@@ -31,8 +71,9 @@ cp v3-agent-orchestrator/setup.md .claude/commands/setup.md
 
 Legg til v3-nøklene du vil ha i `v3-agent-orchestrator/loop.config.yaml` (se «Valgfrie nøkler
 (v3)» i `loop.config.example.yaml`). Utelatt: vaktene PÅ, komfort-hookene AV, scout AV, ingen
-worktree-bootstrap. Sett `lessons_topics` til de **faktiske** filnavnene i `tasks/lessons/` (uten
-`.md`) — et navn uten fil blir seedet som en ny, tom tema-fil.
+worktree-bootstrap. Sett `lessons_topics` til prosjektets lessons-temaer. Hvert tema blir en mappe
+`tasks/lessons/<tema>/`. Har prosjektet tema-filer fra v2, splitter du dem etterpå med
+`scripts/split-lessons.py` (se [Fra v3.0 til v3.1](#fra-v30-til-v31), steg 4–5).
 
 ### 2. Finn lokale endringer FØR du overskriver
 
@@ -72,14 +113,14 @@ så eksisterende arkiv trenger ingen endring. `models.display` kan fjernes fra c
 ### 4. Rydd `CLAUDE.md`
 
 `docs/loop-rules.md` eier nå loop-, lessons- og kunnskapsbase-reglene. Fjern seksjonene i
-`CLAUDE.md` som dupliserer den (typisk «Oppgavehåndtering», «Lessons learned — wiki-struktur»,
+`CLAUDE.md` som dupliserer den (typisk «Oppgavehåndtering», «Lessons learned»,
 «Tre kunnskapsbaser», loop-delen av «Branching-regler»). To kopier av samme regel driver fra
 hverandre — samme grunn som ingen-kopi-regelen for agent-minne. Behold alt som er prosjektets
 eget (infrastruktur, miljø-ID-er, prosjektspesifikke vakter, språk).
 
 ### 5. Valider
 
-1. Kjør de fire harnessene (README steg 6) — alle grønne.
+1. Kjør harnessene (README steg 6) — alle grønne.
 2. Commit, start en **fersk** sesjon (nye hooks og agenter lastes ved sesjonsstart).
 3. Agent-proben i `run-loop.md`, så `/run-loop once` på én lavrisiko-todo.
 
@@ -186,9 +227,10 @@ ett sted.
 
 #### 1c. Lessons-struktur
 
-v1 har `tasks/lessons/<tema>.md` + `index.md`. v2 forventer `tasks/lessons.md`
-(indeks) + `tasks/lessons/<tema>.md`. Hvis navnene avviker: lag `tasks/lessons.md`
-som indeks (kan gjenbruke v1s `index.md`-innhold). Behold tema-filene.
+v1 har `tasks/lessons/<tema>.md` + `index.md`. v3 bruker én fil per lesson i
+`tasks/lessons/<tema>/` og en katalog i `tasks/lessons.md`. Behold tema-filene under steg 1.
+`/setup` seeder katalogen, og `scripts/split-lessons.py` splitter tema-filene (se
+[Fra v3.0 til v3.1](#fra-v30-til-v31), steg 4–5).
 
 **Commit steg 1 som én reversibel «refactor: todo-system + struktur»-commit.**
 Verifiser at v1-flyten fortsatt virker (kjør `/status`) — atferd skal være uendret.
@@ -207,7 +249,7 @@ Nå legger du loopen på det refaktorerte stillaset.
    - `environments` (dev/prod-ID), `branch_strategy` ← `CLAUDE.md` Infrastruktur/Branch-strategi
    - `verification_commands` ← `CLAUDE.md` «Vanlige kommandoer» / `package.json`-scripts
    - `tier1_invariants` ← `CLAUDE.md` Atferd/Sikkerhet (språk-regel, RLS-fra-første-migrasjon o.l.)
-   - `lessons_topics` ← de faktiske filnavnene i `tasks/lessons/`
+   - `lessons_topics` ← temanavnene i `tasks/lessons/` (uten periode-suffiks)
    - `canary_source` ← en stabil doc (data-model/arkitektur)
    - `tech_review_agents` ← prosjektets domene-reviewere (se steg 3)
 3. **Kjør `/setup`.** Den renderer `templates/` → `.claude/agents/`,

@@ -26,7 +26,7 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 
 1. `CLAUDE.md` og `docs/loop-rules.md` (importert av CLAUDE.md) — prosjektets regler.
 2. `docs/superpowers/loop/report-schema.md` — rapport-kontrakten (`code_review`-varianten).
-3. `tasks/lessons.md` + relevante tema-filer koordinatoren oppga.
+3. `tasks/lessons.md` + relevante tema-mapper koordinatoren oppga.
 
 ## Diff-tilgang
 
@@ -59,8 +59,8 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
 3. **Tech-review-arm (frisk sub-dispatch — IKKE absorbert sjekkliste):**
 {{TECH_REVIEW_AGENTS_DISPATCH}}
    - **Parallell dispatch:** trigger diffen FLERE av agentene over, dispatch dem i ÉN melding med
-     ett `Agent`-kall per agent. De deler ingen tilstand og skriver ingenting, så rekkefølgen kan
-     ikke påvirke funnene. Ikke én-om-gangen.
+     ett `Agent`-kall per agent. De deler arbeidstreet ditt, men skal ikke skrive (se
+     «Arbeidstre-vakt»), så rekkefølgen kan ikke påvirke funnene. Ikke én-om-gangen.
    - **Forgrunns-dispatch (anti-fabrikering).** Lenser dispatches ALLTID i forgrunn
      (`run_in_background: false`). Bakgrunns-dispatch er ikke et alternativ for deg: notifikasjonen
      leveres til KOORDINATORENS sesjon, ikke til din — du blir aldri vekket av den. **Fravær av
@@ -71,6 +71,18 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
      **FABRIKASJON** — den alvorligste feilen i denne rollen. Forgrunn svekker ikke
      parallelliteten: flere `Agent`-kall i ÉN melding kjører fortsatt parallelt (kulen over står
      uendret) — forgrunn betyr «resultatet kommer tilbake i din egen tur», ikke «én om gangen».
+   - **Arbeidstre-vakt (TODO 292).** Lensene kjører i DITT arbeidstre, parallelt med hverandre.
+     Før du dispatcher dem: kjør `git fetch origin pull/<nr>/head` (gjør PR-objektene lesbare
+     lokalt), og oppgi PR-nummeret og PR-ens `headRefOid` som `<nr>` og `<pr_head_sha>` i prompten
+     til hver lens (lens-charterets «Tilgang til koden under review», hvis lens-charteret har
+     den). Kjør så dette som eget kall rett FØR `Agent`-meldingen, og på nytt rett ETTER at siste
+     lens har returnert:
+     `git symbolic-ref -q HEAD; git rev-parse HEAD; git status --porcelain | wc -l; git log -g --format=%H HEAD | wc -l`
+     Lim begge utskriftene ordrett inn i `fan_in.worktree_guard` (`before`/`after`). Siste linje
+     teller HEAD-flytt: en lens som sjekket ut og «restaurerte» er usynlig for de tre første
+     linjene, men ikke for den. Ulike utskrifter betyr at arbeidstreet ble endret under
+     lens-runden, og koordinatoren behandler da rapporten som usignert. Dispatcher du lenser i
+     flere omganger: `before` før første, `after` etter siste.
    - **Fan-in-kontroll:** rapporter `fan_in` som et objekt med FEM felt — de fire påkrevde arrayene
      pluss `attestations`, som er PÅKREVD når `returned` er ikke-tom (se `report-schema.md`) — i
      rapporten din — ALDRI
@@ -100,6 +112,8 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
      er din egen lesning av `trigger:`-prosaen BREDERE enn gulvet, dispatch bredere og rapporter det
      ærlig i `triggered`/`dispatched`/`returned` — ALDRI smalere i stillhet for å matche et gulv du
      ikke selv kjenner detaljene i. Syntetiser ALDRI et delvis sett og kall det komplett.
+     Dispatchet du minst én lens, kommer `worktree_guard` i tillegg som sjette felt (se
+     «Arbeidstre-vakt» over).
    - **Synthesizerens plikter (du eier severity — lensene gjør det ikke, TODO 180B):**
      sub-agentene returnerer severity-FRIE `lens_observation`-rapporter (`observations[]` med
      `ref`/`issue`/`fix`/`confidence`/`basis` — ALDRI en `severity`-nøkkel; en lens som emitterer

@@ -1,42 +1,37 @@
-# Lessons — indeks
+# Lessons — katalog
 
-Scope-katalog over Codes wiki-baserte langtidsminne. Per-lesson-detaljer ligger i
-`tasks/lessons/<tema>.md`-filene — denne indeksen er kun en veiviser for å velge hvilke tema-filer
-som skal leses. Regelverket står i `docs/loop-rules.md` § «Lessons learned — wiki-struktur».
+Codes langtidsminne: én fil per lesson under `tasks/lessons/<tema>/`. Filsystemet er indeksen —
+ingenting her telles eller genereres, så ingenting her kan bli utdatert. Temaene er mappene:
+`ls tasks/lessons/`. Filformatet står i `docs/loop-rules.md` § «Lessons learned — én fil per lesson».
 
-**Slik bruker sesjonene den:**
+## Tema
 
-- `/start` leser kun denne indeksen
-- `/todo-plan`, `/todo-plan-review`, `/todo-execute` leser indeksen + 1–3 relevante tema-filer per
-  todo (aldri alle)
-- `/todo-done` appender ny lesson til riktig tema-fil; oppdaterer lesson-count her kun hvis
-  tema-filen har vokst med ≥ 5 lessons siden forrige count
-
-**Kategoriserings-prinsipp:** Lessons kategoriseres etter _temaet de blir reaktivert mot_ i
-fremtidige todos, ikke etter hvilken todo de oppstod i.
-
----
-
-## Tema-filer
-
-<!-- Grupper gjerne etter område (Backend / Frontend / Testing / Prosess) etter hvert som filene
-     fylles. Hold «(N lessons)» omtrentlig — se telleregelen over. Marker periode-splittede filer
-     med **current** / periode-arkiv. -->
+<!-- Fyll inn scope per tema: hvilke fremtidige todos lessons i mappa reaktiveres mot. Et nytt tema
+     er bare en ny mappe — legg det til her med én linje. -->
 
 {{LESSONS_INDEX_ENTRIES}}
-- `tasks/lessons/open-followups.md` — carry-forwards som krever oppfølging
 
----
+Oppfølgingskøen (carry-forwards) er ikke lessons. Den ligger i `tasks/followups/`, én fil per
+oppfølging, og en fil slettes når oppfølgingen er lukket.
 
-## Slik finner du eksisterende lessons
+## Lese-protokoll
 
-- **Tittel-liste på tvers av tema-filer:** `grep -rE "^## " tasks/lessons/`
-- **Innholdssøk etter nøkkelord:** `grep -ri "<keyword>" tasks/lessons/`
-- **Tittel + dato per fil:** `grep -nE "^## 20" tasks/lessons/<tema>.md`
+1. Velg 1–3 tema for todoen, eller bruk dem koordinatoren oppga.
+2. List titlene: `grep -m1 '^# ' tasks/lessons/<tema>/*.md`. For et stort tema, filtrer først:
+   `grep -m1 '^# ' tasks/lessons/<tema>/*.md | grep -i '<nøkkelord>'`.
+3. På tvers av tema: `grep -rli '<nøkkelord>' tasks/lessons/`. Tagger:
+   `grep -rlE '^tags: \[(.*, )?<tag>(,|\])' tasks/lessons/`.
+4. Les de 3–5 relevante filene i sin helhet — aldri en hel tema-mappe.
 
-## Cross-cutting lessons
+## Skrive-protokoll
 
-Hvis en lesson berører flere temaer, legges den som full blokk i én primær tema-fil og som peker
-under `## Se også`-seksjonen i sekundære tema-filer (format: `- **<kort claim>** — relevant for
-<kort kontekst> (se [primær-tema.md](primær-tema.md))`). Søk derfor alltid både i tittel-listen og
-i `## Se også`-seksjonene når du leter etter relevante presedenser.
+1. Velg tema-mappe. Passer ingen, lag en ny med kebab-case-navn.
+2. Skriv `tasks/lessons/<tema>/<YYYY-MM-DD>-<slug>.md` i formatet fra `docs/loop-rules.md`. Slug:
+   tittelen med små bokstaver, æ→ae, ø→oe, å→aa, alt annet enn a–z og 0–9 → `-`, maks 60 tegn.
+   Finnes navnet, legg til `-2`.
+3. Ingen indeks, ingen telling, ingen Se også-peker. Relevans for andre tema går i `tags`.
+4. Dekker en eksisterende lesson samme mønster: utvid den og legg kilden til i `kilder`. Slår du
+   sammen to filer, slett den ene.
+5. `tags` har minst én emne-tag og aldri mappens eget navn. Relevans for et annet tema er tema-navnet
+   som tag. Gjenbruk eksisterende tagger:
+   `grep -h '^tags:' tasks/lessons/*/*.md | sed 's/^tags: \[//; s/\]$//' | tr ',' '\n' | tr -d ' ' | grep . | sort | uniq -c | sort -rn`.

@@ -7,7 +7,7 @@
 Denne guiden forklarer **hvordan den autonome utviklingsloopen fungerer i praksis**, og — viktigst — **hvor du som menneske passer inn**. Den er for deg som kjører loopen, ikke for den som bygger den.
 
 - **Design og begrunnelse:** [v3-agent-orchestrator/docs/PORTING.md](../v3-agent-orchestrator/docs/PORTING.md)
-- **Koordinator-runbook (prosedyren loopen kjører):** `docs/superpowers/loop/coordinator-runbook.md`
+- **Koordinator-runbook (prosedyren loopen kjører):** `docs/superpowers/loop/coordinator-runbook.md` — kjerne-sjekkliste; prosedyren per steg i `docs/superpowers/loop/steps/`, begrunnelser i `docs/superpowers/loop/runbook-hvorfor.md`
 
 ---
 
@@ -134,7 +134,7 @@ Loopen og du kan jobbe «samtidig» så lenge dere holder dere til hver deres fi
 | `status: deferred↔open` + `tags`-endring på **u-claimet** todo (triage av grooming-forslag) | Deg | ✅ trygt — dette er triage-handlingen (se Grooming-seksjonen) |
 | `claimed_by`, `status: in_progress/done` | Koordinator | ❌ ikke rør (= «in-flight»-signal) |
 | `plan:` på en **u-claimet** todo (pipelinet plan) | Koordinator | ❌ ikke rør — men todoen er IKKE under arbeid: `priority`/`order`/`deferred` er fortsatt trygt |
-| `lessons*`, `todo_archive.md`, `bugs.md` | Koordinator | ❌ ikke rør manuelt |
+| `lessons*`, `followups/`, `todo_archive.md`, `bugs.md` | Koordinator | ❌ ikke rør manuelt |
 | `.claude/worktrees/agent-*` | Koordinator (rydder etter hver worker-dispatch; beholder ved abort for forensikk) | ❌ ikke rydd manuelt mens loopen kjører; ✅ trygt når den står stille (det er TODO 245s modus) |
 | `.claude/agent-memory/<agent>/MEMORY.md` | Agenten selv, committes av implementeren i dens egen PR | ❌ ikke rediger manuelt |
 | `tasks/graph.json` | Ingen — genereres on-demand, committes aldri | ❌ ikke opprett |

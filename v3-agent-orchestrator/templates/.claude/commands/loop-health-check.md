@@ -145,12 +145,53 @@ ikke tidsstempel-basert — fix-runde 2, B1) og krever at raden bærer `wtsweep=
   den tilstanden som lot 72 agent-worktrees og 19,4 GB hope seg opp uten at noe noensinne ble rødt
   (målt i kildeprosjektet, TODO 380).
 
+### A5d — Vakter utenfor loopen (TODO 368)
+
+Noen vakter kan loopen ikke kjøre selv, fordi de leser et miljø loopen aldri skal lese (typisk prod).
+De kjører som planlagte GitHub-workflows og bærer markørlinja `# loop-guard: max-age-hours=<N>`.
+A5d leser aldri miljøet vakten vokter. Den sjekker bare at vakten kjører, og om den melder rødt.
+
+```bash
+git grep -l '^# loop-guard: max-age-hours=' origin/{{PROD_BRANCH}} -- .github/workflows/
+```
+
+- Exit 1 og tom output → ingen vakter → `vakt=n/a`. Exit ≥ 2 → `vakt=infra-feil`.
+- Per treff (fjern `origin/{{PROD_BRANCH}}:`-prefikset): `<wf>` = filnavnet, `<N>` = tallet i markøren.
+
+```bash
+gh api "repos/{owner}/{repo}/actions/workflows/<wf>" --jq .state
+gh run list --workflow <wf> --branch {{PROD_BRANCH}} --event schedule --status completed --limit 1 \
+  --json createdAt,conclusion \
+  --jq 'if length == 0 then "none" else (.[0] | "\(((now - (.createdAt | fromdateiso8601)) / 3600) | floor) \(.conclusion)") end'
+git log -1 --first-parent --format=%ct origin/{{PROD_BRANCH}} -- .github/workflows/<wf>
+```
+
+`--first-parent` er påkrevd. Uten det gir `git log` tidspunktet for den opprinnelige feature-commiten,
+ikke for mergen som brakte fila til `{{PROD_BRANCH}}` (målt på `ci.yml`: ~25 t forskjell). Alder i timer:
+`echo $(( ($(date +%s) - <ct>) / 3600 ))`.
+
+Per vakt, første regel som treffer:
+1. `state` er ikke `active` → `vakt=red` (vakten er slått av).
+2. Ingen fullført planlagt kjøring (`none`): fila landet på `{{PROD_BRANCH}}` for ≤ N timer siden →
+   `vakt=n/a` (ny vakt); ellers → `vakt=red` (vakten har aldri kjørt).
+3. Siste fullførte planlagte kjøring er eldre enn N timer → `vakt=red` (vakten har sluttet å kjøre).
+4. Den er `success` → `vakt=green`.
+5. Den er `failure` → `vakt=report-red`: vakten lever og melder rødt om miljøet den vokter. Det eies
+   av eieren, ikke av loopen. Mangler kjøringen jobblogg, er det som regel GitHub som nektet å starte
+   jobben (les ANNOTATIONS), ikke vaktens funn.
+6. Annen konklusjon (`cancelled`, `timed_out`, `startup_failure` …) → `vakt=red`.
+
+`vakt=red` og `vakt=infra-feil` → A6 RØD (infra). `vakt=report-red` endrer ikke A6: koordinatoren tar
+med én linje til eieren i neste statusrapport, med kjøringens URL
+(`gh run list --workflow <wf> --branch {{PROD_BRANCH}} --event schedule --limit 1 --json url --jq '.[0].url'`).
+Flere vakter: verste utfall vinner (`infra-feil`/`red` > `report-red` > `n/a`/`green`).
+
 ### A6 — Helsesjekk-aggregering
 
 Samlet helsesjekk-status:
 - Alle sjekker `green` (eller `n/a`) → **GRØNN** — fortsett til Del B
 - Minst én `red` (regresjon) → **RØD (regresjon)** — ⚠️ PAUSEPUNKT, eskalér til mennesket
-- Minst én `infra-feil` (inkl. `wtsweep=red`) → **RØD (infra)** — ⚠️ PAUSEPUNKT, eskalér til
+- Minst én `infra-feil` (inkl. `wtsweep=red` og `vakt=red`) → **RØD (infra)** — ⚠️ PAUSEPUNKT, eskalér til
   mennesket med rå feilmelding
 
 ---
@@ -272,7 +313,7 @@ utakt med sine egne fixtures — ALDRI stol på klassifiseringer denne runden).
 `--self-test`/`--dump-rules` bevisste at fixturene og tabellen stemmer, men fanger IKKE en
 regresjon i selve `--event`-kalleformen runbooken instruerer koordinatoren om å skrive (kode-review
 r1, BLOKKERENDE-funn: komma-sammenslått `--context` ga A0 på begge dokumenterte kall). Kjør de to
-kalleformene ordrett slik de står i runbook-templatens §4/§5b (linje 385/515) mot LEVENDE tre:
+kalleformene ordrett slik de står i runbook-stegfilene `docs/superpowers/loop/steps/4-dispatch-reviewer.md` (avsnittet «Ved `technical_risk.flagged`») og `docs/superpowers/loop/steps/5b-kode-review.md` (revise-gate-punktet under «Gate») mot LEVENDE tre:
 
 ```bash
 python3 tasks/decision-level.py --event technical_risk --context source=planner --context kind=docs_selfmod --context executable_gate=yes

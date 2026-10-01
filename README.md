@@ -57,7 +57,7 @@ Samme kontrollmodell som v2, men reglene håndheves av hooks i stedet for å
 stå bare i prosa: én vakt blokkerer push/merge mot prod-branchen, én
 hindrer read-only-rollene i å skrive, begge med regresjonsharness. `/setup`
 genererer hele maskineriet fra `loop.config.yaml` og merger hookene inn i
-`.claude/settings.json`. I tillegg: lessons som wiki, worktree-hygiene,
+`.claude/settings.json`. I tillegg: lessons med én fil per lesson, worktree-hygiene,
 todo-nr-kollisjonsvakt, hotfix-runbook og rødt-før-grønt-sjekk.
 
 **Velg v3 når:**
