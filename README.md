@@ -10,6 +10,7 @@ komplett arbeidsflyt. Du drar inn ÉN mappe og har alt — ingen delt
 | **v1** | [`v1-sekvensiell-human-orchestrator/`](v1-sekvensiell-human-orchestrator/) | Mennesket orkestrerer, sekvensielt |
 | **v2** | [`v2-agent-orchestrator/`](v2-agent-orchestrator/) | En koordinator-agent orkestrerer, autonomt (Claude Code) |
 | **v2 (Copilot)** | [`copilot-agent-orchestrator/`](copilot-agent-orchestrator/) | Samme v2-modell, portert til GitHub Copilot CLI |
+| **v3** | [`v3-agent-orchestrator/`](v3-agent-orchestrator/) | v2-modellen med håndhevede vakter, generert fra én config |
 
 ---
 
@@ -50,6 +51,25 @@ release», og trekkes kun inn ved ekte veiskiller (pausepunkter). Todos er
 > v2 er ikke «v1 fast». Det er en annen kontrollmodell. v1 fryses som
 > referanse når v2 overtar — den røres ikke utover å ligge i sin mappe.
 
+### v3 — agent-orchestrator med håndhevede vakter
+
+Samme kontrollmodell som v2, men reglene håndheves av hooks i stedet for å
+stå bare i prosa: én vakt blokkerer push/merge mot prod-branchen, én
+hindrer read-only-rollene i å skrive, begge med regresjonsharness. `/setup`
+genererer hele maskineriet fra `loop.config.yaml` og merger hookene inn i
+`.claude/settings.json`. I tillegg: lessons som wiki, worktree-hygiene,
+todo-nr-kollisjonsvakt, hotfix-runbook og rødt-før-grønt-sjekk.
+
+**Velg v3 når:**
+- Du ville valgt v2, og vil at en hook stopper feilen når en agent bryter
+  en regel — ikke bare at regelen står i et charter.
+- Du kjører flere koordinatorer eller worktrees parallelt og trenger
+  kollisjonsvakter og opprydding.
+- Du har `bash` og `jq` tilgjengelig (hookene og harnessene krever det).
+
+Står du på v2 og vil oppgradere: følg
+[`v3-agent-orchestrator/MIGRATION.md`](v3-agent-orchestrator/MIGRATION.md).
+
 ---
 
 ## Ta i bruk
@@ -65,6 +85,9 @@ Hver versjonsmappe har sin egen `README.md` med fullstendig oppsett.
   - **Eksisterende v1-prosjekt:** følg
     [`v2-agent-orchestrator/MIGRATION.md`](v2-agent-orchestrator/MIGRATION.md)
     for en reversibel v1→v2-migrering.
+- **v3:** fyll `loop.config.yaml`, kjør `/setup`, kjør harnessene, start en
+  fersk sesjon. Se [`v3-agent-orchestrator/README.md`](v3-agent-orchestrator/README.md);
+  fra v2 eller v1: [`v3-agent-orchestrator/MIGRATION.md`](v3-agent-orchestrator/MIGRATION.md).
 
 ---
 
@@ -72,6 +95,6 @@ Hver versjonsmappe har sin egen `README.md` med fullstendig oppsett.
 
 **Selvstendige versjonsmapper.** Når du porterer til et nytt prosjekt skal
 du dra inn ÉN mappe og ha alt — kit, stillas og config-eksempel. Det er
-bevisst at v1 og v2 dupliserer noe (lessons-mønster, naming-konvensjoner):
+bevisst at versjonene dupliserer noe (lessons-mønster, naming-konvensjoner):
 kostnaden ved litt duplisering er lavere enn kostnaden ved en delt `shared/`
 som binder versjonene sammen og gjør porting til et plukk-og-velg-puslespill.

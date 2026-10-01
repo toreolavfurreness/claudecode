@@ -1,0 +1,195 @@
+# loop.config.yaml — den ENESTE filen du fyller for å porte loopen
+#
+# Dette er kilden. `/setup` kompilerer verdiene herfra inn i kit-et
+# (templates/ → prosjektets faktiske stier). Charterne leser ALDRI denne
+# fila ved runtime — alt substitueres ved setup-tid (ren A, én mekanisme).
+# Endrer du noe her: kjør `/setup` på nytt for å rekompilere.
+#
+# Eksempelverdiene under er illustrative (Next.js + Supabase-stack) — bytt
+# dem ut med prosjektets egne. Hver nøkkel mapper til ett eller flere {{TOKEN}} i templates/;
+# se token-tabellen i setup.md for den fullstendige mappingen.
+#
+# Nøklene fram til «Valgfrie nøkler» er påkrevd — `/setup` stopper hardt hvis én mangler.
+# De valgfrie har en dokumentert default når de utelates.
+
+# --- Identitet -------------------------------------------------------------
+project_name: my-project                         # → agent-navn <project>-planner osv. Kebab-case, ingen mellomrom.
+github_repo: your-org/your-repo                  # owner/repo — brukes i PR-URL-eksempler
+language: "norsk bokmål"                          # UI/svar-språk (kode er alltid engelsk)
+dev_server_port: 3000                             # for prosess-rydding (lsof)
+dev_server_process: "next dev"                    # prosessnavn for pkill -f (f.eks. "next dev", "vite", "rails s")
+
+# --- Modeller (tier per rolle) --------------------------------------------
+# planner/reviewer/code-reviewer = dyp modell; implementer = rask.
+# model: leses av plattformen ved sesjonsstart — KAN ikke være runtime-config.
+# Bruk full modell-ID — et alias som `opus` flytter seg når en ny modell lanseres, og da
+# endrer rollen modell uten at noe i repoet endret seg.
+models:
+  planner: claude-opus-5-5
+  planner_effort: high
+  reviewer: claude-opus-5-5
+  reviewer_effort: high
+  implementer: claude-sonnet-5
+  implementer_effort: high
+  code_reviewer: claude-opus-5-5
+  code_reviewer_effort: high
+  scout: claude-haiku-4-5-20251001                # påkrevd iff scout.enabled (se under)
+  scout_effort: low
+  # Visningsstrengen i run-loggens «models»-kolonne utledes fra modell-nøklene over
+  # (her: «Opus5.5/Opus5.5/Sonnet5/Opus5.5»). Overstyr kun ved behov:
+  # display: "Opus5.5/Opus5.5/Sonnet5/Opus5.5"
+
+# --- Miljøer (Tier-1-invariant — må aldri glippe) -------------------------
+environments:
+  dev_id: your-dev-project-ref                    # daglig arbeid; all loop-aktivitet treffer dette
+  prod_id: your-prod-project-ref                  # «aldri rør» automatisk
+  # Hvis prosjektet ikke har et eksternt miljø-ID-begrep (ren frontend e.l.):
+  # sett dev_id/prod_id til en meningsfull markør, f.eks. "n/a-dev"/"n/a-prod".
+
+# --- Branch-strategi ------------------------------------------------------
+branch_strategy:
+  base_branch: dev                                # PR-er lages mot denne; loopen merger hit
+  release_branch: main                            # produksjon; loopen rører den ALDRI
+  prod_branch: main                               # «aldri push/merge/commit»-branchen (oftest == release_branch)
+
+# --- Verifiserings-kommandoer ---------------------------------------------
+# Tomme strenger ("") = steget hoppes over (f.eks. prosjekt uten e2e).
+verification_commands:
+  build: "npm run build"
+  type_check: "npx tsc --noEmit"                  # rask inline-sjekk i worker
+  type_check_script: "npm run type-check"         # script-variant brukt i helsesjekk
+  lint: "npm run lint"
+  format_check: "npm run format:check"            # prettier --check e.l.; "" hvis prosjektet ikke har formatter-gate
+  test: "npm run test:run"
+  e2e: "Playwright MCP (mcp__playwright__browser_navigate m.fl.)"   # tom "" hvis ingen e2e
+  web_smoke: "npx playwright test e2e/smoke.spec.ts"   # minste web-lastings-/login-gate; "" hvis ingen browser-smoke
+  e2e_probe: ""                                   # CLI-tilgjengelighetsprobe for run-loop.md §1.
+    # "" er kun lovlig når `e2e` over er MCP-basert (inneholder "mcp__") ELLER tom. Er `e2e` en
+    # CLI-kommando (som "npm run test:e2e") MÅ e2e_probe være satt til en billig, ikke-installerende
+    # CLI-sjekk (f.eks. "npx --no-install playwright --version") — /setup feiler hardt (fail-closed)
+    # hvis den kombinasjonen mangler, fordi preflighten ellers ville rapportert "tilgjengelig" for
+    # en CLI-kommando uten noe bevis.
+
+# --- Tier-1-invarianter (sikkerhetsnett i hvert charter) ------------------
+# Skrives ordrett inn i agentenes «Ufravikelige invarianter»-seksjon.
+# Behold den som en YAML-blokk (|). Hold den kort og hard.
+tier1_invariants: |
+  - Norsk bokmål i UI/svar; engelsk i kode/variabler/commits.
+  - RLS på alle tabeller fra første migrasjon.
+  - Dev = your-dev-project-ref. Prod = your-prod-project-ref. Bland dem aldri.
+  - Aldri push/merge/commit til main.
+  - Flagg som teknisk risiko: migrasjon, RLS-endring, prod/main-push, env/secrets.
+
+# --- Pluggbare tech-review-agenter ----------------------------------------
+# Hvilke domene-reviewere code-revieweren dispatcher som friske sub-agenter,
+# og ved hvilke diff-stier. Lever prosjektets egne (se examples/ for maler).
+# Tom liste [] = code-revieweren kjører uten tech-review-arm.
+# Valgfritt per agent med severity_floor BLOKKERENDE/VIKTIG/MINDRE:
+# floor_exempt: [comment_doc_wording] — ordlydsfunn i kommentarer og docs/
+# heves ikke til gulvet (verifiseres av koordinatoren).
+tech_review_agents:
+  - name: security-reviewer
+    trigger: "src/app/(auth)/, src/lib/auth/, Supabase-klientkode eller Server Actions"
+    trigger_globs: ["src/app/(auth)/*", "src/lib/auth/*"]
+    severity_floor: BLOKKERENDE
+  - name: rls-auditor
+    trigger: "supabase/migrations/"
+    trigger_globs: ["supabase/migrations/*"]
+    severity_floor: BLOKKERENDE
+    # readonly_extra_tools: [WebFetch]   # valgfri: ekstra verktøy i read-only-kontrakten
+
+# --- Canary (bevis på fil-lesing) -----------------------------------------
+# Fil planner-canaryen leses fra. Velg en fil med stabilt, prosjektspesifikt
+# innhold som IKKE gjentas i dispatch-prompten (data-model, arkitektur e.l.).
+canary_source: docs/data-model.md
+
+# --- Lessons-tema (gyldige tema-filnavn) ----------------------------------
+# Brukes som enum i ferdig-rapporten og som tema-filer i tasks/lessons/.
+lessons_topics:
+  - postgres-rls
+  - supabase-platform
+  - migrations
+  - nextjs-app-router
+  - react-hooks
+  - playwright-e2e
+  - typescript
+  - tailwind-styling
+  - anthropic-api
+  - workflow-process
+
+# --- Pausepunkter (hva som teller som teknisk risiko) ---------------------
+pause_triggers: "migrasjon, RLS-endring, prod/main-push, env/secrets"
+
+# --- Subagent-minne (Claude Code `memory:`-frontmatter) --------------------
+# Valgfri nøkkel. Mangler `agent_memory` helt → minne er AV for alle roller.
+# scope ∈ user | project | local. `project` = .claude/agent-memory/<agent>/MEMORY.md,
+# sjekkes inn i git og er dermed review-bar i PR-diffen (hovedgrunnen til å velge
+# `project` framfor `local`). Skru kun på roller som (a) ikke er skrive-blokkert
+# (ingen `disallowedTools: Write, Edit` / read-only hook-kontrakt) og (b) har en
+# dokumentert sti fra «skrev i sin worktree» til «committet på base branch» — i
+# praksis: rollen som produserer PR-en. Eierskapsregel for innholdet, se
+# prosjektets CLAUDE.md § «Tre kunnskapsbaser» (eller tilsvarende).
+agent_memory:
+  scope: project
+  enabled_roles: [implementer] # planner | reviewer | implementer | code_reviewer | scout
+  # Kun implementer-charteret har en ferdig § Rollehukommelse (form, tak, kurering). Skrur du
+  # på andre roller, gi charteret deres samme seksjon.
+
+# --- Release --------------------------------------------------------------
+release:
+  command: "/release-prod"                        # menneske-kjørt; loopen anbefaler kun
+  health_check_merge_interval: 5                  # N: kjør helsesjekk hver N-te merge
+
+# --- Pipelining (koordinator-runbook §5c) ---------------------------------
+# Valgfri nøkkel. Mangler `pipelining` helt → max_in_flight = 0 → pipelining
+# er AV, dvs. nøyaktig dagens sekvensielle atferd (samme mønster som
+# `agent_memory`). Verdien er taket for hvor mange todos som kan ligge i
+# pipeline (plan + plan-review påbegynt, men IKKE claimet) samtidig mens en
+# annen todo implementeres. Taket er koordinator-kontekst-styrt, ikke
+# maskin-styrt; verdier > 1 tas først i bruk av trinn 2 (parallelle
+# implementere), som IKKE styres av denne nøkkelen. Kit-ets standardverdi er
+# `0` (av) — sett `1` for å slå på pipelining av trinn 1.
+pipelining:
+  max_in_flight: 0
+
+# --- Parallelle implementere (koordinator-runbook §5d, TODO 233) ----------
+# Valgfri nøkkel. Mangler `parallel_implementers` helt → max = 1 → dagens
+# sekvensielle atferd (samme mønster som `pipelining`). Kit-ets standardverdi
+# er `1` (av) — sett `2` for å slå på parallelle implementere av trinn 2.
+# Hever IKKE `pipelining.max_in_flight` — de to nøklene teller forskjellige
+# ting (todo-233-planen § 1.5).
+parallel_implementers:
+  max: 1
+
+# ===========================================================================
+# Valgfrie nøkler (v3)
+# ===========================================================================
+
+# --- Scout (lokaliserings-worker, koordinator-runbook §3/§5) -----------------
+# Mangler `scout` → AV: charteret genereres ikke, og planner/implementer får verken
+# Agent(<project>-scout) eller delegerings-seksjonen. PÅ krever models.scout/scout_effort.
+# max_findings er et hardt tak per oppdrag (overskrides det: measurement.truncated: true).
+scout:
+  enabled: true
+  max_findings: 25
+
+# --- Hooks (vakter + komfort) -------------------------------------------------
+# /setup genererer hook-filene og registrerer dem i .claude/settings.json (merge — resten
+# av fila røres ikke). Default ved utelatt nøkkel: vaktene PÅ, komfort-hookene AV.
+hooks:
+  main_merge_guard: true               # blokkerer push/PR/merge mot branch_strategy.prod_branch
+  reviewer_readonly_guard: true        # håndhever at read-only-rollene faktisk ikke kan skrive
+  session_start_lint: true             # myk type_check + lint ved sesjonsstart (blokkerer aldri)
+  typecheck_on_edit_extensions: [".ts", ".tsx"]   # type_check etter Edit/Write av disse; [] = av
+
+# --- Worktree-bootstrap (.claude/scripts/bootstrap-worktree.sh) ---------------
+# Gjør en fersk agent-worktree kjørbar. Mangler seksjonen → skriptet er en trygg no-op.
+# Env-kopien er default-deny: KUN env_allowed_keys kopieres fra hovedsjekkuten, og en
+# worktree-fil med en nøkkel som starter på et env_denied_prefixes-ledd slettes.
+worktree_bootstrap:
+  install_cmd: "npm ci"                           # "" = ingen installasjon
+  lockfile: package-lock.json                     # installer på nytt når denne er nyere enn markøren
+  install_marker: node_modules/.package-lock.json # finnes den ikke → avhengigheter mangler
+  env_files: [.env.local, .env.test]
+  env_allowed_keys: [NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, TEST_USER_EMAIL, TEST_USER_PASSWORD]
+  env_denied_prefixes: [SUPABASE_SERVICE_ROLE_KEY, PROD_]
