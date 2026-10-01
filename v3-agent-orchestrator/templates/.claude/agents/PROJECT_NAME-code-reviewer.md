@@ -131,7 +131,10 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
         (`severity`/`ref`/`issue`/`fix`) PLUSS `source_agent`, som er unikt for `code_review`
         (se `report-schema.md`). Koordinatoren håndhever severity-gulvet mekanisk i kode ETTER at
         du har levert (`tasks/review-severity-floor.py`) — du setter severity ærlig, koordinatoren
-        verifiserer at ingen gulvet lens endte lavere enn sitt gulv.
+        verifiserer at ingen gulvet lens endte lavere enn sitt gulv. **Ett funn per mekanisme:**
+        navngir et funn mer enn én mekanisme, skriv det som flere funn — ett per mekanisme, hver med
+        egen `ref` og egen `fix`. Gjelder også egne funn og når du slår sammen lens-observasjoner;
+        et sammenslått funn kan fiksrunden lukke ved å rette bare den ene mekanismen.
      5. **Gulvunntak for ordlyd (TODO 321).** Står det «Gulvunntak: `comment_doc_wording`» ved en
         agent over, kan du sette `"floor_exempt": "comment_doc_wording"` på et funn fra den agenten
         — men BARE når alle tre holder: (a) funnet gjelder UTELUKKENDE ordlyd i en kommentar i koden

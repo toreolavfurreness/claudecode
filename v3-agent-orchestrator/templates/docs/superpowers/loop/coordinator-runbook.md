@@ -35,9 +35,15 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 
 ## 0. Synk
 → `steps/0-synk.md` — les hele fila FØR steget kjøres.
+- [ ] Først, før synken: finnes `steps/0c-sjekkpunkt.md`, skriv sjekkpunkt-stubben derfra (§0c).
 - [ ] Hva: ff-only-synk av `{{BASE_BRANCH}}` (eller sesjonens speil-branch) før hver runde; skittent tre eller divergert branch → STOPP.
 - [ ] Vakt/kommando: `git fetch origin {{BASE_BRANCH}} && git merge --ff-only origin/{{BASE_BRANCH}}`; `core.hooksPath .githooks` settes idempotent hvis `.githooks/` finnes
 - [ ] Pausepunkt: `git`/working-tree ikke ren (§0)
+
+## 0c. Sjekkpunkt ved komprimering (valgfri)
+→ `steps/0c-sjekkpunkt.md` — finnes bare når `hooks.compaction_checkpoint` er på. Les hele fila FØR §0.
+- [ ] Hva: egen sjekkpunkt-fil per sesjon, skrevet ved hver steg-overgang og lagt tilbake i konteksten etter en komprimering; sjekkpunktet vinner over sammendraget.
+- [ ] Vakt/kommando: `sessionstart-checkpoint.sh` (SessionStart/`compact`), `precompact-checkpoint.sh` (PreCompact/`auto`); ser du ingen `KOORDINATOR-CHECKPOINT GJENOPPRETTET`-blokk etter komprimering, les fila selv
 
 ## 0b. Rydd en worker-worktree (gjenbrukbar prosedyre)
 → `steps/0b-rydd-worker-worktree.md` — les hele fila FØR steget kjøres.

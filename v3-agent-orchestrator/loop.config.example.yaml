@@ -183,6 +183,8 @@ hooks:
   implementer_model_guard: true        # implementer-dispatch må ha eksplisitt model; dyp modell fra fix-runde 3
   session_start_lint: true             # myk type_check + lint ved sesjonsstart (blokkerer aldri)
   typecheck_on_edit_extensions: [".ts", ".tsx"]   # type_check etter Edit/Write av disse; [] = av
+  compaction_checkpoint: false         # koordinator-sjekkpunkt som gjenopprettes etter komprimering;
+                                       # mål på din runtime før du slår på (steps/0c-sjekkpunkt.md)
 
 # --- Worktree-bootstrap (.claude/scripts/bootstrap-worktree.sh) ---------------
 # Gjør en fersk agent-worktree kjørbar. Mangler seksjonen → skriptet er en trygg no-op.

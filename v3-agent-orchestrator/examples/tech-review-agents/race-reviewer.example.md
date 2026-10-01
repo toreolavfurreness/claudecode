@@ -47,6 +47,28 @@ leverer en strukturert rapport.
    manglende in-flight-guard på drag-swap), BUG-081 (`app/(app)/calendar.tsx`,
    dato fryst ved mount).
 
+## Tilgang til koden under review
+
+**Oppgir prompten en `<pr_head_sha>`**, er du dispatchet av kode-revieweren i loopen og kjører i
+kode-reviewerens arbeidstre, parallelt med de andre lensene. Read/Grep/Glob på arbeidstreet viser
+base-branchen, ikke PR-en, og en diff mot arbeidstreet viser ikke PR-endringene:
+
+- **Diff og filliste:** `gh pr diff <nr>` eller diffen i prompten.
+- **Én fil på PR-head:** `git show <pr_head_sha>:<sti>`.
+- **Kjørbar kode** (test, detektor): pakk ut i scratchpaden din og kjør der —
+  `mkdir -p <scratchpad>/<agentnavn>-<pr_head_sha>` og deretter
+  `git archive <pr_head_sha> [<stier>] | tar -x -C <scratchpad>/<agentnavn>-<pr_head_sha>`.
+- **Mangler PR-objektene lokalt:** `git fetch origin pull/<nr>/head` — uten `:` og uten `-f`.
+
+**Uten `<pr_head_sha>`** (ad hoc-kjøring): bruk diffen eller fillista i prompten hvis den finnes;
+ellers er arbeidstreet koden du skal granske — avgrens med `git diff`/`git status`.
+
+**Aldri, i noe arbeidstre:** en git-kommando som endrer HEAD, indeksen, filene, refs eller
+worktree-registeret — `checkout`, `switch`, `reset`, `restore`, `stash`, `merge`, `rebase`,
+`commit`, `clean`, `branch`/`tag` som oppretter eller sletter, `fetch` med `<fra>:<til>` eller
+`-f`, og `worktree add`/`remove`. Kode-revieweren sammenligner arbeidstreet før og etter
+lens-runden; et avvik gjør hele reviewen usignert (TODO 292).
+
 ## Sjekkliste — gå gjennom punkt for punkt
 
 **Dobbel-submit / manglende in-flight-guard (BUG-089-klassen):**
@@ -141,6 +163,9 @@ sluttmeldingen din — ingen prosa rundt, ingen severity-rangerte overskrifter
   observasjonen er etterprøvbar for kode-revieweren i stedet for at den må stole på ditt ordvalg.
 - `observations` er tom array (`[]`) hvis du ikke fant noe å flagge — det er en gyldig, positiv
   rapport, ikke en feil.
+- **Ett funn per mekanisme.** Navngir en observasjon mer enn én mekanisme, skriv den som flere
+  observasjoner — én per mekanisme, hver med egen `ref` og egen `fix`. Slår du dem sammen, kan
+  fiksrunden lukke posten ved å rette bare den ene.
 - `evidence` (PÅKREVD, TODO 250B): `reviewed_sha` er ditt PRIMÆRE bevis — SHA-en du
   faktisk gransket, eller `null` hvis ikke oppgitt (GJETT ALDRI en SHA). Oppgi FULL 40-tegns SHA,
   aldri kortform. `toplevel` er SVAKT og formuleres BETINGET («kan være identisk med
