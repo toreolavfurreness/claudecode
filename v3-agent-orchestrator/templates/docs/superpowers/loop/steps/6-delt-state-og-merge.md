@@ -211,6 +211,8 @@ Fra ferdig-rapporten, `status: "implemented"`:
    grep -qF "$TS | $TODO_NR |" docs/superpowers/loop/run-log.md \
      || printf '%s\n' "$ROW" >> docs/superpowers/loop/run-log.md
    ```
+   Rett etter raden: `python3 tasks/loop-cadence.py`. Exit 1 ⇒ §6c (Trigger 2) kjøres etter
+   git-halen, før neste dispatch.
    Telemetri: (a) ferdig-rapportens `todo_nr`, `slug`, `pr_url`; (b) egne kontekst-tellere
    (§4-revisjonsrunder → `$PRR`, §5b-kode-review-runder → `$CRR`; fast-path (§2b): `skipped`
    for hoppede stadier, `$PRR=0`); (c) Modeller-tabellen i `docs/orchestration-loop.md` →

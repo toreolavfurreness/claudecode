@@ -2,6 +2,10 @@
 
 Inngangsstier:
 
+- **Prosjektet kjører v3.2** → kjør `/setup` på nytt. To endringer merkes utenfor kit-filene:
+  plan-rapporten har et nytt felt, `planned_diff`, og kanarien har nytt format, `L<N>: <tekst>`.
+  Har du egne verktøy som leser plan-rapporter, oppdater dem. Har du skrevet om plan-malen, sjekk at
+  planene fortsatt har en `## Steg`-seksjon: `python3 tasks/vblock-lint.py <plan>` sier fra.
 - **Prosjektet kjører v3.1** → kjør `/setup` på nytt. v3.2 legger bare til nytt innhold og en
   valgfri nøkkel, `hooks.compaction_checkpoint` (av som standard). Har du kopiert eksempel-lensene
   inn i `.claude/agents/`, ta med den nye seksjonen «Tilgang til koden under review» og regelen om

@@ -84,7 +84,9 @@ Oppgi i rapporten hva du MÅLTE at oppgaven er, delt i to: **kodekost** og **ver
 hver `S | M | L`. De divergerer ofte, og verifiseringen er i dette prosjektet jevnlig den store
 halvdelen. Si eksplisitt fra hvis `effort` i todo-fila er feil — det feltet ble skrevet før noen
 leste koden, og er en påstand, inntil du måler det. Grunngi hver halvdel med det du faktisk talte
-(filer, linjer, nye specs, suite-kjøringer, runder som må eies av et menneske).
+(filer, linjer, nye specs, suite-kjøringer, runder som må eies av et menneske). Oppgi i tillegg
+`planned_diff` (linjer og filer for hele diffen). Ligger den langt over budsjettet i dispatchen, si
+det i `notes` og pek på hva som driver størrelsen — koordinatoren stopper før review ved ~5×.
 
 ## Minste diff
 
@@ -114,7 +116,7 @@ Hvis koordinatoren sender deg review-funn: oppdater planen så hvert BLOKKERENDE
 
 ## Canary (bevis på fil-lesing)
 
-Koordinatorens dispatch-prompt oppgir et **canary-mål** — f.eks. «de første 8 ordene på linje N i `{{CANARY_FILE}}`». Les den faktiske fila og fyll `canary` med den eksakte teksten. Dette er en stikkprøve på at du faktisk åpner filene (ikke gjetter); målet er bevisst en fil/linje som IKKE gjentas i denne prompten.
+Koordinatorens dispatch-prompt oppgir et **canary-mål** — f.eks. «linje N i `{{CANARY_FILE}}`». Les den faktiske fila og fyll `canary` med linjenummeret du landet på og de første 8 ordene der (`"L<N>: <tekst>"`). Dette er en stikkprøve på at du faktisk åpner filene (ikke gjetter); målet er bevisst en fil/linje som IKKE gjentas i denne prompten.
 
 ## Bevis (anti-fabrikasjon)
 

@@ -30,7 +30,7 @@ over `todo-execute.md` helt og går rett til `todo-finish-worker.md`).
 
 1. `CLAUDE.md` og `docs/loop-rules.md` (importert av CLAUDE.md) — prosjektets regler.
 2. Planfilen: `tasks/plans/todo-<nr>-<slug>.md`
-3. `docs/naming-conventions.md`; `docs/loading-patterns.md` hvis ruter/lister/forms.
+3. `docs/naming-conventions.md`; `docs/loading-patterns.md` hvis den finnes og todoen berører ruter/lister/forms.
 4. `tasks/lessons.md` + relevante tema-mapper koordinatoren oppga.
 
 ## Rollehukommelse (`.claude/agent-memory/{{PROJECT_NAME}}-implementer/MEMORY.md`)
@@ -84,7 +84,13 @@ ren.
 
 {{TIER1_INVARIANTS}}
 
-⚠️ STOPP og sett `status: "blocked"` hvis et steg krever noe under pause-triggerne ({{PAUSE_TRIGGERS}}) — det er ikke din rolle. **PR-er lages alltid mot `{{BASE_BRANCH}}`. Aldri push/merge/commit til `{{PROD_BRANCH}}`.**
+⚠️ STOPP og sett `status: "blocked"` hvis et steg krever noe under pause-triggerne ({{PAUSE_TRIGGERS}}) — det er ikke din rolle.
+
+**Planen holder ikke?** Viser det seg at en antakelse planen bygger på ikke stemmer med koden slik
+den faktisk er: ikke design en ny løsning utenfor planen, og ikke press implementeringen gjennom på
+den døde planen. Sett `status: "plan_invalid"`, navngi i `notes` hvilken antakelse som brast og
+hvilket målt funn som felte den, og stopp. Den reviewede planen er kontrakten din. Er du i tvil om
+det er planen eller implementeringen som sviktet («planen sa X, koden er Y»), er det `plan_invalid`. **PR-er lages alltid mot `{{BASE_BRANCH}}`. Aldri push/merge/commit til `{{PROD_BRANCH}}`.**
 
 ## Minste diff
 

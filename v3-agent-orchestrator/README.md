@@ -19,6 +19,22 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.3** (mer fra det samme andre prosjektet):
+- **Plan-lint før review:** `tasks/vblock-lint.py` har en hard regel R0 (planen må ha en
+  `## Steg`-seksjon med minst ett steg), og §4 kjører linten før reviewer-dispatch. En rød plan går
+  tilbake til planneren uten å telle som en review-runde.
+- **Kadens-gate for helsesjekken:** `tasks/loop-cadence.py` teller merger siden siste `health`-rad,
+  sortert på tidsstempel. §6 kjører den etter hver run-log-rad, og exit 1 utløser §6c.
+- **Proporsjonalitet:** planneren får eksisterende løsning, kjerne-anslag og budsjett i
+  dispatchen, og plan-rapporten har `planned_diff`. Over ~5× budsjett er et pausepunkt før review.
+- **`plan_invalid`:** implementeren kan melde at planen ikke holder. Todoen går tilbake til §3 med
+  funnet ordrett. Andre gang på samme todo er et pausepunkt.
+- **Mindre endringer:**
+  - Kanarien i plan-rapporten oppgir linjenummer (`L<N>: <tekst>`).
+  - Bug-oppføringer merker påstander som MÅLT eller HYPOTESE.
+  - En ny plan står som «utkast — ikke reviewet» til reviewen har godkjent den.
+  - Målescriptet sier fra om at transkripter slettes etter `cleanupPeriodDays` (standard 30 dager).
+
 **v3.2** (fra et andre prosjekt som kjørte v2-loopen):
 - **Sjekkpunkt ved komprimering (valgfri, av som standard):** koordinatoren skriver et sjekkpunkt
   ved hver steg-overgang. To hooks legger det tilbake i konteksten etter en auto-komprimering og
@@ -149,6 +165,8 @@ v3-agent-orchestrator/
    bash .claude/hooks/test-guard-fix-round-model.sh
    bash tasks/test-gate-f.sh
    python3 tasks/ci-gate.py --self-test
+   python3 tasks/vblock-lint.py --self-test
+   python3 tasks/loop-cadence.py --self-test
    bash .claude/hooks/test-checkpoint-hooks.sh   # bare når hooks.compaction_checkpoint er på
    bash tasks/test-worktree-sweep.sh
    bash tasks/test-worktree-landed.sh

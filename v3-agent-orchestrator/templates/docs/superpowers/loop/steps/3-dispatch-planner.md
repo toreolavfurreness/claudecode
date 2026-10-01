@@ -7,6 +7,19 @@
 
 → Kjerne: `coordinator-runbook.md` § 3 · Begrunnelser: `runbook-hvorfor.md` § 3
 
+**Proporsjonalitetsport — tre målinger FØR dispatch (BINDENDE, ~1 minutt).** Skriv svarene inn i
+dispatchen. De fanger den dyreste feilklassen: en liten todo som vokser til en stor leveranse
+fordi hver runde legger til lag og ingen fjerner noen.
+1. **Finnes løsningen allerede?** Ett `grep` på todoens sentrale begrep. Finnes den, oppgi
+   `sti:linje` — «kopier denne formen» er en annen instruks enn «design en løsning».
+2. **Hva er kjernen, i linjer og filer?** Skriv anslaget ned før du dispatcher. Det er et
+   referansepunkt å måle avviket mot, ikke et løfte.
+3. **Sett et budsjett** (linjer og filer). §4 stopper før review hvis planen sprenger det med mer
+   enn ~5×.
+Målt i et annet prosjekt med samme loop: en todo med 4 linjers kjerne ble 828 linjer i 13 filer og
+1,23 M tokens med alle gater grønne. Planen nådde aldri konsolideringsterskelen, og løsningen fantes
+ett `grep` unna.
+
 Velg et **canary-mål** workeren ikke kan gjette: en fil+linje som ikke er en invariant og ikke gjentas i prompten (f.eks. `{{CANARY_FILE}}` linje N — varier N per dispatch). Noter den faktiske teksten selv (`sed -n 'Np' {{CANARY_FILE}}`).
 
 **Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR `Agent`-blokken under:**
@@ -23,9 +36,13 @@ stille anta at et tomt/manglende snapshot betyr «ren». Én fil per dispatch �
 tvers av dispatches (se §0b, R21).
 
 `Agent`: `subagent_type: {{PROJECT_NAME}}-planner`. Prompt:
-> TODO <nr> (`tasks/todos/todo-<nr>-<slug>.md`). Relevante lessons-tema: <liste>. Canary: returner de første 8 ordene på linje <N> i `{{CANARY_FILE}}`. Følg charteret ditt. Returner plan-rapport som JSON.
+> TODO <nr> (`tasks/todos/todo-<nr>-<slug>.md`). Relevante lessons-tema: <liste>. Eksisterende løsning: <`sti:linje` eller «ingen funnet»>. Kjerne-anslag: <linjer>/<filer>. Budsjett: <linjer>/<filer>. Canary: tell til linje <N> i `{{CANARY_FILE}}` og returner BÅDE linjenummeret du landet på OG de første 8 ordene på den linja. Følg charteret ditt. Returner plan-rapport som JSON.
 
-Verifiser at `canary` matcher den faktiske teksten du noterte. Mismatch → re-dispatch eller eskalér (workeren leste sannsynligvis ikke filene). Koordinatoren (du) setter `plan:`-stien fra rapportens `plan_path` i todo-frontmatteren — workeren rører den ikke.
+Verifiser `canary` mot den faktiske teksten du noterte. Riktig tekst og riktig nummer → OK. Teksten
+er ekte, men fra en annen linje enn <N> (nummeret workeren oppga stemmer med teksten) → telle-drift,
+ikke manglende lesing: noter det, ingen re-dispatch. Teksten finnes ikke på linja workeren oppga →
+re-dispatch eller eskalér (workeren leste sannsynligvis ikke filene). Målt: 2 av 3 plannere returnerte
+ekte tekst fra ±2–4 linjer feil, og uten nummeret så det ut som manglende lesing. Koordinatoren (du) setter `plan:`-stien fra rapportens `plan_path` i todo-frontmatteren — workeren rører den ikke.
 
 <!-- mekanisk-kandidat: canary i rapporten matcher fila — sammenlign med sed -n Np (mangler) -->
 

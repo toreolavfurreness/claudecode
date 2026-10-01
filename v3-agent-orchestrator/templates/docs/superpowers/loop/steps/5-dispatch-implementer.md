@@ -38,6 +38,15 @@ kontekst sammen med `<N>`-telleren.
 
 `status: "failed"|"blocked"` → ⚠️ STOPP, release claim, rapporter.
 
+`status: "plan_invalid"` → planen holdt ikke. Ikke en stopp-sti; claimet beholdes.
+1. Sjekk at `notes` navngir den brustne antakelsen OG det målte funnet. Mangler ett av dem, be
+   implementeren om det først — ellers bretter neste plan den samme antakelsen inn på nytt.
+2. Sett `plan:` i todo-frontmatteren tilbake til tom, og kjør §3 → §4 → §5 på nytt. Lim funnet
+   ORDRETT inn i den nye §3-dispatchen («planen antok X; implementeren målte Y»).
+3. **Andre `plan_invalid` på SAMME todo ⇒ ⚠️ STOPP og eskalér** med begge funnene. To planer som
+   begge brister betyr at todoen er feil skåret.
+Rydd implementer-worktreen etter §0b som ved en vanlig rapport.
+
 **Bevis-sjekk (`evidence`):** din uavhengige `gh pr view`/`gh pr diff` (se §5b) er OFFISIELT bevis for PR-INNHOLDET — derfor er implementerens `evidence` slanket til `{toplevel, branch}` (kun worktree + riktig branch, ingen ordrett bygg-/testoutput kreves i rapporten). Sjekk likevel at `evidence.branch` matcher `branch`-feltet i rapporten og at `evidence.toplevel` peker på en worktree, ikke hovedsjekkuten.
 
 **Akkumulering for §6s rydding:** koordinatoren akkumulerer PARET (`evidence.toplevel`, rundens

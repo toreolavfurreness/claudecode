@@ -7,6 +7,20 @@
 
 → Kjerne: `coordinator-runbook.md` § 4 · Begrunnelser: `runbook-hvorfor.md` § 4
 
+**Plan-lint FØR dispatch (N1, BINDENDE):**
+```bash
+python3 tasks/vblock-lint.py tasks/plans/todo-<nr>-<slug>.md --log
+```
+Exit 1 (HARD, i dag bare R0: mangler `## Steg` med avkrysningsbokser) ⇒ send planen tilbake til
+planneren med lint-outputen, uten å dispatche revieweren. Det teller ikke som en §4-runde. Exit 0 ⇒
+fortsett; SOFT-funn blokkerer ikke. Exit 2 ⇒ planfila mangler eller kan ikke leses: STOPP.
+`--log` skriver raden §8c leser i `tasks/metrics/vblock-lint-log.jsonl`.
+
+**Proporsjonalitet FØR dispatch (BINDENDE):** sammenlign plan-rapportens `planned_diff`
+(linjer og filer) med budsjettet du satte i §3-dispatchen. Er linjene eller filene mer enn ~5×
+budsjettet ⇒ ⚠️ pausepunkt: legg fram anslag, budsjett og plan for mennesket FØR review-rundene.
+Review gjør en for stor plan grundigere, ikke mindre. Logg `pause_event=proporsjon`.
+
 **Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR `Agent`-blokken under. Én fil per
 revisjonsrunde:**
 ```bash
