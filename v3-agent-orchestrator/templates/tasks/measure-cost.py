@@ -47,7 +47,11 @@ def _project_dir():
     return os.path.expanduser('~/.claude/projects/' + re.sub(r'[^a-zA-Z0-9]', '-', root))
 
 
-PROJECT_DIR = _project_dir()
+# Alle prosjektmapper som inneholder repo-stien, ikke bare hovedsjekkoutens: en koordinator som
+# kjører fra en worktree eller scratchpad får egen mappe (`…-<repo>--claude-worktrees-…`,
+# `…-<repo>-…-scratchpad-…`). Med bare hovedmappa var 64 % av én release usynlig i
+# opphavsprosjektet (målt 2026-09-27).
+PROJECT_DIR = os.path.join(os.path.dirname(_project_dir()), '*' + os.path.basename(_project_dir()) + '*')
 since = args[0]
 dirs = args[1:] or sorted(d for d in glob.glob(os.path.join(PROJECT_DIR, '*')) if os.path.isdir(os.path.join(d, 'subagents')))
 
@@ -90,10 +94,27 @@ def usd(u, model):
     return ((u.get('input_tokens') or 0) * pi + (c5 or 0) * p5 + (c1 or 0) * p1
             + (u.get('cache_read_input_tokens') or 0) * pr + (u.get('output_tokens') or 0) * po) / 1e6
 
+# PR-nummer → todo fra run-loggens merge-rader (`| <todo> | <slug> | merged | - | #NNNN |`). Uten dette
+# ble «PR 1007» lest som todo 100 (`\d{3}` tok de tre første sifrene).
+PR_TODO = {}
+try:
+    for _ln in open('docs/superpowers/loop/run-log.md', encoding='utf-8'):
+        _c = [x.strip() for x in _ln.split(' | ')]
+        if len(_c) > 5 and _c[3] == 'merged':
+            for _pr in re.findall(r'(?:#|/pull/)(\d{3,5})', _c[5]):
+                PR_TODO[_pr] = _c[1]
+except OSError:
+    pass
+
 def todo_of(desc):
     d = desc or ''
-    m = (re.search(r'TODO\s*([0-9]+[A-Za-z]?)', d) or re.search(r'\bPR\s*#?(\d{3})', d)
-         or re.search(r'\b([0-9]{2,3}[A-Z]?)\b', d))
+    m = re.search(r'TODO\s*([0-9]+[A-Za-z]?)', d)
+    if m:
+        return m.group(1)
+    m = re.search(r'\bPR\s*#?(\d{3,5})\b', d)
+    if m:
+        return PR_TODO.get(m.group(1), 'PR' + m.group(1))
+    m = re.search(r'\b([0-9]{2,3}[A-Z]?)\b', d)
     return m.group(1) if m else '-'
 
 rows = []
@@ -122,7 +143,9 @@ for d in dirs:
             seen[mid] = (u, msg.get('model', '?'))
         if not t0 or t0 < since:
             continue
-        tot = defaultdict(int)
+        # Nøklene settes eksplisitt: en agent uten usage-rader ennå (nettopp startet) ga
+        # ellers KeyError i weight() og felte hele målesiden.
+        tot = defaultdict(int, {'in': 0, 'cc': 0, 'cr': 0, 'out': 0})
         tot_usd = 0.0
         for u, mdl in seen.values():
             tot_usd += usd(u, mdl)

@@ -75,16 +75,20 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
    For hver enkelt: vurder aktivt om dette er noe fremtidige TODOs kan støte på igjen.
    Vær konkret og handlingsbar, ikke generell. Dette steget er obligatorisk, ikke valgfritt.
 
-   **Hvor lessons skrives:**
-   - Identifiser hvilken tema-fil under tasks/lessons/ hver lesson hører hjemme i.
-     Gyldige tema: {{LESSONS_TOPICS}}.
-   - Skriv hver lesson med Pattern/Symptom + Sjekkliste fremover + `**Kilder:**`-linje.
-   - Hvis 2+ tidligere lessons dekker samme mønster: konsolider med flere kilder, ikke duplikat.
-   - Oppdater `tasks/lessons.md` (indeksen) med en ny én-linjes bullet under riktig tema-header.
-   - Carry-forward-bullets (oppfølginger til fremtidige TODO-er): legg i `tasks/lessons/open-followups.md` under en seksjon for opprinnelig TODO.
+   **Hvor lessons skrives (skrive-protokollen i `tasks/lessons.md`):**
+   - Velg tema-mappe under tasks/lessons/ for hver lesson (gyldige tema: `ls tasks/lessons/`). Passer
+     ingen, lag en ny mappe med kebab-case-navn.
+   - Skriv én fil per lesson, `tasks/lessons/<tema>/<YYYY-MM-DD>-<slug>.md`, i formatet fra
+     `docs/loop-rules.md` § «Lessons learned — én fil per lesson»: frontmatter (`tags`, `scope: project`, `kilder`), `# tittel`,
+     og **Problem:**/**Årsak:** (valgfri)/**Løsning:**/**Unngå:**.
+   - Dekker en eksisterende lesson samme mønster: utvid den og legg kilden til i `kilder` — ikke duplikat.
+   - Ingen indeks å oppdatere og ingen telling: filsystemet er indeksen.
+   - Carry-forward-bullets (oppfølginger til fremtidige TODO-er): én fil per oppfølging,
+     `tasks/followups/<YYYY-MM-DD>-<slug>.md`, med `kilder: [TODO-<nr>]` i frontmatter og `# tittel`.
+     Slett fila når oppfølgingen er lukket.
 
-   Rut hver lesson til tema-filen som best matcher rotårsaken (f.eks. tilgangs-/sikkerhetspolicy-feil,
-   migrasjonsfeil, framework-/routing-gotchas, eller typefeil) blant de gyldige temaene over.
+   Rut hver lesson til tema-mappen som best matcher rotårsaken (f.eks. tilgangs-/sikkerhetspolicy-feil,
+   migrasjonsfeil, framework-/routing-gotchas, eller typefeil).
 
 12. **Nye bugs:** Ble det avdekket nye bugs underveis?
     Legg dem til tasks/bugs.md med dette formatet:
@@ -114,7 +118,8 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
     - Komplikasjoner og hvordan de ble løst
     - Funn fra sikkerhetssjekk og code review
     - Bugs lukket og eventuelle nye bugs
-    - Hva som ble lagt til i tasks/lessons/<tema>.md (og indeksen)
+    - Hvilke lesson-filer som ble skrevet i tasks/lessons/<tema>/, og hvilke oppfølginger som ble lagt til
+      i eller slettet fra tasks/followups/
     - Neste TODO i køen (men ikke start på den)
 
 Vent på eksplisitt bekreftelse før neste TODO påbegynnes.

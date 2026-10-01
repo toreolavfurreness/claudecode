@@ -13,7 +13,7 @@ GENERERT-kontrakt som resten av kit-et: rediger templaten
 og kjør /setup på nytt. `{{PROD_ENV_ID}}`/`{{PROD_BRANCH}}`/`{{DEV_ENV_ID}}`/
 `{{RELEASE_COMMAND}}` i trigger-tekstene under ER ekte substitusjonstokens —
 disse fire gjør V12 (idempotens) og V13 (V-DRY) substitusjons-BEVISSTE, ikke
-trivielt sanne (lesson 2026-09-02, workflow-process-sep2026.md).
+trivielt sanne (lesson 2026-09-02, tasks/lessons/workflow-process/).
 
 Regeltabellen (A1-A8 + B1-B7) og rundetak-vakten under er én kilde i KODE.
 Den andre kilden er PROSA i `docs/superpowers/loop/coordinator-runbook.md`

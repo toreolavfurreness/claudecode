@@ -24,7 +24,7 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 1. `CLAUDE.md` og `docs/loop-rules.md` (importert av CLAUDE.md) — prosjektets regler.
 2. Planfilen koordinatoren oppga: `tasks/plans/todo-<nr>-<slug>.md`
 3. Todo-fila: `tasks/todos/todo-<nr>-<slug>.md`
-4. `tasks/lessons.md` + relevante tema-filer koordinatoren oppga.
+4. `tasks/lessons.md` + relevante tema-mapper koordinatoren oppga.
 
 ## Prosedyre
 

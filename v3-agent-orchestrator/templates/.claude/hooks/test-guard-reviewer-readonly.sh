@@ -53,12 +53,13 @@
 #                  runde 8, er SLETTET i runde 9 — se «Fix-runde 9»: carve-in-en
 #                  bommet på seks av sju motprøvde skriveformer og blokkerte to
 #                  legitime lesekommandoer, uten å tilføre noe i enforce-modus)
-#   C1–C33  (33) — verktøynavn-armen (C23–C29 lagt til i koordinator-fix-runden,
+#   C1–C34  (34) — verktøynavn-armen (C23–C29 lagt til i koordinator-fix-runden,
 #                  VIKTIG 2: én PASS-case per SESSION_SAFE-oppføring + to
 #                  BLOCK-regresjonsbevis for SendMessage/Monitor som ble
 #                  fjernet. C30–C33 lagt til i koordinator-fix runde 5,
 #                  MINDRE 3: aliasene kjørende runtime (2.1.247) faktisk
 #                  sender for BashOutput/KillShell/TaskOutput)
+#                  C34 lagt til 2026-09-25: SubagentHandback (runtime 2.1.280).
 #   X1–X11   (11) — robusthet (X6 lagt til i koordinator-fix runde 3, MINDRE 2:
 #                  en patchet kopi av hooken med en ødelagt MODE_JQ_PATHS
 #                  simulerer et feltnavn med spesialtegn — selvtesten MÅ
@@ -137,9 +138,9 @@
 #                  for "", og run_m validerer i tillegg at case-IDen finnes
 #                  i C_IDS og forventer PASS — en renummerering kan ikke
 #                  lenger gi stille grønt.
-#   SUM     199 (+ A17c/A32c/B74b = 3 ekstra scorede caser UTENFOR ID-listene,
+#   SUM     202 (+ A17c/A32c/B74b = 3 ekstra scorede caser UTENFOR ID-listene,
 #                se "Sluttassersjon 2" nederst i fila — faktisk scoret total
-#                er 202)
+#                er 205)
 
 set -uo pipefail
 
@@ -585,7 +586,7 @@ get_c_payload() {
     C17) agent="ios-design-reviewer" ;;
     C18) agent="{{PROJECT_NAME}}-reviewer" ;;
     C19|C20) agent="{{PROJECT_NAME}}-implementer" ;;
-    C21|C22|C23|C24|C25|C26|C27|C28|C29|C30|C31|C32|C33) agent="no-tools-agent" ;;
+    C21|C22|C23|C24|C25|C26|C27|C28|C29|C30|C31|C32|C33|C34) agent="no-tools-agent" ;;
   esac
   local tool=""
   case "$1" in
@@ -622,6 +623,7 @@ get_c_payload() {
     C31) tool="AgentOutputTool" ;;
     C32) tool="BashOutputTool" ;;
     C33) tool="KillBash" ;;
+    C34) tool="SubagentHandback" ;;
   esac
   if [ "$1" = "C20" ]; then
     jq -n --arg tool "$tool" '{tool_name:$tool,tool_input:{}}'
@@ -633,7 +635,7 @@ get_c_payload() {
 get_c_expected() {
   case "$1" in
     C1|C2|C3|C4|C5|C6|C7|C8|C9|C10|C11|C18|C22|C28|C29) echo BLOCK ;;
-    C12|C13|C14|C15|C16|C17|C19|C20|C21|C23|C24|C25|C26|C27|C30|C31|C32|C33) echo PASS ;;
+    C12|C13|C14|C15|C16|C17|C19|C20|C21|C23|C24|C25|C26|C27|C30|C31|C32|C33|C34) echo PASS ;;
   esac
 }
 
@@ -672,6 +674,7 @@ get_c_desc() {
     C31) echo "AgentOutputTool (SESSION_SAFE: kjorende runtime-alias for TaskOutput) - MINDRE 3 koordinator-fix runde 5" ;;
     C32) echo "BashOutputTool (SESSION_SAFE: kjorende runtime-alias for BashOutput) - MINDRE 3 koordinator-fix runde 5" ;;
     C33) echo "KillBash (SESSION_SAFE: kjorende runtime-alias for KillShell) - MINDRE 3 koordinator-fix runde 5" ;;
+    C34) echo "SubagentHandback (SESSION_SAFE: leverer sluttrapport til forelderen, runtime 2.1.280)" ;;
   esac
 }
 
@@ -1299,6 +1302,7 @@ session_safe_tool_has_case() {
     AgentOutputTool) echo "C31" ;;
     BashOutputTool) echo "C32" ;;
     KillBash) echo "C33" ;;
+    SubagentHandback) echo "C34" ;;
     *) echo "__UKJENT__" ;;
   esac
 }
@@ -1353,7 +1357,7 @@ run_m() {
 # ── Case-lister (selv-assertion mot planens tall — reviewerens anbefaling) ──
 A_IDS="A1 A2 A3 A4 A5 A6 A7 A8 A9 A10 A11 A12 A13 A14 A15 A16 A17 A18 A19 A20 A21 A22 A23 A24 A25 A26 A27 A28 A29 A30 A31 A32 A33"
 B_IDS="B1 B2 B3 B4 B5 B6 B7 B8 B9 B10 B11 B12 B13 B14 B15 B16 B17 B18 B19 B20 B21 B22 B23 B24 B25 B26 B27 B28 B29 B30 B31 B32 B33 B34 B35 B36 B37 B38 B39 B40 B41 B42 B43 B44 B45 B46 B47 B48 B49 B50 B51 B52 B53 B54 B55 B56 B57 B58 B59 B60 B61 B62 B63 B64 B65 B66 B67 B68 B69 B70 B71 B72 B73 B74 B75 B76 B77 B78 B79 B80 B81 B82 B83 B84 B85 B86 B87 B88 B89 B90 B91 B92 B93 B94 B95 B96 B97 B98 B99"
-C_IDS="C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C24 C25 C26 C27 C28 C29 C30 C31 C32 C33"
+C_IDS="C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C24 C25 C26 C27 C28 C29 C30 C31 C32 C33 C34"
 X_IDS="X1 X2 X3 X4 X5 X6 X7 X8 X9 X10 X11"
 D_IDS="D1 D2 D3 D4 D5"
 K_IDS="K1 K2 K3 K4 K5 K6 K7 K8 K9 K10 K11 K12 K13 K14 K15 K16 K17 K18 K19"
@@ -1361,12 +1365,12 @@ M_IDS="M1"
 
 EXPECTED_A=33
 EXPECTED_B=99
-EXPECTED_C=33
+EXPECTED_C=34
 EXPECTED_X=11
 EXPECTED_D=5
 EXPECTED_K=19
 EXPECTED_M=1
-EXPECTED_SUM=201
+EXPECTED_SUM=202
 
 count_words() { echo "$1" | wc -w | tr -d ' '; }
 

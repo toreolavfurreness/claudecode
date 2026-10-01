@@ -132,7 +132,7 @@ def suggested_lesson_themes(layer1, layer2):
     for e in layer1 + layer2:
         for endpoint in (e["source"], e["target"]):
             if endpoint.startswith("lesson:"):
-                theme = endpoint[len("lesson:"):].split("#", 1)[0]
+                theme = endpoint[len("lesson:"):].split("/", 1)[0]
                 themes.add(theme)
             elif endpoint.startswith("theme:"):
                 themes.add(endpoint[len("theme:"):])

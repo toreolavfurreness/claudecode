@@ -26,7 +26,8 @@
 ## Oppstart av hver sesjon
 
 1. Les `CLAUDE.md` (og denne fila, som den importerer).
-2. Les `tasks/lessons.md` — KUN indeksen. Tema-filene i `tasks/lessons/` lastes ved behov.
+2. Les `tasks/lessons.md` — KUN katalogen (tema-scope + lese- og skriveprotokoll). Lessons ligger én
+   per fil i `tasks/lessons/<tema>/` og lastes ved behov, etter leseprotokollen.
 3. Les køen: `tasks/todos/todo-*.md` (én fil per todo — status i frontmatter).
 
 **Arbeidsmodell (autonom orkestrering):** `/run-loop` lar en koordinator-agent kjøre køen
@@ -56,59 +57,61 @@ on-demand via glob — ingen monolittisk todo-liste (den er en merge-konflikt-ma
   (etter `git fetch origin {{BASE_BRANCH}}`); gjenbruk aldri et arkivert nummer. Reservasjon og
   renummerering: `docs/superpowers/loop/coordinator-runbook.md` §9.
 - **Koordinatoren er eneste skriver** til `claimed_by` / `status: in_progress|done`, og til
-  `tasks/lessons*`, `tasks/bugs.md` og `tasks/todo_archive.md`. Mennesket styrer køen ved å sette
+  `tasks/lessons*`, `tasks/followups/`, `tasks/bugs.md` og `tasks/todo_archive.md`. Mennesket styrer køen ved å sette
   `priority` / `order` / `status: deferred` på u-claimede todos, og slipper bugs i
   `tasks/bugs/inbox/`.
 - Ferdige todos arkiveres til `tasks/todo_archive.md` (append-only) og todo-fila slettes.
 
-## Lessons learned — wiki-struktur
+## Lessons learned — én fil per lesson
 
-Lessons er Codes langtidsminne, organisert som en wiki:
+Lessons er Codes langtidsminne: én fil per lesson. Filsystemet er indeksen — ingenting telles eller
+genereres, så ingenting kan bli utdatert.
 
-- **`tasks/lessons.md`** — scope-katalog (leses ved oppstart). Lister tema-filene med kort
-  scope-beskrivelse og omtrentlig lesson-count — en veiviser, ikke en per-lesson-indeks.
-- **`tasks/lessons/<tema>.md`** — tema-filer med full lesson-tekst. Lastes kun ved behov i
-  `/todo-plan`, `/todo-plan-review`, `/todo-execute`, `/todo-done`, basert på todo-temaet.
+- **`tasks/lessons.md`** — statisk tema-katalog med lese- og skriveprotokollen. Leses ved oppstart.
+- **`tasks/lessons/<tema>/<YYYY-MM-DD>-<slug>.md`** — én lesson per fil. Temaene er mappene
+  (`ls tasks/lessons/`). Lastes kun ved behov i `/todo-plan`, `/todo-plan-review`, `/todo-execute` og
+  `/todo-done`, etter leseprotokollen.
+- **`tasks/followups/`** — oppfølgingskøen (carry-forwards), én fil per oppfølging. Ikke lessons: en
+  fil slettes når oppfølgingen er lukket.
 
-**Tema-filer (fra `lessons_topics` i loop.config.yaml):**
+**Tema (fra `lessons_topics` i loop.config.yaml — et nytt tema er bare en ny mappe):**
 
 {{LESSONS_TOPICS_BULLETS}}
-- `open-followups` — carry-forwards som krever oppfølging
 
 **Skriv en lesson når:** en bug ble fikset på en ikke-åpenbar måte · en antakelse viste seg å være
 feil · noe tok vesentlig lengre tid enn forventet pga. en fallgruve · mennesket måtte korrigere Code.
 
-**Format (per tema-fil):**
+**Format (én fil):**
 
 ```md
-## [YYYY-MM-DD] — [kort tittel]
+---
+tags: [rls, security-definer]
+scope: project
+kilder: [TODO-41, BUG-029]
+---
+
+# Kort tittel
 
 **Problem:** Hva som gikk galt eller var uventet
+**Årsak:** Rotårsaken (valgfri — utelates når problemet er selvforklarende)
 **Løsning:** Hva som faktisk fungerte
 **Unngå:** Konkret regel Code skal følge fremover
 ```
 
+`tags` er fritt vokabular og erstatter `## Se også`: relevans for et annet tema er en tag, ikke en
+peker. `scope` er `project`. `kilder` er `TODO-NN` / `BUG-NNN` (tom liste tillatt).
+
 **Regler:**
 
-- Append til riktig tema-fil (algoritme i `/todo-done`).
-- Cross-cutting lessons: én primær-blokk + `## Se også`-pekere i sekundære tema-filer.
-- Oppdater lesson-count i indeksen kun når en tema-fil har vokst med ≥ 5 lessons siden forrige
-  count (`grep -c "^## 20" tasks/lessons/<tema>.md`).
+- Skriv etter skriveprotokollen i `tasks/lessons.md` (algoritme i `/todo-done`). Ingen indeks å
+  oppdatere og ingen telling.
+- Dekker en eksisterende lesson samme mønster: utvid den og legg kilden til i `kilder` — ikke lag
+  duplikat.
 - Hold det konkret — handlingsbare regler, ikke generelle refleksjoner.
 - Etter at noe er skrevet: vurder om det også bør inn i `CLAUDE.md` som en generell regel.
 
-**Splitt-terskel (når en tema-fil blir for stor):**
-
-- Passerer en tema-fil **~400 linjer ELLER ~50 lessons**, opprett en oppfølgings-todo som splitter
-  den. Ikke splitt før terskelen er nådd — for tidlig splitt fragmenterer søkbar overflate.
-- Velg splitt-akse: **(a) kronologi** (`<tema>-<mnd><år>.md`) når innholdet er cross-cutting, eller
-  **(b) sub-tema** når en distinkt, gjenbrukbar klynge skiller seg ut.
-- Ved kronologisk splitt: nyeste fil er **current** — nye lessons appendes dit til DEN passerer
-  terskel. Legg den nye fila til `lessons_topics` og kjør `/setup` på nytt, så enum-en i
-  ferdig-rapporten og tema-lista over følger med.
-- Splitt er **ren omplassering** — ikke endre lesson-innhold underveis. Verifiser at ingen headers
-  tapes: `grep -rE "^## " tasks/lessons/` før og etter, og at hver berørte fil har nøyaktig én H1.
-- Oppdater i samme PR: `tasks/lessons.md`-indeksen og alle `## Se også`-pekere på tvers.
+Kommer du fra temafiler (`tasks/lessons/<tema>.md` med `## <dato> — <tittel>`-blokker): kjør
+`python3 v3-agent-orchestrator/scripts/split-lessons.py` én gang (se `MIGRATION.md`).
 
 ## Tre kunnskapsbaser
 
@@ -122,7 +125,7 @@ Tre kunnskapsbaser lever side om side, med ulike roller:
   Påslått for: {{AGENT_MEMORY_ROLES}}. **Forbruksvare.**
 
 **Brukerminne vs. de to andre:** _«Er dette knyttet til prosjektkode/data, eller til min måte å
-samarbeide med Claude?»_ Prosjektkode/data → riktig tema-fil i `tasks/lessons/`.
+samarbeide med Claude?»_ Prosjektkode/data → en lesson i riktig tema-mappe under `tasks/lessons/`.
 Samarbeidspreferanse → brukerminnet.
 
 **Grensen mellom `tasks/lessons/` og agent-minne kan IKKE avgjøres med samme tommelfingerregel.**
@@ -147,7 +150,7 @@ skjer aldri.
   Kode/DB/plattform endrer seg → **lessons**. Egen treffrate endrer seg over runder →
   **agent-minne**.
 - **T3 — Uavgjort ⇒ lessons vinner.** Agent-minnet kan da holde maksimalt en **peker**
-  (`se tasks/lessons/<tema>.md`), aldri en kopi.
+  (`se tasks/lessons/<tema>/<fil>.md`), aldri en kopi.
 
 **To harde regler som gjør grensen håndhevbar:**
 

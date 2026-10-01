@@ -121,7 +121,7 @@ oppslåbare via `tasks/graph-query.py` — se `docs/superpowers/loop/coordinator
    todo som verken er arkivert eller har commits ennå. `bugs:` og `pr:` er valgfri berikelse:
    `todo_archive.md` blir uansett kantkilde for begge ved arkivering, så et manuelt utfylt felt her
    dupliserer en kant grafen får automatisk. Systematisk produsent-integrasjon (§6b/§7/`/todo-done`)
-   og backfill av eksisterende todos er trinn 2 — se `open-followups.md`, ikke løst av trinn 1.
+   og backfill av eksisterende todos er trinn 2 — se `tasks/followups/`, ikke løst av trinn 1.
 
 ---
 

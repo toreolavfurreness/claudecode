@@ -48,7 +48,7 @@ lagrede dataverdier er på engelsk.
 - Aldri lagre API-nøkler eller passord i koden.
 - Aldri commit direkte til `{{PROD_BRANCH}}` — alltid branch + PR.
 - Når noe feiler: be om feilmeldingen og feilsøk før du går videre.
-- Etter feil fra brukeren: skriv en lesson i riktig tema-fil i `tasks/lessons/`.
+- Etter feil fra brukeren: skriv en lesson i riktig tema-mappe under `tasks/lessons/`.
 
 ### Navnekonvensjoner
 

@@ -18,7 +18,8 @@ All diagnostikk (advarsler, feil) gar til stderr. stdout inneholder KUN JSON-obj
 Kilder (fem, alle fail-soft hver for seg — mangler en kilde hopper byggeren over den og
 teller det i stats.missing_sources i stedet for a kaste):
   1. Frontmatter i tasks/todos/*.md          (deps/bugs/files/lessons/pr)
-  2. tasks/lessons/*.md                       (TODO/BUG-mentions, fil-mentions, ## Se ogsaa)
+  2. tasks/lessons/<tema>/*.md + tasks/followups/*.md  (en fil = en node: TODO/BUG/fil-mentions
+                                              i teksten + frontmatter-feltet kilder)
   3. tasks/todo_archive.md                    (BUG-mentions, /pull/-lenker)
   4. git-historikk                            (commit-subject "TODO n" -> rorte filer)
   5. tasks/bugs.md + tasks/bugs_archive.md    (Status-triage, fil-mentions, PR-lenker)
@@ -51,8 +52,6 @@ BUG_REF_RE = re.compile(r"BUG-(\d+)")
 PR_LINK_RE = re.compile(r"/pull/(\d+)")
 # Kun Status-linja: "triagert til TODO n" ELLER "kode-fikset (TODO n" — begge malte former (M10).
 TRIAGE_RE = re.compile(r"(?:triagert til TODO|kode-fikset \(TODO)\s+(\d+[A-Za-z]?)")
-# Begge dato-former: "## 2026-07-01 — ..." og "## [2026-07-02] — ..." (M14).
-SEE_ALSO_LINK_RE = re.compile(r"\]\(([a-z0-9-]+)\.md\)")
 
 
 def norm_id(raw):
@@ -231,43 +230,38 @@ def process_todos(add_edge, resolve_file, stats):
     return active_nrs
 
 
-def process_lessons(add_edge, resolve_file, stats):
-    paths = sorted(glob.glob("tasks/lessons/*.md"))
-    if not paths:
-        stats["missing_sources"].append("tasks/lessons/")
-        return
-    theme_names = set(os.path.splitext(os.path.basename(p))[0] for p in paths)
+def process_notes(add_edge, resolve_file, stats, base, prefix):
+    """En fil = en node (TODO 275). Node-ID: <prefix>:<sti under base, uten .md>.
+
+    Kanter: TODO/BUG/fil-mentions i teksten etter frontmatter (tittel inkludert), pluss
+    frontmatter-feltet `kilder` (`TODO-NN`/`BUG-NNN`). `tags` gir bevisst ingen kanter."""
+    paths = sorted(glob.glob(f"{base}/**/*.md", recursive=True))
     for p in paths:
-        theme = os.path.splitext(os.path.basename(p))[0]
         text = read(p)
-        lines = text.splitlines()
-        for start, end, heading_text in split_h2_sections(lines):
-            body = "\n".join(lines[start + 1 : end])
-            if heading_text == "Se også":
-                stats["nonlesson_h2"] += 1
-                for lm in SEE_ALSO_LINK_RE.finditer(body):
-                    other = lm.group(1)
-                    if other in theme_names:
-                        add_edge(f"theme:{theme}", "see_also", f"theme:{other}")
-                    else:
-                        stats["see_also_phantom"] += 1
-                continue
-            date_m = re.match(r"^\[?(\d{4}-\d{2}-\d{2})\]?", heading_text)
-            if not date_m:
-                stats["nonlesson_h2"] += 1
-                continue
-            # Rah telling av dato-matchede overskrifter (V11) — uavhengig av om overskriften
-            # ender opp med noen kanter. Distinkt fra stats.node_counts.lesson (kun edge-deltakere).
-            stats["lesson_nodes"] += 1
-            lesson_node = f"lesson:{theme}#{heading_text}"
-            for tm in TODO_REF_RE.finditer(body):
-                add_edge(lesson_node, "mentions", f"todo:{norm_id(tm.group(1))}")
-            for bm in BUG_REF_RE.finditer(body):
-                add_edge(lesson_node, "mentions", f"bug:BUG-{bm.group(1)}")
-            for token in extract_file_tokens(body):
-                rf = resolve_file(token)
-                if rf:
-                    add_edge(lesson_node, "file", f"file:{rf}")
+        refs = []
+        m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+        if m:
+            text = text[m.end():]
+            for line in m.group(1).splitlines():
+                if line.startswith("kilder:"):
+                    refs = parse_inline_list(line.split(":", 1)[1])
+        node = f"{prefix}:{os.path.relpath(p, base)[:-3]}"
+        stats[f"{prefix}_nodes"] += 1
+        for tm in TODO_REF_RE.finditer(text):
+            add_edge(node, "mentions", f"todo:{norm_id(tm.group(1))}")
+        for bm in BUG_REF_RE.finditer(text):
+            add_edge(node, "mentions", f"bug:BUG-{bm.group(1)}")
+        for ref in refs:
+            kind, _, num = ref.partition("-")
+            if kind == "TODO" and num:
+                add_edge(node, "mentions", f"todo:{norm_id(num)}")
+            elif kind == "BUG" and num:
+                add_edge(node, "mentions", f"bug:{ref}")
+        for token in extract_file_tokens(text):
+            rf = resolve_file(token)
+            if rf:
+                add_edge(node, "file", f"file:{rf}")
+    return paths
 
 
 def process_archive(add_edge, stats):
@@ -467,14 +461,13 @@ def main():
         "blocklist_form_fields": [],
         "file_token_ambiguous": 0,
         "file_token_unresolved": 0,
-        "nonlesson_h2": 0,
-        "see_also_phantom": 0,
         "todos_skipped_no_nr": 0,
         "todos_total_files": 0,
         "todos_with_new_fields": 0,
         "inverse_guard_suspects": [],
         "id_collisions": [],
         "lesson_nodes": 0,
+        "followup_nodes": 0,
     }
 
     edges = set()
@@ -487,7 +480,10 @@ def main():
     resolve_file = make_resolver(exact_index, by_base, stats)
 
     active_nrs = process_todos(add_edge, resolve_file, stats)
-    process_lessons(add_edge, resolve_file, stats)
+    if not process_notes(add_edge, resolve_file, stats, "tasks/lessons", "lesson"):
+        stats["missing_sources"].append("tasks/lessons/")
+    # ponytail: en tom tasks/followups/ er en gyldig tilstand (ingen apne oppfolginger), ikke en manglende kilde.
+    process_notes(add_edge, resolve_file, stats, "tasks/followups", "followup")
     archive_nrs = process_archive(add_edge, stats)
     process_git(add_edge, exact_index, stats)
     process_bugs(add_edge, resolve_file, stats)
@@ -506,7 +502,7 @@ def main():
     stats["id_collisions"] = sorted(active_nrs & archive_nrs)
 
     # Noder utledes rent fra kant-deltakelse (kilde/mal), gruppert pa prefiks.
-    nodes = {"todo": set(), "bug": set(), "pr": set(), "file": set(), "lesson": set(), "theme": set()}
+    nodes = {"todo": set(), "bug": set(), "pr": set(), "file": set(), "lesson": set(), "followup": set(), "theme": set()}
     for s, _t, tgt in edges:
         for endpoint in (s, tgt):
             prefix, _, _rest = endpoint.partition(":")
@@ -523,8 +519,8 @@ def main():
     for e in edge_list:
         edge_type_counts[e["type"]] = edge_type_counts.get(e["type"], 0) + 1
     stats["edge_type_counts"] = dict(sorted(edge_type_counts.items()))
-    # V11: stats.lesson_nodes = RAA telling av dato-matchede H2-overskrifter (438 malt), IKKE
-    # det samme som node_counts.lesson (kun de som endte opp med minst en kant).
+    # V11: stats.lesson_nodes/followup_nodes = RAA telling av filer, IKKE det samme som
+    # node_counts.lesson/followup (kun de som endte opp med minst en kant).
     stats["node_counts"] = {k: len(v) for k, v in node_lists.items()}
     stats["edge_total"] = len(edge_list)
     stats["missing_sources"] = sorted(set(stats["missing_sources"]))

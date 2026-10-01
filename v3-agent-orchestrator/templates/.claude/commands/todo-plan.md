@@ -14,10 +14,9 @@ Les følgende filer i denne rekkefølgen:
    **Deps-sjekk:** for hvert dep-nr: prøv å finn `tasks/todos/todo-{dep}-*.md`.
    Fil ikke funnet → dep er done (arkivert) → OK. Fil funnet med annen status enn done → hopp til neste kandidat.
 3. Les den valgte todofilen i sin helhet: `tasks/todos/todo-NN-slug.md`
-4. tasks/lessons.md — indeks. Identifiser hvilke detaljfiler under tasks/lessons/ som er relevante
-   (typisk 1–3 stk. Gyldige tema: {{LESSONS_TOPICS}})
-5. Detaljfiler fra tasks/lessons/ — les de relevante i sin helhet
-6. tasks/lessons/open-followups.md — sjekk om denne TODO-en kan lukke noen åpne carry-forwards
+4. tasks/lessons.md — tema-katalog + lese-protokoll. Velg 1–3 tema (gyldige tema: `ls tasks/lessons/`)
+5. Lessons fra tasks/lessons/<tema>/ etter lese-protokollen: titler og nøkkelordsøk først, les så de 3–5 relevante lesson-filene i sin helhet — aldri en hel tema-mappe
+6. `tasks/followups/` er oppfølgingskøen (én fil per carry-forward), ikke lessons. `grep -rl` etter todo-nummeret og filene/symbolene todoen berører, les kun treff-filene, og sjekk om denne TODO-en kan lukke noen av de åpne carry-forwardene.
 7. tasks/bugs.md — sjekk åpne bugs som kan være relevante
 8. docs/naming-conventions.md — frisk opp konvensjonene
 9. `docs/data-model.md` (eller prosjektets tilsvarende datamodell-doc) — hvis det finnes og todoen berører database eller tilgangskontroll
@@ -27,7 +26,7 @@ For den aktuelle TODO-en, presenter en detaljert plan som dekker:
 1. **Analyse:** Hva oppgaven faktisk innebærer — bryt ned i konkrete steg
 2. **Filer som berøres:** List alle filer som skal opprettes, endres eller slettes
 3. **Avhengigheter:** Er det noe som må være på plass først? Sjekk mot dep-feltet i todofilen
-4. **Risiko og fallgruver:** Hva kan gå galt? Trekk eksplisitt på erfaringer fra de relevante detaljfilene i tasks/lessons/
+4. **Risiko og fallgruver:** Hva kan gå galt? Trekk eksplisitt på erfaringer fra de relevante lesson-filene (etter lese-protokollen i tasks/lessons.md)
 5. **Verifisering:** Eksakte steg for å bekrefte at oppgaven er ferdig (basert på TODO-ens testkriterier)
 
 Merk alle risikable steg eksplisitt med ⚠️ PAUSE i steg-listen. Risikable steg er {{PAUSE_TRIGGERS}}, typisk:
@@ -59,7 +58,7 @@ Etter at du godkjenner planen:
 1. Bytt rolle: du er nå devil's advocate. Vurder planen kritisk.
    Svar på disse spørsmålene:
    - Hva er oversett? Mangler det steg, edge cases eller integrasjonspunkter?
-   - Hvilke risikoer er ikke adressert? Trekk eksplisitt på de relevante detaljfilene i tasks/lessons/
+   - Hvilke risikoer er ikke adressert? Trekk eksplisitt på de relevante lesson-filene (etter lese-protokollen i tasks/lessons.md)
    - Er avhengighetene faktisk oppfylt? Sjekk at forutsetninger er merget og verifisert
    - Er testkriteriene gode nok? Vil de faktisk bevise at todoen er ferdig?
    - Er det relevante åpne bugs som bør fikses som del av denne oppgaven?

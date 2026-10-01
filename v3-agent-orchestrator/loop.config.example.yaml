@@ -17,7 +17,7 @@ project_name: my-project                         # → agent-navn <project>-plan
 github_repo: your-org/your-repo                  # owner/repo — brukes i PR-URL-eksempler
 language: "norsk bokmål"                          # UI/svar-språk (kode er alltid engelsk)
 dev_server_port: 3000                             # for prosess-rydding (lsof)
-dev_server_process: "next dev"                    # prosessnavn for pkill -f (f.eks. "next dev", "vite", "rails s")
+dev_server_process: "next dev"                    # dev-server-kommandoen (f.eks. "next dev", "vite", "rails s"); opprydding går alltid via port
 
 # --- Modeller (tier per rolle) --------------------------------------------
 # planner/reviewer/code-reviewer = dyp modell; implementer = rask.
@@ -103,8 +103,9 @@ tech_review_agents:
 # innhold som IKKE gjentas i dispatch-prompten (data-model, arkitektur e.l.).
 canary_source: docs/data-model.md
 
-# --- Lessons-tema (gyldige tema-filnavn) ----------------------------------
-# Brukes som enum i ferdig-rapporten og som tema-filer i tasks/lessons/.
+# --- Lessons-tema ---------------------------------------------------------
+# Hvert tema blir en mappe tasks/lessons/<tema>/ (én fil per lesson). Lista er et startsett:
+# et nytt tema senere er bare en ny mappe.
 lessons_topics:
   - postgres-rls
   - supabase-platform
@@ -179,6 +180,7 @@ scout:
 hooks:
   main_merge_guard: true               # blokkerer push/PR/merge mot branch_strategy.prod_branch
   reviewer_readonly_guard: true        # håndhever at read-only-rollene faktisk ikke kan skrive
+  implementer_model_guard: true        # implementer-dispatch må ha eksplisitt model; dyp modell fra fix-runde 3
   session_start_lint: true             # myk type_check + lint ved sesjonsstart (blokkerer aldri)
   typecheck_on_edit_extensions: [".ts", ".tsx"]   # type_check etter Edit/Write av disse; [] = av
 

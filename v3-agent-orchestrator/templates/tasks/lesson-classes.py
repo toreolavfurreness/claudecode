@@ -27,7 +27,7 @@ Exit 0 alltid — dette er en måling, ikke en vakt. Terskelvurderingen gjøres 
 # selv-forseglende: en ikke-tom verdi filtrerer klassen ut av `ungated` og slår den
 # permanent av.
 # ────────────────────────────────────────────────────────────────────────────────
-import glob, json, re, sys
+import glob, json, os, re, sys
 from datetime import date, timedelta
 
 DEFAULT_DAYS = 7
@@ -85,23 +85,15 @@ CLASSES = [
 ]
 COMPILED = [(k, d, re.compile(p, re.I)) for k, d, p in CLASSES]
 
-HEADER = re.compile(r'^##\s+(\d{4}-\d{2}-\d{2})\s+—\s+(.*)$')
-
-
 def lessons(paths):
-    """Yield (dato, tittel, fil, full tekst) per lesson-blokk."""
+    """Yield (dato, tittel, fil, full tekst) per lesson-fil (TODO 275: én fil per lesson)."""
     for path in sorted(paths):
-        cur = None
-        for line in open(path, encoding='utf-8'):
-            m = HEADER.match(line)
-            if m:
-                if cur:
-                    yield cur
-                cur = [m.group(1), m.group(2).strip(), path, line]
-            elif cur:
-                cur[3] += line
-        if cur:
-            yield cur
+        name = os.path.basename(path)
+        if not re.match(r'\d{4}-\d{2}-\d{2}-', name):
+            continue
+        text = open(path, encoding='utf-8').read()
+        m = re.search(r'^# (.+)$', text, re.M)
+        yield [name[:10], m.group(1).strip() if m else name[11:-3], path, text]
 
 
 def main(argv):
@@ -112,7 +104,7 @@ def main(argv):
 
     hits = {k: [] for k, _, _ in CLASSES}
     total = unclassified = 0
-    for d, title, path, text in lessons(glob.glob('tasks/lessons/*.md')):
+    for d, title, path, text in lessons(glob.glob('tasks/lessons/**/*.md', recursive=True)):
         if d < cutoff:
             continue
         total += 1

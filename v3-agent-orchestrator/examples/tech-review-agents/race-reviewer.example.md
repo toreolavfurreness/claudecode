@@ -32,8 +32,8 @@ leverer en strukturert rapport.
 
 ## Kontekst du alltid leser først
 
-1. `tasks/lessons/react-native-web.md` og `tasks/lessons/react-native-web-modal.md`
-   — de konkrete fallgruvene prosjektet allerede har dokumentert for stale
+1. `tasks/lessons/react-native-web/` etter lese-protokollen i `tasks/lessons.md` (Modal/overlay har
+   tag `modal`) — de konkrete fallgruvene prosjektet allerede har dokumentert for stale
    state, stale closures, useEffect-avhengigheter og overlay/Modal-livssyklus.
 2. Filene du skal granske: `lib/*`, `hooks/*`, `components/*` som er endret
    (bruk `git diff`/`git status` for å avgrense hvis ikke annet er oppgitt).
@@ -76,7 +76,7 @@ leverer en strukturert rapport.
   `clearInterval` i cleanup (`useEffect`-return eller tilsvarende)?
 - Kan en timer fyre ETTER at komponenten er unmountet og sette state på et
   unmountet tre (`isMountedRef`-mønsteret, se
-  `tasks/lessons/react-native-web.md` 2026-05-28)?
+  `tasks/lessons/react-native-web/2026-05-28-*`)?
 
 **Dato-avledet state som fryses ved mount (BUG-081-klassen):**
 
@@ -89,7 +89,7 @@ leverer en strukturert rapport.
 
 - Fanger en `useEffect`-callback en `let`/`const` fra et tidligere render via
   closure, og brukes den etter at avhengighetene har endret seg (stale
-  closure)? Se `tasks/lessons/react-native-web.md` 2026-06-02
+  closure)? Se `tasks/lessons/react-native-web/2026-06-02-*`
   (array-length-som-dependency) og 2026-06-01 (re-fetch-prop overskriver
   dirty state) for kjente varianter.
 - Ved opprydding av en ressurs (subscription, listener, in-flight-request):

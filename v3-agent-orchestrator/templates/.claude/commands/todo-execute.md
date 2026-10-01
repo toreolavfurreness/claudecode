@@ -11,8 +11,8 @@ Les følgende filer i denne rekkefølgen:
    Sorter på `order` og ta den laveste.
 3. Les den aktuelle todofilen i sin helhet: `tasks/todos/todo-<nr>-<slug>.md`
 4. Les planfilen via `plan`-feltet i frontmatter: `tasks/plans/todo-<nr>-<slug>.md`
-5. tasks/lessons.md (indeks) — identifiser hvilke detaljfiler under tasks/lessons/ som er relevante for denne TODO-en
-6. Detaljfiler fra tasks/lessons/ — frisk opp relevante erfaringer før du begynner (typisk 1–3 stk)
+5. tasks/lessons.md — tema-katalog + lese-protokoll. Velg 1–3 tema som er relevante for denne TODO-en
+6. Lessons fra tasks/lessons/<tema>/ etter lese-protokollen — frisk opp relevante erfaringer før du begynner (typisk 3–5 lesson-filer)
 
 Før du begynner implementering:
 - Kjør: git branch --show-current — er du på riktig branch for denne TODO-en?

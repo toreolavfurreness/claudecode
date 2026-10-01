@@ -498,6 +498,12 @@ fi
 #                    (les av ferdig resultat), skriver ikke noe nytt selv.
 #   AskUserQuestion — presenterer et spørsmål til mennesket og venter på svar;
 #                    ingen fil-/repo-mutasjon i seg selv.
+#   SubagentHandback — leverer agentens sluttrapport til FORELDEREN (runtime
+#                    2.1.280+). Eneste parameter er `message`; ingen fil-/repo-
+#                    effekt, og i motsetning til SendMessage kan den ikke
+#                    adressere eller styre en annen agent. Uten den kan ingen
+#                    read-only-rolle levere rapport (målt 2026-09-25: 23 BLOCK
+#                    i hook-readonly-gate.log fra kl. 22:01).
 #
 # FJERNET (runde koordinator-fix, TODO 187 FIX-MODE): Monitor og SendMessage
 # lå i settet fra runde 3s VIKTIG 4, men begge er selv en styringskanal inn i
@@ -536,7 +542,7 @@ fi
 #                                 stdout/stderr fra en kjørende bakgrunnsprosess).
 #   KillBash                    — alias for KillShell (avslutter en
 #                                 bakgrunnsprosess).
-SESSION_SAFE=$'Read\nGrep\nGlob\nNotebookRead\nTodoWrite\nBashOutput\nBashOutputTool\nKillShell\nKillBash\nExitPlanMode\nTaskOutput\nAgentOutput\nAgentOutputTool\nAskUserQuestion'
+SESSION_SAFE=$'Read\nGrep\nGlob\nNotebookRead\nTodoWrite\nBashOutput\nBashOutputTool\nKillShell\nKillBash\nExitPlanMode\nTaskOutput\nAgentOutput\nAgentOutputTool\nAskUserQuestion\nSubagentHandback'
 
 # ── 5. Arm-dispatch på EKSAKT strenglikhet (aldri regex — MINDRE runde 1) ──
 if [ "$TOOL" = "Bash" ]; then

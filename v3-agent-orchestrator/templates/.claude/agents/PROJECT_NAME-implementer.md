@@ -31,7 +31,7 @@ over `todo-execute.md` helt og går rett til `todo-finish-worker.md`).
 1. `CLAUDE.md` og `docs/loop-rules.md` (importert av CLAUDE.md) — prosjektets regler.
 2. Planfilen: `tasks/plans/todo-<nr>-<slug>.md`
 3. `docs/naming-conventions.md`; `docs/loading-patterns.md` hvis ruter/lister/forms.
-4. `tasks/lessons.md` + relevante tema-filer koordinatoren oppga.
+4. `tasks/lessons.md` + relevante tema-mapper koordinatoren oppga.
 
 ## Rollehukommelse (`.claude/agent-memory/{{PROJECT_NAME}}-implementer/MEMORY.md`)
 
@@ -98,12 +98,12 @@ hindrer datatap, og planens verifiseringskriterier. Selvgranskingen står i `/to
 
 **Hvis dispatch-prompten inneholder `FIX-MODE`: hopp over `todo-execute.md` HELT og følg KUN Fix-mode-seksjonen i `.claude/commands/todo-finish-worker.md` (rett de oppgitte kode-review-funnene på eksisterende branch, re-push samme PR — ikke re-implementer, ikke ny PR).**
 
-**Siste steg før push i fix-modus er ALLTID: re-kjør HELE V-blokken i planen mot HEAD og lim ordrett kommando + output inn i planfilas fix-runde-seksjon, med hvert `**V<id>**` på egen linje ved linjestart og minst én fenced kodeblokk under, og med linjen `Ingen tall arves fra en tidligere runde.` ORDRETT til slutt. Et tall i planen som ikke står ved siden av kommandoen som produserte det i DENNE runden er et kontraktbrudd, ikke en unøyaktighet.**
+**Siste steg før push i fix-modus er ALLTID: re-kjør HELE V-blokken i planen mot HEAD og lim ordrett kommando + output inn i planfilas fix-runde-seksjon, med hvert `**V<id>**` på egen linje ved linjestart og minst én fenced kodeblokk under, og med linjen `Ingen tall arves fra en tidligere runde.` ORDRETT til slutt. Et tall i planen som ikke står ved siden av kommandoen som produserte det i DENNE runden er et kontraktbrudd, ikke en unøyaktighet.** Kjør `tasks/gate-f.sh <planfil> <N> <F3a_ref>` før push — samme sjekk koordinatoren kjører; RØD betyr mekanisk retur.
 
 1. Les og følg `.claude/commands/todo-execute.md` for implementeringen. **UNNTAK:** hopp over steget som setter `status: in_progress` og `claimed_by` i todo-frontmatteren — de feltene eier koordinatoren, ikke deg. Rør IKKE todo-frontmatteren i det hele tatt.
 2. Deretter `.claude/commands/todo-finish-worker.md` (verifisering → simplify → security → code-review → commit → PR mot `{{BASE_BRANCH}}`). Den stopper hardt etter PR.
 
-Du skriver ALDRI til `tasks/lessons*`, `tasks/bugs.md`, `tasks/bugs_archive.md` eller `tasks/todo_archive.md`, og du markerer IKKE todoen som arkivert/`done`/`in_progress`. Lessons og bugs returneres som DATA i rapporten. Rør kun egen kode på din egen branch — la `tasks/`-filene være. Unntaket er din egen `.claude/agent-memory/{{PROJECT_NAME}}-implementer/MEMORY.md` (se § Rollehukommelse over) — den committes sammen med arbeidet i samme PR, den er ikke en `tasks/`-fil — **og planfila for DIN todo, `tasks/plans/todo-<nr>-<slug>.md`, men KUN dens fix-runde-seksjoner** (samme snevre unntak som `todo-finish-worker.md`).
+Du skriver ALDRI til `tasks/lessons*`, `tasks/followups/`, `tasks/bugs.md`, `tasks/bugs_archive.md` eller `tasks/todo_archive.md`, og du markerer IKKE todoen som arkivert/`done`/`in_progress`. Lessons og bugs returneres som DATA i rapporten. Rør kun egen kode på din egen branch — la `tasks/`-filene være. Unntaket er din egen `.claude/agent-memory/{{PROJECT_NAME}}-implementer/MEMORY.md` (se § Rollehukommelse over) — den committes sammen med arbeidet i samme PR, den er ikke en `tasks/`-fil — **og planfila for DIN todo, `tasks/plans/todo-<nr>-<slug>.md`, men KUN dens fix-runde-seksjoner** (samme snevre unntak som `todo-finish-worker.md`).
 
 Ved uventet feil: finn rotårsak systematisk; lar den seg ikke løse uten designvalg → `status: "failed"` med forklaring i `notes`.
 

@@ -24,8 +24,8 @@ leser config-en og **kompilerer** templates inn i prosjektets faktiske stier.
 4. **Kilde vs. generert adskilt.** Templates (med tokens) blir liggende i
    `v3-agent-orchestrator/templates/`. Skriptet skriver generert output til
    prosjektets `.claude/`, `docs/`, `tasks/`. Du kan alltid diffe de to.
-5. **Prosjekt-eide filer seedes, aldri overskrives.** `CLAUDE.md`, lessons-indeksen,
-   lessons-tema-filene, agent-minnet og doc-skjelettene skrives kun hvis de mangler.
+5. **Prosjekt-eide filer seedes, aldri overskrives.** `CLAUDE.md`, lessons-katalogen,
+   lessons-tema-mappene, agent-minnet og doc-skjelettene skrives kun hvis de mangler.
    Kit-eide regler ligger i den genererte `docs/loop-rules.md`, som `CLAUDE.md` importerer.
 6. **Eksisterende prosjektfiler merges minimalt og idempotent.** `.claude/settings.json` får
    kun kit-ets egne hook-oppføringer (nøkkel = kommandostrengen), `CLAUDE.md` får én
@@ -94,7 +94,6 @@ autoritativt; tabellen er for mennesker.
 | `{{TECH_REVIEW_SEVERITY_FLOORS}}` | `tech_review_agents[].severity_floor` (rendret Python-dict-literal `{navn: gulv-eller-None}`, brukt av `tasks/review-severity-floor.py` OG `tasks/review-fan-in-verify.py` — TODO 180B; CF-250-6) |
 | `{{TECH_REVIEW_FLOOR_EXEMPTIONS}}` | `tech_review_agents[].floor_exempt` (valgfri; rendret Python-dict-literal `{navn: [klasse, …]}`, `[]` for agenter uten nøkkelen, brukt av `tasks/review-severity-floor.py` — TODO 321) |
 | `{{CANARY_FILE}}` | `canary_source` |
-| `{{LESSONS_TOPICS}}` | `lessons_topics` (komma-liste) |
 | `{{PAUSE_TRIGGERS}}` | `pause_triggers` |
 | `{{RELEASE_COMMAND}}` | `release.command` |
 | `{{HEALTH_CHECK_INTERVAL}}` | `release.health_check_merge_interval` |
@@ -106,7 +105,10 @@ autoritativt; tabellen er for mennesker.
 | `{{MEMORY_CODE_REVIEWER}}` | `agent_memory.scope` + `agent_memory.enabled_roles` (code_reviewer) — valgfri nøkkel |
 | `{{MEMORY_SCOUT}}` | `agent_memory.scope` + `agent_memory.enabled_roles` (scout) — valgfri nøkkel |
 | `{{SCOUT_DELEGATION_BLOCK_IMPLEMENTER}}` | som `{{SCOUT_DELEGATION_BLOCK}}` + implementerens rapporteringsplikt for `dispatches: 0` (tom streng når scout er av) |
-| `{{LESSONS_TOPICS_BULLETS}}` / `{{LESSONS_INDEX_ENTRIES}}` | `lessons_topics` (rendret liste i `docs/loop-rules.md` / seedet `tasks/lessons.md`); `open-followups` legges alltid til |
+| `{{LESSONS_TOPICS_BULLETS}}` / `{{LESSONS_INDEX_ENTRIES}}` | `lessons_topics` (rendret liste i `docs/loop-rules.md` / seedet `tasks/lessons.md`). Hvert tema blir en mappe `tasks/lessons/<tema>/`; `open-followups` i lista ignoreres (oppfølginger ligger i `tasks/followups/`) |
+| `{{IMPLEMENTER_MODEL_ALIAS}}` / `{{DEEP_MODEL_ALIAS}}` | modellfamilien i `models.implementer` / `models.code_reviewer` (`claude-opus-5-5` → `opus`) — `model`-verdien i implementer-dispatchen (§5/§5b) |
+| `{{IMPLEMENTER_DISPATCH_ALLOWED}}` / `{{DEEP_DISPATCH_ALLOWED}}` | `case`-mønster med familien og alle dypere (`haiku` < `sonnet` < `opus` < `fable`), brukt av `guard-fix-round-model.sh` |
+| `{{BELOW_IMPLEMENTER_ALIAS}}` / `{{FIXR3_IMPL_EXPECT}}` | testdata for `test-guard-fix-round-model.sh` (familien under implementer-klassen; forventet exit for implementer-modellen i fix-runde 3+) |
 | `{{AGENT_MEMORY_ROLES}}` | `agent_memory.enabled_roles` (rendret agentnavn-liste i `docs/loop-rules.md`) |
 | `{{READONLY_CONTRACT}}` | rendret `.claude/hooks/reviewer-readonly.contract`: reviewer, code-reviewer (Agent-felt = `tech_review_agents[].name`), hver tech-agent (ekstra verktøy = `readonly_extra_tools`), scout iff `scout.enabled` |
 | `{{READONLY_PROBE_ROLE}}` | `<project>-scout` hvis scout er på, ellers `<project>-reviewer` — rollen K18/K19 i readonly-harnessen prober |
@@ -116,8 +118,9 @@ autoritativt; tabellen er for mennesker.
 | `{{GENERATED_HEADER}}` | fast tekst (se skript) |
 
 **Uten token, styrt av config:** `hooks.*` avgjør hvilke hook-filer som genereres
-(`SKIP_WHEN_OFF`) og hvilke som registreres i `.claude/settings.json`. Default: de to
-vaktene PÅ, `session_start_lint` og `typecheck_on_edit_extensions` AV.
+(`SKIP_WHEN_OFF`) og hvilke som registreres i `.claude/settings.json`. Default: de tre
+vaktene (`main_merge_guard`, `reviewer_readonly_guard`, `implementer_model_guard`) PÅ,
+`session_start_lint` og `typecheck_on_edit_extensions` AV.
 
 ## Substitusjons-skript
 
@@ -319,7 +322,8 @@ if _sc_enabled:
 _hk = c.get("hooks") or {}
 if not isinstance(_hk, dict):
     sys.exit(f"FEIL: hooks må være et objekt, fikk {_hk!r}.")
-_HOOK_BOOLS = {"main_merge_guard": True, "reviewer_readonly_guard": True, "session_start_lint": False}
+_HOOK_BOOLS = {"main_merge_guard": True, "reviewer_readonly_guard": True, "implementer_model_guard": True,
+               "session_start_lint": False}
 _hooks_on = {}
 for _k, _default in _HOOK_BOOLS.items():
     _v = _hk.get(_k, _default)
@@ -549,11 +553,25 @@ bootstrap = {
     "{{BOOTSTRAP_ENV_DENY_REGEX}}": ("^(" + "|".join(_deny) + ")") if _deny else "",
 }
 
-# Lessons: open-followups er alltid med (seedes av kit-et og refereres fra charterne).
-_topics_all = list(c["lessons_topics"]) + ([] if "open-followups" in c["lessons_topics"] else ["open-followups"])
-_topics_own = [x for x in _topics_all if x != "open-followups"]
-lessons_topics_bullets = "\n".join(f"- `{x}`" for x in _topics_own)
-lessons_index_entries = "\n".join(f"- `tasks/lessons/{x}.md` (0 lessons) — <scope: fyll inn>" for x in _topics_own)
+# Lessons: ett tema = én mappe tasks/lessons/<tema>/. Oppfølgingskøen er tasks/followups/, ikke et
+# tema — et gammelt «open-followups» i lista ignoreres (v3.0-configer hadde det).
+_topics_own = [x for x in c["lessons_topics"] if x != "open-followups"]
+lessons_topics_bullets = "\n".join(f"- `{x}/`" for x in _topics_own)
+lessons_index_entries = "\n".join(f"- `{x}/` — <scope: fyll inn>" for x in _topics_own)
+
+# Modellfamilier for implementer-dispatchen og guard-fix-round-model.sh. Rekkefølge = dybde.
+_LADDER = ["haiku", "sonnet", "opus", "fable"]
+def _family(model_id):
+    _m = re.match(r"(?:claude-)?([a-z]+)", str(model_id))
+    return _m.group(1) if _m else str(model_id)
+def _at_least(fam):
+    return "|".join(_LADDER[_LADDER.index(fam):]) if fam in _LADDER else fam
+_impl_fam = _family(c["models"]["implementer"])
+_deep_fam = _family(c["models"]["code_reviewer"])
+if _impl_fam in _LADDER and _deep_fam in _LADDER and _LADDER.index(_deep_fam) < _LADDER.index(_impl_fam):
+    _deep_fam = _impl_fam   # «dyp» er aldri grunnere enn implementeren selv
+_below_impl = _LADDER[_LADDER.index(_impl_fam) - 1] if _impl_fam in _LADDER and _LADDER.index(_impl_fam) > 0 else "__ingen__"
+_fixr3_impl_expect = "0" if _impl_fam == _deep_fam else "2"
 _role_agent = {"planner": "planner", "reviewer": "reviewer", "implementer": "implementer",
                "code_reviewer": "code-reviewer", "scout": "scout"}
 agent_memory_roles = (", ".join(f"`{PROJ_NAME}-{_role_agent[r]}`" for r in _am_roles) or "ingen roller (agent_memory.enabled_roles er tom)")
@@ -603,7 +621,6 @@ M = {
     "{{TECH_REVIEW_SEVERITY_FLOORS}}": tech_review_severity_floors,
     "{{TECH_REVIEW_FLOOR_EXEMPTIONS}}": tech_review_floor_exemptions,
     "{{CANARY_FILE}}": c["canary_source"],
-    "{{LESSONS_TOPICS}}": ", ".join(_topics_all),
     "{{LESSONS_TOPICS_BULLETS}}": lessons_topics_bullets,
     "{{LESSONS_INDEX_ENTRIES}}": lessons_index_entries,
     "{{AGENT_MEMORY_ROLES}}": agent_memory_roles,
@@ -630,6 +647,12 @@ M = {
     "{{SCOUT_PROBE_BULLET}}": scout_probe_bullet,
     "{{SCOUT_MODEL_ROW}}": scout_model_row,
     "{{SCOUT_USAGE_LINE}}": scout_usage_line,
+    "{{IMPLEMENTER_MODEL_ALIAS}}": _impl_fam,
+    "{{DEEP_MODEL_ALIAS}}": _deep_fam,
+    "{{IMPLEMENTER_DISPATCH_ALLOWED}}": _at_least(_impl_fam),
+    "{{DEEP_DISPATCH_ALLOWED}}": _at_least(_deep_fam),
+    "{{BELOW_IMPLEMENTER_ALIAS}}": _below_impl,
+    "{{FIXR3_IMPL_EXPECT}}": _fixr3_impl_expect,
     "{{GENERATED_HEADER}}": HEADER,
 }
 
@@ -658,7 +681,6 @@ SEED_ONLY = {
     # CLAUDE.md importerer den genererte docs/loop-rules.md (se etter-stegene under).
     "CLAUDE.md",
     "tasks/lessons.md",
-    "tasks/lessons/open-followups.md",
     "docs/naming-conventions.md",
     "docs/data-model.md",
 }
@@ -674,6 +696,8 @@ if not _hooks_on["main_merge_guard"]:
 if not _hooks_on["reviewer_readonly_guard"]:
     SKIP_WHEN_OFF |= {".claude/hooks/guard-reviewer-readonly.sh", ".claude/hooks/test-guard-reviewer-readonly.sh",
                       ".claude/hooks/reviewer-readonly.contract"}
+if not _hooks_on["implementer_model_guard"]:
+    SKIP_WHEN_OFF |= {".claude/hooks/guard-fix-round-model.sh", ".claude/hooks/test-guard-fix-round-model.sh"}
 if not _hooks_on["session_start_lint"]:
     SKIP_WHEN_OFF.add(".claude/hooks/session-start-lint.sh")
 if not _hooks_on["typecheck_on_edit"]:
@@ -705,7 +729,7 @@ for dirpath, dirs, files in os.walk(TPL):
         written.append(out_rel)
 
 # --- Seed lessons-tema-filer og agent-minne (kun hvis de mangler) ----------------------
-seeded = []
+seeded, notes = [], []
 def seed(rel, text):
     dst = os.path.join(ROOT, rel)
     if os.path.exists(dst):
@@ -715,9 +739,12 @@ def seed(rel, text):
     seeded.append(rel)
 
 for _tp in _topics_own:
-    seed(f"tasks/lessons/{_tp}.md",
-         f"# Lessons — {_tp}\n\n**Scope:** <fyll inn: hvilke fremtidige todos denne fila reaktiveres mot>\n\n"
-         "---\n\n## Se også\n")
+    # git sporer ikke tomme mapper — .gitkeep holder temaet synlig til første lesson skrives.
+    if not os.path.isdir(os.path.join(ROOT, "tasks", "lessons", _tp)):
+        seed(f"tasks/lessons/{_tp}/.gitkeep", "")
+    if os.path.isfile(os.path.join(ROOT, "tasks", "lessons", f"{_tp}.md")):
+        notes.append(f"tasks/lessons/{_tp}.md er en gammel temafil — kjør "
+                     "python3 v3-agent-orchestrator/scripts/split-lessons.py (se MIGRATION.md)")
 if _am_scope == "project":
     for _r in _am_roles:
         _agent = f"{PROJ}-{_role_agent[_r]}"
@@ -743,7 +770,6 @@ _(tom — fylles av agenten når en runde faktisk gir en observasjon)_
 # --- CLAUDE.md: sørg for importen av den genererte docs/loop-rules.md -------------------
 # Et prosjekt med egen CLAUDE.md fra før får den ikke overskrevet (seed-only over) — men uten
 # importen ville loop-reglene aldri nådd sesjonen. Én linje, idempotent.
-notes = []
 _cm = os.path.join(ROOT, "CLAUDE.md")
 with open(_cm) as f: _cmt = f.read()
 if "@docs/loop-rules.md" not in _cmt:
@@ -760,6 +786,7 @@ import json
 _HOOKS = [
     ("main_merge_guard", "PreToolUse", "Bash", '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-main-merge.sh"'),
     ("reviewer_readonly_guard", "PreToolUse", ".*", '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-reviewer-readonly.sh"'),
+    ("implementer_model_guard", "PreToolUse", "Agent", '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-fix-round-model.sh"'),
     ("typecheck_on_edit", "PostToolUse", "Edit|Write|MultiEdit", '"$CLAUDE_PROJECT_DIR/.claude/hooks/typecheck-on-edit.sh"'),
     ("session_start_lint", "SessionStart", None, 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start-lint.sh"'),
 ]
@@ -823,7 +850,7 @@ if notes:
     for n in notes: print(f"  ~ {n}")
 
 # Vaktene kaller /usr/bin/jq hardkodet og slipper ALT gjennom (fail-open) hvis den mangler.
-if (_hooks_on["main_merge_guard"] or _hooks_on["reviewer_readonly_guard"]) and not os.access("/usr/bin/jq", os.X_OK):
+if (_hooks_on["main_merge_guard"] or _hooks_on["reviewer_readonly_guard"] or _hooks_on["implementer_model_guard"]) and not os.access("/usr/bin/jq", os.X_OK):
     print("\n⚠️  /usr/bin/jq finnes ikke — vaktene slipper da alt gjennom. Installer jq "
           "(Linux: apt install jq; macOS 15+ har den innebygd) før loopen kjøres.")
 
