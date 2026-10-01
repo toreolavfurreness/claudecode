@@ -206,9 +206,20 @@ git log origin/{{PROD_BRANCH}}..origin/{{BASE_BRANCH}} --oneline
 
 List ut alle commits.
 
+### B0 — Release-mål
+
+```bash
+python3 tasks/release.py status
+```
+
+Ta med utdataene ordrett. `DOM: INGEN AKTIV RELEASE` → hopp over resten av B0. Exit 2 (`FEIL`) →
+rød helsesjekk.
+
 ### B2 — Brukervendte endringer siden siste release
 
-Les `tasks/todo_archive.md` — finn todos ferdigstilt siden forrige release. Oppsummer titler og hva de gir brukere.
+Med en aktiv release: `python3 tasks/release.py notes <versjon>`. Ellers: les
+`tasks/todo_archive.md` og finn todos ferdigstilt siden forrige release. Oppsummer titler og hva de
+gir brukere.
 
 ```bash
 git diff origin/{{PROD_BRANCH}}..origin/{{BASE_BRANCH}} --name-only -- 'src/**'
@@ -241,11 +252,15 @@ Begrunnelse:
 - Urealiserte commits: N stk
 - Brukervendte endringer: [liste]
 - Kritiske bugs (høy prioritet): N stk [evt. BUG-IDer]
+- Release-mål: <DOM-linja fra B0, eller «ingen aktiv release»>
 - Helsesjekk: grønn | rød
 
 Neste steg (hvis go): kjør `{{RELEASE_COMMAND}}` selv.
 Neste steg (hvis no-go): [konkret hva som må fikses]
 ```
+
+Med en aktiv release er anbefalingen **no-go** til DOM er `MÅL NÅDD`. Mennesket kan likevel
+velge å release, men loopen anbefaler det ikke.
 
 **Utfør aldri releasen** — anbefal kun at mennesket kjører `{{RELEASE_COMMAND}}`.
 

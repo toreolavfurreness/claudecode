@@ -31,6 +31,9 @@ bugs:    ["BUG-083", "BUG-089"]   # valgfri — kantbærende, se «Kantbærende 
 files:   ["components/AddRecipeModal.tsx"]     # valgfri — repo-relativ sti, kantbærende
 lessons: ["react-native-web", "postgres-rls"]  # valgfri — tema-basenavn uten .md, kantbærende
 pr:      ["465"]                  # valgfri — LISTE (ikke skalar), kantbærende
+release: "1.4.0"                  # valgfri — versjonen i tasks/releases/<versjon>.md
+epic: invitasjon                  # valgfri — epic-slug fra release-filas «## Epics»
+release_blocker: true             # valgfri — kom inn etter cut-off fordi den blokkerer done_when
 ---
 ```
 
@@ -50,6 +53,7 @@ pr:      ["465"]                  # valgfri — LISTE (ikke skalar), kantbærend
 - `[domene-tag]` — valgfri tag som grupperer todos rundt et avgrenset domene/delsystem
   (erstatt med prosjektets egne domene-tags). Todos uten tag = generelle app-features.
 - `[forslag]` — u-triagert grooming-forslag (universell; brukes av grooming-flyten).
+- `[prod-release]` — releasens prod-todo. Eies av mennesket; §1 velger den aldri.
 
 ### Regler
 
@@ -59,6 +63,20 @@ pr:      ["465"]                  # valgfri — LISTE (ikke skalar), kantbærend
 - **`claimed_by`** er advisory i MVP — TOCTOU-race er mulig. Atomisk lås hører til loopen (egen spec).
 - **ALDRI** committ en aggregert indeksfil som aggregerer status fra alle todos — det gjenskaper konflikt-fellen. Status leses on-demand via glob + frontmatter.
 - **Slug-konsistens:** bruk samme slug i `todos/todo-NN-slug.md`, `plans/todo-NN-slug.md` og branches.
+
+### Release-felt (valgfrie)
+
+`release`, `epic` og `release_blocker` kobler todoen til en release. Skjema, livsløp og eierskap:
+`tasks/releases/README.md`.
+
+- **`release`** må matche et filnavn i `tasks/releases/` (uten `.md`). En verdi som ikke finnes er
+  en feil: `release.py status` gir exit 2 og §1 stopper. Ellers ville en skrivefeil tatt todoen
+  stille ut av scope.
+- **`epic`** er en slug fra release-filas `## Epics`. Den brukes bare til fremdrift per epic.
+- **`release_blocker: true`** settes bare når todoen blokkerer en `done_when`-linje. Skriv hvilken
+  i brødteksten. Uten feltet gir en todo som kommer inn i scope etter cut-off en ADVARSEL.
+- `/todo-done` skriver `**Release:**` og `**Epic:**` i arkivoppføringen, så fremdrift og release
+  notes også teller arkiverte todoer.
 
 ### Verdifelter (valgfrie)
 

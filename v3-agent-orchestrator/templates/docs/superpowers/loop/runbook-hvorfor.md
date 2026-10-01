@@ -23,6 +23,18 @@ dispatch-promptlengde gikk fra 1 676 tegn (uke 28) til 3 294 (uke 37), og over 7
 
 ## 1. Kø-utvelgelse (med ekte deps-gating)
 
+**Hvorfor releasen styrer utvalget:** uten et mål plukker loopen øverste todo i hele køen, og en
+release blir det som tilfeldigvis var ferdig da noen kjørte prod-releasen. Opphavsprosjektet
+filtrerte på release-scope for hånd («filtrer på release-scope først, sorter på `order` innenfor
+scopet»), og glippene kom når filteret ble glemt. Nå gjør skriptet det.
+
+**Hvorfor stopp og ikke grooming når scopet er tomt:** et tomt scope betyr at releasen er ferdig
+eller at noe mangler i den. Begge deler er menneskets beslutning. Å hente arbeid utenfor scope ville
+skjult at målet er nådd.
+
+**Hvorfor exit 2 på en ukjent `release:`-verdi:** `release: 1.4` i stedet for `1.4.0` ville tatt
+todoen stille ut av scope, og releasen ville meldt `MÅL NÅDD` uten den.
+
 
 ## 2. Claim + pre-løs lessons-tema
 

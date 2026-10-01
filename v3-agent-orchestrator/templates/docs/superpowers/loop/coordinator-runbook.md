@@ -53,9 +53,9 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 
 ## 1. Kø-utvelgelse (med ekte deps-gating)
 → `steps/1-koe-utvelgelse.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: kjør kø-skriptet i stegfilen (deps-resolvert, ekskluderer claimed/brainstorm/forslag, prioritet → order), velg øverste `elig=YES`; ingen kandidat → §7; et bevisst hopp er nivå B3.
-- [ ] Vakt/kommando: kø-skriptet `python3 - <<'PY'` i stegfilen; `decision-level.py` (B3)
-- [ ] Pausepunkt: Brainstorm-påkrevd todo (hoppet over i §1); B3
+- [ ] Hva: `release.py status` først; kjør kø-skriptet i stegfilen (deps-resolvert, ekskluderer claimed/brainstorm/forslag/prod-release, bare den aktive releasens scope, prioritet → order), velg øverste `elig=YES`; ingen kandidat → DOM avgjør (`INGEN AKTIV RELEASE` → §7, ellers pausepunkt); et bevisst hopp er nivå B3.
+- [ ] Vakt/kommando: `python3 tasks/release.py status` (exit 2 ⇒ pausepunkt); kø-skriptet `python3 - <<'PY'` i stegfilen; `decision-level.py` (B3)
+- [ ] Pausepunkt: Brainstorm-påkrevd todo (hoppet over i §1); Release: scope tomt eller blokkert, eller `release.py` exit 2 (§1); B3
 
 ## 2. Claim + pre-løs lessons-tema
 → `steps/2-claim-og-lessons-tema.md` — les hele fila FØR steget kjøres.
@@ -191,6 +191,7 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A | `canary`-mismatch som ikke løses (§3) |
 | A | Proporsjonalitet: planens `planned_diff` > ~5× budsjettet fra §3 (§4, før review) |
 | A | Andre `plan_invalid` på samme todo (§5) |
+| A | Release: scope tomt (`MÅL NÅDD` / `MÅL IKKE NÅDD`), åpne scope-todoer uten kvalifiserte, eller `release.py status` exit 2 (§1) |
 | A | Helsesjekk rød (§6c) — regresjon eller infra-feil i integrert `{{BASE_BRANCH}}` |
 | A1 | Skriving mot prod-miljøet (`{{PROD_ENV_ID}}`) eller kjøring av `{{RELEASE_COMMAND}}` |
 | A2 | Env-variabler, secrets eller vault |

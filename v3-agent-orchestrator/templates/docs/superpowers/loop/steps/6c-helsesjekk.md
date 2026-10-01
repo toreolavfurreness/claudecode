@@ -37,6 +37,13 @@ her, se «Re-kjørbarhet»-noten under §6 steg 6 for hvorfor det ikke trengs), 
 `loop-health-check.md` Del C appender kun raden selv — commit/push skjer via denne halen; ingen
 edit i `loop-health-check.md` er nødvendig.
 
+### Release-fremdrift
+
+Med en aktiv release tar helsesjekken med utdataene fra `python3 tasks/release.py status` i
+rapporten (Del B). ADVARSEL-linjene (manglende prod-release-todo, tom `done_when`, utsatte todoer
+i scope, todoer inn etter cut-off) meldes til mennesket. De stopper ikke loopen. `FEIL` (exit 2)
+er en rød helsesjekk.
+
 ### Etter §6c
 
 - Grønn helsesjekk → kjør §8b (drain retro-logg), deretter §8c (agér på tallene — uten denne
