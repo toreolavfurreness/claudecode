@@ -40,7 +40,7 @@ Sjekk exit-koden med det samme; ikke-null ⇒ noter paret som `snapshot-missing`
 (`evidence.toplevel`, rundens `<scratch>/wt-pre-4-plan-reviewer-<runde>.txt`) fra HVER §4-runde og
 kaller §0b én gang per deduplisert sti — dedupliser på STIEN og behold den FØRSTE rundens
 snapshot-fil for stien (samme regel som §6 steg 4(i)) — i `go`-grenen, i
-`technical_risk`-grenen og ved TERMINERING av revisjons-løkka (etter 2 runder uten `go`).
+`technical_risk`-grenen og ved TERMINERING av revisjons-løkka (A0 fra konvergensregelen).
 **ALDRI i no-go-grenen** som sender funnene tilbake til planneren: reviewer-agenten skal leve
 videre gjennom revisjonsrunden (TODO 244s kontinuitet). Eies av rydde-kontrakten (TODO 194) — TODO
 244 skal utvide DENNE regelen, ikke legge til en ny. **Hvorfor paret og ikke bare stien (R21):**
@@ -81,7 +81,14 @@ fjerner ingen, så en plan som revideres flere ganger degraderer monotont uten e
    «konsolidering utsatt fordi …» i commit-meldingen. Stillhet er ikke en lovlig utgang.
 
 Gate på `verdict`:
-- `"no-go"` (≥1 BLOKKERENDE) → kjør **Konsolideringsgaten** over, og send så funnene tilbake til planner (§3, revisjons-runde) mot den (ev. konsoliderte) fila. **Hold en eksplisitt teller** («revisjonsrunde X/2») i kontekst. Etter **2** runder uten `go` → ⚠️ eskalér til mennesket, release claim.
+- `"no-go"` (≥1 BLOKKERENDE) → kjør **Konsolideringsgaten** over, og send så funnene tilbake til planner (§3, revisjons-runde) mot den (ev. konsoliderte) fila. **Hold en eksplisitt teller** («revisjonsrunde N») i kontekst. Ved HVER no-go, også runde 1: kjør `python3 tasks/measure-cost.py --brake <nr>` og så `decision-level.py` med `cost_over=<over>`, fra runde 2 også med konvergensdata (se `coordinator-runbook.md` § Konvergensregel). B7 → ny revisjonsrunde. A0 → ⚠️ eskalér til mennesket, release claim.
+
+
+```bash
+python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=1 --context action=revise --context cost_over=no
+python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
+```
+
 - `"go"` → fortsett; VIKTIG/MINDRE-funn (ikke-blokkerende) bæres videre til §5-dispatchen.
   **Re-mål `effort` her (BINDENDE).** Et `go` betyr at oppgaven er kjent: skriv den målte
   størrelsen inn i todoens `effort` på den sammensatte formen `<kode>/<verifisering>`

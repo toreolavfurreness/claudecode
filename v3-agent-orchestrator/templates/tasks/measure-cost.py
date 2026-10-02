@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tokenbruk per todo/rolle/modell fra subagent-transkripter (denne sesjonen + evt. flere).
 
-Bruk: python3 tasks/measure-cost.py <since-iso> [<session-dir>...] [--html <sti>] [--cutover <iso>]
+Bruk: python3 tasks/measure-cost.py [<since-iso>] [<session-dir>...] [--html <sti>] [--cutover <iso>]
   session-dir = ~/.claude/projects/<kanonisert-prosjektsti>/<session-id>
   Uten session-dir brukes alle sesjoner under prosjektmappa.
   --html <sti>     skriver målesiden (artifact, fast lenke) — stien SKAL stå rett etter flagget.
@@ -9,6 +9,12 @@ Bruk: python3 tasks/measure-cost.py <since-iso> [<session-dir>...] [--html <sti>
                    avslutter med exit 1 hvis minst én måling har gått i feil retning.
   --cutover <iso>  skillet før/etter kostnadsgrepene (standard 2026-09-15T18:30Z).
   --release <ver>  bare todoene i releasens scope (`tasks/release.py scope <ver>`): kost per release.
+  --brake <nr>     kostnadsbrems (TODO 455): én linje `brake todo=… class=… usd=… median=… n=… over=…`.
+                   over=yes når todoens kost > 2× medianen for arkiverte todoer i samme effort-klasse.
+  --pr <n>         (med --brake) todoens åpne PR: rader tilskrevet `PR<n>` (review/fix før merge-raden
+                   finnes i run-loggen) legges til todoens sum. Uten --pr teller de ikke med.
+  --brake-self-test  5 asserts mot brake_verdict/fold_pr.
+  Uten <since-iso> brukes nå − 30 dager (UTC).
   MEASURE_ROWS=<sti.json> skriver i tillegg radene som JSON (legg den i scratchpad, ikke i repoet).
 Merk: Claude Code sletter transkripter eldre enn `cleanupPeriodDays` (standard 30 dager), så et
 vindu lenger tilbake blir stille ufullstendig. Hev innstillingen før du måler lengre perioder.
@@ -17,12 +23,82 @@ Vektet = input + 1.25*cache_create + 0.1*cache_read + 5*output (relativ til inpu
 """
 import json, os, re, subprocess, sys, glob
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from statistics import median
+
+_RANK = {'S': 1, 'M': 2, 'L': 3}
+
+def effort_class(v):
+    """Største av S < M < L i en effort-verdi (`M/L` → L). None hvis ingen."""
+    found = re.findall(r'[SML]', v or '')
+    return max(found, key=_RANK.get) if found else None
+
+def brake_verdict(nr, usd_by_todo, class_by_todo, cls):
+    """(median|None, n, over) — over ∈ {'yes','no','unknown'}."""
+    nr = str(nr).lower()
+    usd_l = {str(k).lower(): v for k, v in usd_by_todo.items()}
+    cls_l = {str(k).lower(): v for k, v in class_by_todo.items()}
+    if cls is None:
+        return None, 0, 'unknown'
+    sample = [usd_l[t] for t, c in cls_l.items() if c == cls and t != nr and t in usd_l]
+    if len(sample) < 5:
+        return None, len(sample), 'no'
+    med = median(sample)
+    return med, len(sample), 'yes' if usd_l.get(nr, 0.0) > 2 * med else 'no'
+
+def fold_pr(nr, usd_by_todo, pr):
+    """Legg `PR<pr>`-radene til todo `nr` (en åpen PR finnes ikke i PR_TODO før merge-raden)."""
+    out = dict(usd_by_todo)
+    if pr:
+        nr = next((k for k in out if str(k).lower() == str(nr).lower()), nr)
+        out[nr] = out.get(nr, 0.0) + out.pop('PR' + str(pr), 0.0)
+    return out
+
+def _brake_self_test():
+    cl = {str(i): 'M' for i in range(1, 6)}
+    us = {str(i): 10.0 for i in range(1, 6)}
+    assert brake_verdict('99', {**us, '99': 25.0}, {**cl, '99': 'M'}, 'M') == (10.0, 5, 'yes'), 'over'
+    assert brake_verdict('99', {**us, '99': 15.0}, {**cl, '99': 'M'}, 'M') == (10.0, 5, 'no'), 'under'
+    assert brake_verdict('99', {'1': 1.0, '99': 99.0}, {'1': 'M'}, 'M') == (None, 1, 'no'), 'få utvalg'
+    assert brake_verdict('99', us, cl, None)[2] == 'unknown', 'ukjent klasse'
+    assert fold_pr('99', {'99': 8.0, 'PR1091': 1.5}, '1091') == {'99': 9.5}, 'PR-rad teller i usd='
+    print('brake-self-test: 5/5')
+
+_KEY = r'([0-9]+(?:[A-Za-z][0-9]*)?)'
+
+def effort_classes():
+    """({todo: klasse} for arkiverte todoer fra git-slettinger, {todo: klasse} for aktive)."""
+    archived, active = {}, {}
+    out = subprocess.run(['git', 'log', '--diff-filter=D', '-p', '--format=', '--', 'tasks/todos/'],
+                         capture_output=True, text=True).stdout
+    cur = None
+    for ln in out.splitlines():
+        m = re.match(r'diff --git a/tasks/todos/todo-' + _KEY + '-', ln)
+        if m:
+            # Nyeste sletting vinner (git log går fra nyeste til eldste).
+            cur = m.group(1) if m.group(1) not in archived else None
+            continue
+        if cur and ln.startswith('-effort:'):
+            archived[cur] = effort_class(ln[len('-effort:'):]); cur = None
+    for f in glob.glob('tasks/todos/todo-*.md'):
+        m = re.match(r'todo-' + _KEY + '-', os.path.basename(f))
+        if not m:
+            continue
+        for ln in open(f, encoding='utf-8'):
+            if ln.startswith('effort:'):
+                active[m.group(1)] = effort_class(ln[len('effort:'):]); break
+    return archived, active
+
 
 args = sys.argv[1:]
 def _opt(flag, default=None):
     if flag in args:
         i = args.index(flag); v = args[i + 1]; del args[i:i + 2]; return v
     return default
+if '--brake-self-test' in args:
+    _brake_self_test(); sys.exit(0)
+brake_nr = _opt('--brake')
+brake_pr = _opt('--pr')
 html_path = _opt('--html')
 release = _opt('--release')
 # Fjern flagget FRA args, ikke bare les det fra sys.argv: `dirs = args[1:]` tolker ellers
@@ -56,7 +132,7 @@ def _project_dir():
 # `…-<repo>-…-scratchpad-…`). Med bare hovedmappa var 64 % av én release usynlig i
 # opphavsprosjektet (målt 2026-09-27).
 PROJECT_DIR = os.path.join(os.path.dirname(_project_dir()), '*' + os.path.basename(_project_dir()) + '*')
-since = args[0]
+since = args[0] if args else (datetime.now(timezone.utc) - timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
 dirs = args[1:] or sorted(d for d in glob.glob(os.path.join(PROJECT_DIR, '*')) if os.path.isdir(os.path.join(d, 'subagents')))
 
 # Et tomt `dirs` skal ALDRI kunne leses som en måling: uten denne vakten rapporterer
@@ -112,13 +188,13 @@ except OSError:
 
 def todo_of(desc):
     d = desc or ''
-    m = re.search(r'TODO\s*([0-9]+[A-Za-z]?)', d)
+    m = re.search(r'TODO\s*([0-9]+(?:[A-Za-z][0-9]*)?)', d)
     if m:
         return m.group(1)
     m = re.search(r'\bPR\s*#?(\d{3,5})\b', d)
     if m:
         return PR_TODO.get(m.group(1), 'PR' + m.group(1))
-    m = re.search(r'\b([0-9]{2,3}[A-Z]?)\b', d)
+    m = re.search(r'\b([0-9]{2,3}(?:[A-Z][0-9]*)?)\b', d)
     return m.group(1) if m else '-'
 
 rows = []
@@ -173,6 +249,21 @@ for r in rows:
     p = r['parent']
     while r['todo'] == '-' and p and p in by_id:
         r['todo'] = todo_of(by_id[p]['desc']); p = by_id[p]['parent']
+
+if brake_nr:
+    usd_by = defaultdict(float)
+    for r in rows:
+        usd_by[r['todo']] += r['usd']
+    usd_by = fold_pr(brake_nr, usd_by, brake_pr)
+    archived, active = effort_classes()
+    key = brake_nr.lower()
+    cls = ({k.lower(): v for k, v in active.items()}.get(key)
+           or {k.lower(): v for k, v in archived.items()}.get(key))
+    med, n, over = brake_verdict(brake_nr, usd_by, archived, cls)
+    mine = {k.lower(): v for k, v in usd_by.items()}.get(key, 0.0)
+    print(f"brake todo={brake_nr} class={cls or '?'} usd={mine:.2f} "
+          f"median={'-' if med is None else f'{med:.2f}'} n={n} over={over}")
+    sys.exit(0)
 
 if release:
     # Tomt scope gir ellers «SUM: $0.00» med exit 0, som ser ut som en billig release.
