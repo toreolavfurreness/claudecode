@@ -351,7 +351,12 @@ while IFS= read -r p; do
     continue
   fi
   if [ -n "$recent" ]; then
-    mtime_epoch=$(stat -f %m "$recent" 2>"$TMP/stat.err") || mtime_epoch=""
+    # GNU (`stat -c %Y`) først, så BSD/macOS (`stat -f %m`). På GNU betyr `stat -f`
+    # filsystem-info, så BSD-formen alene feiler alltid på Linux.
+    mtime_epoch=$(stat -c %Y "$recent" 2>/dev/null) \
+      || mtime_epoch=$(stat -f %m "$recent" 2>"$TMP/stat.err") \
+      || mtime_epoch=""
+    case "$mtime_epoch" in ''|*[!0-9]*) mtime_epoch="" ;; esac
     if [ -n "$mtime_epoch" ]; then
       mins_ago=$(((($(date +%s) - mtime_epoch)) / 60))
       echo "BEHOLDT  $n — rørt for $mins_ago min siden ($recent)"
