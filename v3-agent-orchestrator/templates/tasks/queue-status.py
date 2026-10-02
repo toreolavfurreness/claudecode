@@ -167,7 +167,8 @@ def _self_test():
     shipped = '---\nstatus: shipped\nshipped: "2026-02-03"\ngoal: "Første mål"\n---\n'
     rc, md, err, html, title = run({**base, "tasks/releases/1.2.0.md": shipped}, "--html", "q.html")
     check("ingen aktiv: exit 0", rc == 0 and not err.strip())
-    check("ingen aktiv: sier det", "ingen aktiv" in html and "hele køen er kvalifisert" in md)
+    check("ingen aktiv: sier det, uten aktiv-pille og tellere",
+          "ingen aktiv release" in html and "hele køen er kvalifisert" in md and "todos igjen" not in html)
     check("shipped-fil: levert-bane med dato og mål",
           "v1.2 · levert" in html and "Levert 2026-02-03" in html and "Første mål" in html)
 
@@ -978,10 +979,13 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
     n_utkast = sum(1 for d in nx2 if plan_state(d) == "utkast")
     n_uplan = sum(1 for d in nx2 if plan_state(d) == "ingen")
     a('<article class="lane lane-now">')
-    a(f'<div class="lane-head"><span class="lane-tag r-now">{NOW or "ingen aktiv"}</span>'
-      '<span class="pill st-arbeid">aktiv</span>'
-      f'<span><span class="lane-n">{len(nx2)}<small>todos igjen</small></span> '
-      f'<span class="lane-n">{n_levert}<small>levert</small></span></span></div>')
+    if NOW:
+        a(f'<div class="lane-head"><span class="lane-tag r-now">{NOW}</span>'
+          '<span class="pill st-arbeid">aktiv</span>'
+          f'<span><span class="lane-n">{len(nx2)}<small>todos igjen</small></span> '
+          f'<span class="lane-n">{n_levert}<small>levert</small></span></span></div>')
+    else:
+        a('<div class="lane-head"><span class="lane-tag r-now">ingen aktiv release</span></div>')
     bits = []
     if n_klar:
         bits.append(f"<strong>{n_klar}</strong> kan claimes nå")
