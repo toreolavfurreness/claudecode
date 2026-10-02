@@ -72,11 +72,18 @@ Kode kan merges rett til `{{BASE_BRANCH}}` eller `{{PROD_BRANCH}}` utenfor loope
 for b in {{BASE_BRANCH}} {{PROD_BRANCH}}; do
   nums=$(gh pr list --state merged --base "$b" --limit 30 --json number -q '.[].number') \
     || { echo "SVEIP FEILET: gh pr list base=$b"; continue; }
-  for n in $nums; do
+  echo "SVEIP base=$b: $(printf '%s\n' "$nums" | grep -c .) PR-er lest"
+  printf '%s\n' "$nums" | while read -r n; do
+    [ -n "$n" ] || continue
     grep -qE "pull/$n([^0-9]|$)" docs/superpowers/loop/run-log.md || echo "UKLASSIFISERT: PR #$n (base=$b)"
   done
 done
 ```
+
+Løkka leser linjevis (`while read`), ikke `for n in $nums`: zsh ord-splitter ikke uquotede
+variabler, så `for`-formen kjørte én gang med hele lista og meldte stille «ingen treff».
+`SVEIP`-linja viser hvor mange PR-er som faktisk ble lest — 0 lest er ikke det samme som 0
+uklassifiserte.
 
 Hvert `UKLASSIFISERT`-treff får enten en `outcome=hotfix`-rad (kode utenfor loopen, etter
 `docs/hotfix-runbook.md`) eller en linje i `## Avstemming` i run-loggen (ingen kode, release-merge,
