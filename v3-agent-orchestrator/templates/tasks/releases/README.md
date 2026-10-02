@@ -44,6 +44,8 @@ Fylles ut når releasen er levert.
 - **`cutoff`** er datoen scopet fryses. En todo som kommer inn i scope etter den, uten
   `release_blocker: true`, gir en ADVARSEL i `release.py status`. Datoen todoen kom inn måles som
   datoen fila først ble committet.
+- **`shipped`** (valgfri) er datoen releasen gikk i prod, `"ÅÅÅÅ-MM-DD"`. Køsiden
+  (`tasks/queue-status.py --html`) viser den i levert-banen sammen med `goal`. `release.py` leser den ikke.
 - **`## Epics`** gir hver epic et mål på én linje. Todoene peker på epicen med `epic: <slug>`, og
   `release.py status` viser fremdrift per epic.
 
@@ -63,7 +65,7 @@ Fylles ut når releasen er levert.
    - `python3 tasks/measure-cost.py <since> --release <versjon>` gir kostnaden for releasen.
    - Skriv `## Retro` i release-fila: ble målet nådd, hvor mange todoer kom inn etter cut-off, hva
      kostet releasen, og hva gjør vi annerledes neste gang.
-   - Sett `status: shipped`.
+   - Sett `status: shipped` og `shipped: "<dato>"`.
 
 ## Hvem skriver hva
 

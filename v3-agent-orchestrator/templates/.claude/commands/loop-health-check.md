@@ -186,6 +186,21 @@ med én linje til eieren i neste statusrapport, med kjøringens URL
 (`gh run list --workflow <wf> --branch {{PROD_BRANCH}} --event schedule --limit 1 --json url --jq '.[0].url'`).
 Flere vakter: verste utfall vinner (`infra-feil`/`red` > `report-red` > `n/a`/`green`).
 
+### A5e — Kit-drift
+
+```bash
+python3 tasks/kit-drift.py
+```
+
+Sjekker at kit-eide filer som skal være like i alle prosjekter (i dag `tasks/queue-status.py` og
+Køsiden-raden i `docs/superpowers/loop/artifacts.md`) står som i `v3-agent-orchestrator/templates/`.
+
+- Exit 0 → `kitdrift=green`.
+- Exit 1 (`AVVIK`-linjer) → `kitdrift=avvik`. Endrer ikke A6: koordinatoren tar med AVVIK-linjene til
+  eieren i neste statusrapport. Rettingen er `/setup` (malen inn), og prosjektspesifikke endringer
+  flyttes til `tasks/queue-config.py`. Loopen redigerer aldri en kit-eid fil for å få vakten grønn.
+- Exit 2 (`UKJENT`, fant ikke kit-malen) → `kitdrift=n/a`, med én linje i statusrapporten.
+
 ### A6 — Helsesjekk-aggregering
 
 Samlet helsesjekk-status:

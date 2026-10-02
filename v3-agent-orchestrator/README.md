@@ -19,6 +19,18 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.5** (felles køside):
+- **`tasks/queue-status.py` er lik i alle prosjekter:** FamilieHubs køside (markdown, `--html` med
+  release-baner, epics, filtre og datakvalitet, mermaid) gjort prosjektnøytral. Releaser, mål,
+  `done_when`, epics, fremdrift og «levert» kommer fra `tasks/releases/` via `release.py`.
+- **`tasks/queue-config.py`** (prosjekt-eid, valgfri) har alt prosjektspesifikt: tittel, eierskap,
+  notater, epic-klynger, gamle release-tags, leverte releaser og merknader. Ukjente nøkler stopper
+  generatoren.
+- **Felles Køsiden-rad i `artifacts.md`** med samme generator og vakter (`--print-title`) overalt.
+  `artifacts.md` er seed-only, så URL-ene overlever `/setup`.
+- **`tasks/kit-drift.py`** (helsesjekk A5e) melder når et prosjekts `queue-status.py` eller
+  Køsiden-rad har gått bort fra malen. Migrering: [`MIGRATION.md`](MIGRATION.md#fra-v34-til-v35).
+
 **v3.4.4** (fra FamilieHub 2026-10-02):
 - **`/todo-new`** oppretter én todo: duplikatsøk først, neste ledige nr fra `tasks/next-todo-nr.sh`
   (todos, arkiv og åpne PR-er på `origin/<base>`; exit 1 når en kilde ikke kan leses), frontmatter
@@ -118,7 +130,7 @@ v3-formatene.
 | **Worktree-hygiene** | «Kjent fremtidig herding» | `tasks/worktree-sweep.sh` + innholdsbasert `worktree-landed.sh`, med mutasjonstester |
 | **Worktree-bootstrap** | — | `.claude/scripts/bootstrap-worktree.sh`: install + default-deny env-kopi (kun tillatte nøkler) |
 | **Komfort-hooks** | — | Valgfri myk lint ved sesjonsstart og typecheck etter Edit/Write |
-| **Måling** | — | `tasks/measure-cost.py` (+ `--html`), køvisning `tasks/queue-status.py` |
+| **Måling** | — | `tasks/measure-cost.py` (+ `--html`), køside `tasks/queue-status.py` (+ `--html`, prosjektdel i `tasks/queue-config.py`, drift-vakt `tasks/kit-drift.py`) |
 | **Runbook** | v2-runbook | Kjerne + stegfiler + `runbook-hvorfor.md`; CI-gate før merge; gate F-regex, sannhetskrav for ny tekst i FIX-MODE, effort-remåling etter `go`, sweep-målinger |
 | **Todo-nummer** | Kollisjonsvakt | Samme vakt, nå for v3-formatet: `scripts/check-todo-nr-collisions.sh` (+ `--next`) og `check-todo-nr-premerge.sh`, kjørt i §6 før merge og som CI-jobb. Runbook §9 for reservasjon og renummerering |
 | **Hotfix** | Hotfix-runbook | `docs/hotfix-runbook.md` + `outcome=hotfix` i run-loggen; `/run-loop` preflight 4 avstemmer PR-er uten rad og fanger commits på prod-branchen som mangler i base |
@@ -271,8 +283,6 @@ feiler høyt på gjenværende `{{...}}` eller manglende nøkler. Se [`setup.md`]
 
 ## Kjente begrensninger
 
-- **`queue-status.py` er slank:** markdown + mermaid-avhengighetsgraf, ingen `--html` eller
-  epic-gruppering (opphavsprosjektets versjon er prosjektspesifikk). Utvid `group_of` ved behov.
 - **Run-log-tokenhåndheving** er ikke løst — bare driften mellom read-only-kontrakten og
   agent-lista.
 - **Post-fase i `test-guard-main-merge.sh`** (`HARNESS_PHASE=post`) er en planlagt rød fase —
