@@ -123,12 +123,7 @@ Fra ferdig-rapporten, `status: "implemented"`:
    tabell», tilstandsvakten på `stadium`).
 
    **Serialisert merge + `{{BASE_BRANCH}}`-CI-differensial (KUN ved §5d-armert runde).** Rekkefølgen er
-   claim-rekkefølge: A merges så snart A er klar (steg 0–6 over), UAVHENGIG av hvor B står — men
-   **FØRST etter A-sidens egen gate M (i)-sjekk** (kode-review-funn, fix-runde 3, MINDRE 4): bærer A
-   sin rad `gate_m_i = client-code:a` (eller `client-code:ab`) som IKKE er løst per definisjonen i
-   §5d («Gate M (i)»), er `§6(A)` BLOKKERT til A har kjørt steg 2 (`npm run test:e2e`) og steg 2a
-   (web-smoke) og rapportert det FAKTISKE utfallet. Er kolonnen `ok` eller `-`, er det ingen
-   blokkering. Deretter:
+   claim-rekkefølge: A merges så snart A er klar (steg 0–6 over), UAVHENGIG av hvor B står. Deretter:
    1. **`{{BASE_BRANCH}}`-CI-differensial #1** — mål CI-konklusjonen på `{{BASE_BRANCH}}`-tippen FØR A ble claimet (baseline,
       notert av koordinatoren ved claim-tidspunktet), og CI-konklusjonen på `{{BASE_BRANCH}}`-tippen ETTER A sin
       merge-commit:

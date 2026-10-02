@@ -19,6 +19,25 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.4.3** (fra FamilieHub 2026-10-02):
+- **`/handover`** for koordinator-sesjoner. `tasks/handover-state.sh` måler tilstanden (claims, worktrees,
+  release, PR-er, decision-log, om hovedsjekkouten ligger bak base). `docs/superpowers/loop/artifacts.md` er
+  eneste sted lenkene til de faste artefaktene står. Kommandoen republiserer dem, skriver overleveringsfila og
+  lager startprompten. `/endsession` peker til `/handover` i koordinator-sesjoner.
+- **`/run-loop`-preflight:** tom `node_modules` er et pausepunkt («kjør `npm ci`»), ikke «E2E: MANGLER».
+
+**v3.4.2** (fra FamilieHub 2026-10-02):
+- **§5d tillater klientkode.** `--forbid-prefix app/ components/ lib/` er fjernet fra gate P og M,
+  sammen med `client-code`-grenen og `gate_m_i`-bindingen. Forutsetningen er en e2e-lås som
+  serialiserer kjøringene (port per implementer + `mkdir`-lås i `todo-finish-worker`). Ny regel:
+  rører både A og B klientkode, synker B mot base og kjører e2e på nytt etter at A er merget.
+
+**v3.4.1** (rettelse fra FamilieHub 2026-10-02):
+- **§1 tar med `status: reviewed`.** Før var bare `open` kvalifisert, så todoer med godkjent plan
+  var usynlige for kø-utvelgelsen. Med en aktiv release ga det `PÅGÅR` og stopp selv om den
+  klareste jobben lå i scope. §2 sender en `reviewed`-todo rett til §5 etter ferskhets-gaten i §5c
+  (Plan-SHA mot base); tom Plan-SHA eller stale filer gir full §3/§4.
+
 **v3.4** (releaser med mål):
 - **Release-filer:** `tasks/releases/<versjon>.md` har `status` (`planned`, `active` eller
   `shipped`), `goal`, `cutoff`, en `## done_when`-sjekkliste (releasens definition of done) og
@@ -127,7 +146,7 @@ v3-agent-orchestrator/
 │   ├── CLAUDE.md              seed (skrives kun hvis den mangler)
 │   ├── .claude/agents/        PROJECT_NAME-{planner,reviewer,implementer,code-reviewer,scout}.md
 │   ├── .claude/commands/      run-loop, todo-finish-worker, loop-health-check, todo-plan(+review),
-│   │                          todo-execute, todo-done, start, status, endsession
+│   │                          todo-execute, todo-done, start, status, endsession, handover
 │   ├── .claude/hooks/         guard-main-merge, guard-reviewer-readonly, guard-fix-round-model
 │   │                          (+ harnesser og kontrakt), session-start-lint, typecheck-on-edit,
 │   │                          sessionstart-/precompact-checkpoint (valgfri, + harness)

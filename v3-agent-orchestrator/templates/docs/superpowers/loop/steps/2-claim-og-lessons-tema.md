@@ -15,6 +15,12 @@ tidligere runde og hoppes, etter ferskhets-gaten i §5c. Dette er **IKKE** fast-
 `models` skal bære de faktiske planner-/reviewer-modellene fra markørlinja og `plan_review_rounds`
 det faktiske tallet — aldri `skipped`/`0`.
 
+**`status: reviewed`? Hopp §3/§4 etter ferskhets-gaten.** Planen fikk `go` i en tidligere runde eller
+sesjon. Kjør ferskhets-gaten i §5c (Plan-SHA mot `origin/{{BASE_BRANCH}}`) rett før §5. Tom Plan-SHA eller
+stale filer ⇒ full §3/§4-runde. Fail-safe er full plan-runde, aldri hoppet gate. Heller ikke
+fast-path: les `models` og `plan_review_rounds` fra planfila; mangler de, skriv `unknown`, aldri
+`skipped`/`0`.
+
 **Graf-oppslag (før du velger tema):**
 ```bash
 python3 tasks/graph-query.py --todo <nr>

@@ -90,9 +90,9 @@ stale ref; uten workerens verifisering blir et tapt kappløp stille.
 ut av `elig=YES`. Velg øverste `elig=YES` = B. Sett IKKE `claimed_by`, og endre IKKE `status`.
 
 **B beholder `status: open` fram til claim.** Sett ALDRI `status: reviewed` på en pipelinet todo:
-§1-skriptets elig-predikat krever `status == 'open'`, så `reviewed` gjør B usynlig for
-kø-utvelgelsen — samme klasse som en død claim. Det eneste feltet du skriver på B før claim er
-`plan:`.
+`reviewed` sender B gjennom §2s `reviewed`-gren, ikke `pipelinet`-grenen, og da forsvinner
+markørlinja med `pipelined_from` og de faktiske modellene. Det eneste feltet du skriver på B før
+claim er `plan:`.
 
 **Planfila for B committes til `{{BASE_BRANCH}}` FØR par 2 — og det er ikke en claim.**
 Plan-revieweren får en helt fersk worktree fra `origin/{{BASE_BRANCH}}` og ser kun det som er
