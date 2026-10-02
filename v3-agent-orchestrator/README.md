@@ -19,6 +19,14 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.4.4** (fra FamilieHub 2026-10-02):
+- **`/todo-new`** oppretter én todo: duplikatsøk først, neste ledige nr fra `tasks/next-todo-nr.sh`
+  (todos, arkiv og åpne PR-er på `origin/<base>`; exit 1 når en kilde ikke kan leses), frontmatter
+  etter skjemaet og en `docs/`-PR uten claim. Sjekk: `bash tasks/test-next-todo-nr.sh`.
+- **`/lesson-new`** skriver én lesson utenfor `/todo-done`: riktig kunnskapsbase (lessons, MEMORY.md
+  eller agent-minne), duplikatsøk, filnavn fra `tasks/lesson-path.py` (samme slug som migreringen til
+  atomære filer, `-2` ved kollisjon, `--tags` for gjenbruk) og en `docs/`-PR. Sjekk: `--self-test`.
+
 **v3.4.3** (fra FamilieHub 2026-10-02):
 - **`/handover`** for koordinator-sesjoner. `tasks/handover-state.sh` måler tilstanden (claims, worktrees,
   release, PR-er, decision-log, om hovedsjekkouten ligger bak base). `docs/superpowers/loop/artifacts.md` er
@@ -146,7 +154,8 @@ v3-agent-orchestrator/
 │   ├── CLAUDE.md              seed (skrives kun hvis den mangler)
 │   ├── .claude/agents/        PROJECT_NAME-{planner,reviewer,implementer,code-reviewer,scout}.md
 │   ├── .claude/commands/      run-loop, todo-finish-worker, loop-health-check, todo-plan(+review),
-│   │                          todo-execute, todo-done, start, status, endsession, handover
+│   │                          todo-execute, todo-done, start, status, endsession, handover,
+│   │                          todo-new, lesson-new
 │   ├── .claude/hooks/         guard-main-merge, guard-reviewer-readonly, guard-fix-round-model
 │   │                          (+ harnesser og kontrakt), session-start-lint, typecheck-on-edit,
 │   │                          sessionstart-/precompact-checkpoint (valgfri, + harness)
@@ -206,6 +215,8 @@ v3-agent-orchestrator/
    bash .claude/hooks/test-checkpoint-hooks.sh   # bare når hooks.compaction_checkpoint er på
    bash tasks/test-worktree-sweep.sh
    bash tasks/test-worktree-landed.sh
+   bash tasks/test-next-todo-nr.sh
+   python3 tasks/lesson-path.py --self-test
    ```
 7. **Fyll `CLAUDE.md`** (infrastruktur, dokumentasjon) — den er seedet med plassholdere.
 8. **Stillas:** hvis prosjektet mangler det: `cp -R v3-agent-orchestrator/scaffolding/githooks .githooks`,

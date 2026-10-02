@@ -81,7 +81,7 @@ eller et språk — den hører i `loop.config`, ikke i maskineriet.
 | `.claude/commands/run-loop.md` | **Universal + config** |
 | `.claude/commands/todo-finish-worker.md` | **Universal + config** |
 | `.claude/commands/loop-health-check.md` | **Universal + config** |
-| `.claude/commands/{todo-plan,todo-plan-review,todo-execute,todo-done,start,status,endsession,handover}.md` | **Prereq-stillas + config** |
+| `.claude/commands/{todo-plan,todo-plan-review,todo-execute,todo-done,start,status,endsession,handover,todo-new,lesson-new}.md` | **Prereq-stillas + config** |
 | `docs/superpowers/loop/coordinator-runbook.md` + `steps/*.md` + `runbook-hvorfor.md` | **Universal + config** (kjerne-sjekkliste, én fil per steg, begrunnelser) |
 | `docs/superpowers/loop/report-schema.md` | **Universal** (kun `lessons_topics` fra config) |
 | `docs/superpowers/loop/run-log.md` | **Universal** (telemetri-format; tom logg ved generering) |

@@ -25,6 +25,8 @@ oppfølging, og en fil slettes når oppfølgingen er lukket.
 
 ## Skrive-protokoll
 
+Kommandoen `/lesson-new` følger stegene under; `python3 tasks/lesson-path.py <tema> "<tittel>"` gir filnavnet.
+
 1. Velg tema-mappe. Passer ingen, lag en ny med kebab-case-navn.
 2. Skriv `tasks/lessons/<tema>/<YYYY-MM-DD>-<slug>.md` i formatet fra `docs/loop-rules.md`. Slug:
    tittelen med små bokstaver, æ→ae, ø→oe, å→aa, alt annet enn a–z og 0–9 → `-`, maks 60 tegn.
