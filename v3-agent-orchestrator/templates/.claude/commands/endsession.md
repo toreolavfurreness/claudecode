@@ -5,6 +5,8 @@ description: "Avslutt sesjonen rent: rydd prosesser, commit uferdig arbeid, oppd
   GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
   Endre loop.config.yaml og kjør /setup på nytt.
 -->
+**Koordinator-sesjon** (orkestreringsloopen, `/run-loop`, eller du har koordinatorrollen)? Bruk `/handover` i stedet og stopp her — denne kommandoen er for manuell jobbing på én todo.
+
 Før du gjør noe annet — rydd opp kjørende prosesser:
 - Kjør (PORT-SCOPET, aldri navnebasert): lsof -ti :{{DEV_SERVER_PORT}} | xargs -r kill 2>/dev/null || true
 - NB: et navnebasert drap på prosessnavnet `{{DEV_SERVER_PROCESS}}` dreper ALLE dev-servere på maskinen — også eierens og andre prosjekters. Bruk port-varianten.

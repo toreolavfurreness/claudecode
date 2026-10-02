@@ -35,7 +35,12 @@ rekkefølgen — rad 2 MÅ evalueres FØR rad 4:
 | 1 | `{{CMD_E2E}}` tom | — | **E2E: ikke i bruk** (hopp over §1) |
 | 2 | `{{CMD_E2E}}` satt, inneholder IKKE `mcp__`, **OG** `{{CMD_E2E_PROBE}}` tom/blank | ingen — det finnes ingen probe å kjøre | **E2E: MANGLER (probe ikke konfigurert)** — aldri «tilgjengelig» |
 | 3 | `{{CMD_E2E}}` inneholder `mcp__` | idempotent kall på det navngitte MCP-verktøyet | svar → tilgjengelig; «Tool not found» → MANGLER |
-| 4 | ellers (CLI, probe satt) | kjør `{{CMD_E2E_PROBE}}` i Bash | exit 0 → tilgjengelig; exit ≠ 0 → MANGLER |
+| 4 | ellers (CLI, probe satt) | kjør `{{CMD_E2E_PROBE}}` i Bash | exit 0 → tilgjengelig; exit ≠ 0 OG `node_modules/.package-lock.json` finnes → MANGLER; exit ≠ 0 OG fila mangler → **STOPP: pausepunkt** (se under) |
+
+**Tom `node_modules` er et pausepunkt, ikke en degradering.** Mangler `node_modules/.package-lock.json` i
+koordinatorens sjekkout, sier proben ingenting om verktøyet — bare at `npm ci` ikke er kjørt. STOPP og rapporter
+«preflight: node_modules mangler — kjør `npm ci` (og `npx playwright install chromium`)». Ikke merk modus
+DEGRADERT. Agent-worktrees kjører egen `npm ci` og ville kjørt e2e uansett, så en «E2E: MANGLER» herfra er falsk.
 
 **Tom probe er IKKE et grønt svar.** Et tomt skall avslutter med 0 — behandle tom
 `{{CMD_E2E_PROBE}}` som manglende verktøy (rad 2). Uten rad 2 ville en tom probe gått rett i
@@ -125,6 +130,7 @@ Tom kø → §6c helsesjekk + release-rådgiver → (grønn) §8b drain retro-lo
 - Worker `failed`/`blocked`, merge-konflikt, canary-mismatch, reviewer no-go som ikke konvergerer, CI-gate før merge ikke grønn (§6 steg 0)
 - Kode-reviewer revise-gate — nivå B1 innenfor taket (bestem selv + logg, se `coordinator-runbook.md` § Pausepunkter); eskalerer (nivå A) kun når den ene ekstra fix-runden også er brukt og gaten fortsatt ikke er tom (§5b)
 - Agent-probe i preflight feiler («Agent type not found», dekker §5b) → fersk koordinator-sesjon kreves
+- `node_modules` mangler i koordinatorens sjekkout (preflight §1 rad 4) → `npm ci` kreves før første todo
 - Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b/§8c)
 - Ferskhets-gaten for en pipelinet plan er fortsatt ikke-tom etter én re-plan-runde (§5c)
 - Gate M (§5d) fortsatt `overlap` etter drop-til-serielt-re-synken, ELLER re-synken selv feiler (uløsbar konflikt, rød re-verifisering), ELLER `CONFLICTING` på MERGEABLE-sjekken for B
