@@ -892,7 +892,7 @@ details.goal p{margin:6px 0;max-width:82ch}
 .row .t{min-width:0;font-size:14px;line-height:1.45}
 .row .r{display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .row .ep{grid-column:3;font-size:11.5px;color:var(--faint);margin-top:2px}
-.row .deps{font-size:12px;color:var(--muted);margin-left:6px;white-space:nowrap}
+.deps{font-size:12px;color:var(--muted);margin-left:6px;white-space:nowrap}
 .row .note{grid-column:3/-1;font-size:12.5px;line-height:1.5;color:var(--muted);margin-top:5px;max-width:78ch}
 .done{color:var(--klar-ink)}.warn{color:var(--pause-ink);font-weight:600}
 .order{font:400 11px/1 "IBM Plex Mono",monospace;color:var(--faint)}
