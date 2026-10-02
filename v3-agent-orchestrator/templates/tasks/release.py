@@ -60,7 +60,7 @@ def archived():
         return []
     text = open(ARCHIVE, encoding="utf-8").read()
     out = []
-    for m in re.finditer(r"^## TODO[ -](\S+) — (.*)$", text, re.M):
+    for m in re.finditer(r"^## TODO[ -](\S+) — (.*)$", text, re.M | re.I):
         sec = text[m.end():].split("\n## ", 1)[0]
         f = lambda k: (re.search(rf"^\*\*{k}:\*\*\s*(.*)$", sec, re.M) or [None, "-"])[1].strip() or "-"
         out.append((m.group(1), m.group(2).strip(), f("Release"), f("Epic"), f("PR")))
