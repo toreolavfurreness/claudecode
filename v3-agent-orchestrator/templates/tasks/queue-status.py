@@ -113,7 +113,9 @@ def _self_test():
         "tasks/todos/todo-2.md": todo("2", title='"Andre"', release='"1.2.0"', deps='["1"]'),
         "tasks/todos/todo-3.md": todo("3", title='"Tredje"', status="deferred", tags="[forslag]"),
         "tasks/todos/todo-4.md": todo("4", title='"Fjerde"', tags="[release-1.1.0]"),
-        "tasks/todo_archive.md": "# Arkiv\n\n## TODO 9 — Ferdig\n\n**Release:** 1.2.0\n**Epic:** grunnmur\n",
+        "tasks/todo_archive.md": ("# Arkiv\n\n## TODO 9 — Ferdig\n\n**Release:** 1.2.0\n**Epic:** grunnmur\n"
+                                  "\n## TODO-7 — Bindestrek-format\n\n## TODO 6C3a — Langt suffiks\n"),
+        "tasks/todos/todo-6.md": todo("6", title='"Sjette"', deps='["7", "6C3a"]'),
     }
 
     # 1. Uten queue-config.py: siden virker, tittelen er standardtittelen, vaktene i artifacts.md slår til.
@@ -127,6 +129,7 @@ def _self_test():
     check("uten config: levert-telling fra arkivet", "1<small>levert</small>" in html)
     check("uten config: done_when 1/2", "(1/2)</summary>" in html)
     check("uten config: ingen merknader-seksjon", "## Merknader" not in md)
+    check("arkiv: `## TODO-7` og `TODO 6C3a` teller som ferdige deps", "deps 7✓, 6C3a✓" in md and "⚠ukjent" not in md)
 
     # 2. Full config: nøklene slår gjennom.
     cfg = "\n".join([
@@ -152,7 +155,7 @@ def _self_test():
     check("full config: NOTES", "Et notat om 1." in html)
     check("full config: LEVERT + gammel tag", "v1.1 · levert" in html and "første versjon." in html)
     check("full config: RELEASE_COLORS", ".relp.v1-1{background:var(--rel2-wash)" in html)
-    check("full config: merknader", "- En merknad." in md and "- 4 todos." in md and "En merknad." in html)
+    check("full config: merknader", "- En merknad." in md and "- 5 todos." in md and "En merknad." in html)
     check("full config: EKSTRA_FLAGG", "<b>Et flagg</b>" in html)
     check("full config: SCOPE_NOTE og RELEASE_NOTE", "Prod eies av Kari." in md and "Merk: noe." in html)
 
@@ -243,7 +246,7 @@ def deps_of(d):
 # `f is None -> True` var fail-open og gjorde enhver typo til en grønn hake.
 _ARCHIVE = pathlib.Path("tasks/todo_archive.md")
 _archived = set(
-    re.findall(r"TODO\s+([0-9]+[A-Za-z]?)", _ARCHIVE.read_text(encoding="utf-8"))
+    re.findall(r"TODO[\s-]+([0-9]+[0-9A-Za-z]*)", _ARCHIVE.read_text(encoding="utf-8"))
     if _ARCHIVE.exists()
     else []
 )
