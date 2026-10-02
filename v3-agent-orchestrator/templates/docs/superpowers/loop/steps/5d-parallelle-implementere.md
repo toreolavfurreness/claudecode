@@ -55,14 +55,14 @@ fillistene finnes.
 ```bash
 gh pr diff <A-pr> --name-only > <scratch>/gate-a-<runde>.txt
 python3 tasks/parallel-disjoint.py --a <scratch>/gate-a-<runde>.txt \
-  --plan-b tasks/plans/todo-<B>-<slug>.md \
-  --forbid-prefix app/ --forbid-prefix components/ --forbid-prefix lib/
+  --plan-b tasks/plans/todo-<B>-<slug>.md
 ```
 
-`ok` (exit 0) ⇒ fortsett. `overlap` / `empty-a` / `empty-b` / `missing-section` / `client-code`
+`ok` (exit 0) ⇒ fortsett. `overlap` / `empty-a` / `empty-b` / `missing-section`
 (exit 1) ⇒ ingen parallellitet denne runden; B beholder planen sin og claimes normalt via §1 i en
-SENERE runde (samme fail-safe-retning som §5cs ferskhets-gate). `--forbid-prefix` er precondition
-(C) fra e2e-kontrakten under — den kjøres i SAMME kall som selve disjunkt-sjekken, ikke separat.
+SENERE runde (samme fail-safe-retning som §5cs ferskhets-gate). Klientkode (`app/`, `components/`, `lib/`) er tillatt på begge sider: egen port
+og e2e-låsen fra TODO 184 serialiserer e2e-kjøringene, og regelen «B etter A, begge med klientkode»
+under dekker samspillet som felles filer ikke viser.
 
 **Gate M sin fail-retning er «drop til serielt», ikke pausepunkt.** Ikke-tomt snitt i gate M betyr
 at **parallelliteten ikke lenger er gyldig** — typisk fordi A sin §5b-fix-runde lovlig utvidet A sin
@@ -75,47 +75,20 @@ PR, så B-siden er den samme DEKLARERTE plan-listen gate P allerede leste:
 ```bash
 gh pr diff <A-pr> --name-only > <scratch>/gate-m-a-<runde>.txt
 python3 tasks/parallel-disjoint.py --a <scratch>/gate-m-a-<runde>.txt \
-  --plan-b tasks/plans/todo-<B>-<slug>.md \
-  --forbid-prefix app/ --forbid-prefix components/ --forbid-prefix lib/
+  --plan-b tasks/plans/todo-<B>-<slug>.md
 ```
 
 Et rødt `overlap`/`empty-a`/`empty-b`-utfall her er kun et TIDLIG varsel (koordinatoren kan bestille
 B sin re-synk tidligere); det er den BINDENDE formen (ii) under som faktisk styrer
 merge-rekkefølgen for B.
 
-**`client-code` er derimot BINDENDE for A allerede HER, ikke bare et varsel (kode-review-funn,
-fix-runde 2, VIKTIG 2).** Gate M (ii) kjøres først rett FØR B sin merge, og sekvenslinja under
-plasserer A sin `§6(A)` FØR gate M (ii) i det hele tatt kjører — uten en binding her ville A kunne
-merges via `§6(A)` med `e2e_not_applicable` stående selv om en A-fix-runde allerede har rørt
-`app/`/`components/`/`lib/`. Et `client-code`-utfall fra gate M (i) BLOKKERER derfor `§6(A)`: A MÅ
-kjøre steg 2 (`npm run test:e2e`) og steg 2a (web-smoke) og rapportere det FAKTISKE utfallet FØR
-`§6(A)` kjøres — se «Sekvensen skrevet som ÉN linje» under for hvor dette settes inn.
-
-**Bokføring av utfallet — kolonnen `gate_m_i` (kode-review-funn, fix-runde 3, MINDRE 4).** Utfallet
-av HVER gate M (i)-kjøring skrives UMIDDELBART inn i in-flight-tabellens `gate_m_i`-kolonne på A sin
-rad (`ok` \| `client-code:<side>` \| `-`, se «In-flight-tabell» under). Uten den kolonnen ville
-bindingen hvilt på koordinatorens arbeidsminne på tvers av flere dispatcher — nettopp den
-feilmodusen §5d ellers designer bort. **«Ikke løst» er DEFINERT, ikke skjønn:** et `client-code:a`-
-eller `client-code:ab`-utfall regnes som LØST først når A sin FERSKESTE ferdig-rapport (for A sin
-gjeldende `pinned_sha`) rapporterer et FAKTISK utfall av steg 2 og steg 2a — altså
-`verification.e2e_outcome` OG `verification.web_smoke_outcome` forskjellig fra `e2e_not_applicable`.
-Fram til da blokkerer utfallet `§6(A)`. Kolonnen nullstilles ALDRI for hånd; den overskrives kun av
-neste gate M (i)-kjøring.
-
 **Gate M (ii) — bindende, FØR merge av B:**
 
 ```bash
 gh pr diff <A-pr> --name-only > <scratch>/gate-m-a-<runde>.txt
 gh pr diff <B-pr> --name-only > <scratch>/gate-m-b-<runde>.txt
-python3 tasks/parallel-disjoint.py --a <scratch>/gate-m-a-<runde>.txt --b <scratch>/gate-m-b-<runde>.txt \
-  --forbid-prefix app/ --forbid-prefix components/ --forbid-prefix lib/
+python3 tasks/parallel-disjoint.py --a <scratch>/gate-m-a-<runde>.txt --b <scratch>/gate-m-b-<runde>.txt
 ```
-
-**`--forbid-prefix` MÅ stå på BEGGE gate M-invokasjonene, ikke bare på gate P** (kode-review-funn):
-gate P måler B sin DEKLARERTE plan-liste, og gate M finnes NETTOPP fordi den deklarasjonen kan
-drive — en A- eller B-fix-runde kan lovlig rusle inn i `app/`/`components/`/`lib/` ETTER at gate P
-sa ja. Uten flagget på gate M ville ingenting målt forbudet på nytt før merge, og e2e-kontrakten (D)
-under ville hvilt på et premiss ingen lenger hadde bekreftet.
 
 - `ok` ⇒ videre til MERGEABLE-sjekken (§6).
 - **`overlap`/`empty-a`/`empty-b` ⇒ DROP TIL SERIELT** (ikke pausepunkt): B settes til
@@ -126,18 +99,12 @@ under ville hvilt på et premiss ingen lenger hadde bekreftet.
   konfliktløses** — en ren merge endrer ingen linje B har skrevet, og §5b sitt trigger-sett er
   «nye commits som endrer B sin diff». Måles: rapporterte merge-en konflikt? ja ⇒ §5b `r_{n+1}`;
   nei ⇒ rett til MERGEABLE-sjekken.
-- **`client-code` ⇒ DROP TIL SERIELT, OG `e2e_not_applicable` er IKKE LENGER LOVLIG for SIDEN(E)
-  som drev inn i klientkode.** `e2e_not_applicable` var kun korrekt fordi gate P avviste
-  `app/`/`components/`/`lib/` på BEGGE sider (§ 2.2 (D)); et `client-code`-utfall her falsifiserer
-  nettopp det premisset. `tasks/parallel-disjoint.py` returnerer BEGGE siders treff uavhengig av
-  hverandre (utskrift `client-code a=[...] b=[...]` — kode-review-funn, fix-runde 2, VIKTIG 1: en
-  tidligere `or`-kortslutning i `evaluate()` gjorde at B sitt treff aldri ble beregnet når A allerede
-  hadde ett). **E2e-kravet gjelder HVER side hvis liste er ikke-tom**: er BEGGE `a` og `b` ikke-tomme,
-  MÅ BEGGE spor kjøre steg 2 (`npm run test:e2e`) og steg 2a (web-smoke) og rapportere det FAKTISKE
-  utfallet FØR merge; er kun én side ikke-tom, gjelder kravet KUN det sporet, og det andre sporet
-  beholder `e2e_not_applicable` uendret. For øvrig samme drop-til-serielt-prosedyre som
-  `overlap`-grenen (re-synk + re-verifisering + push), pluss dette ekstra e2e-kravet for hver
-  klientkode-rammet side.
+- **B etter A, begge med klientkode (TODO 184-oppfølging, 2026-10-02).** Rører BÅDE A sin og B sin
+  PR-diff `app/`, `components/` eller `lib/` (`grep -E '^(app|components|lib)/'` på de to
+  `gh pr diff --name-only`-listene over), kan B bryte mot A uten felles fil, for eksempel når A
+  endrer en hook B bruker. CI kjører ingen e2e, så B synker mot base som i `overlap`-grenen og
+  kjører steg 2 og 2a på nytt under e2e-låsen før merge. Faktisk utfall i ny ferdig-rapport;
+  rødt ⇒ §5b-fix-runde, ikke merge.
 - **⚠️ PAUSEPUNKT KUN hvis DENNE re-synk-stien selv feiler**: uløsbar merge-konflikt, eller rød
   re-verifisering etter en ren (konfliktfri) merge. En invariant som ER meningsfull ETTER re-synk
   (og som derfor kan brukes til å bekrefte at re-synken faktisk skjedde, i stedet for å anta det):
@@ -155,10 +122,10 @@ pre-par-2-hale (push B-plan) → snapshot par2 → PAR 2 [code-rev(A) r1 + plan-
 §4-gate for B = go → markør-hale (push)  <- MÅ være pushet FØR B claimes ->
 §5d: §1-filter(B) → GATE P → claim B → snapshot par3 →
 PAR 3 [impl(A) fix-r1 (hvis revise-gate) + impl(B)] →
-[gate M (i) varsel etter hver A-fix-runde — `client-code` for A er BINDENDE her: blokkerer §6(A) til A har kjørt steg 2 (`npm run test:e2e`) + steg 2a (web-smoke) og rapportert faktisk utfall] →
+[gate M (i) varsel etter hver A-fix-runde] →
 snapshot par4 → PAR 4 [code-rev(A) r2 (hvis) + code-rev(B) r1] → … →
-A go ⇒ [gate M (i) sitt siste client-code-utfall for A? ja, ikke løst ⇒ A kjører steg 2+2a FØR §6(A)] → §6(A): delt state + merge A (KUN A sin rad til §0b) → dev-CI-differensial #1 →
-B go ⇒ GATE M (ii) (bindende) → [overlap/empty-a/empty-b ⇒ drop til serielt: B synker mot dev + re-verifiserer. client-code ⇒ drop til serielt OG e2e-kravet gjelder HVER side som er ikke-tom (a=[...] b=[...])] →
+A go ⇒ §6(A): delt state + merge A (KUN A sin rad til §0b) → dev-CI-differensial #1 →
+B go ⇒ GATE M (ii) (bindende) → [overlap/empty-a/empty-b ⇒ drop til serielt: B synker mot dev + re-verifiserer. Begge med klientkode ⇒ B synker + steg 2/2a på nytt] →
 MERGEABLE(B) → §6(B): delt state + merge B (KUN B sin rad til §0b) → dev-CI-differensial #2 → §6b → §6c
 ```
 
@@ -178,7 +145,6 @@ Holdes i koordinatorens **scratchpad** — ALDRI som repo-relativ fil (§0bs reg
 | `branch` | ferdig-rapportens `branch` | §0b `<branch_kryss_sjekk>` |
 | `pr` | ferdig-rapportens `pr_url` | gate M, MERGEABLE, §6 |
 | `pinned_sha` | `gh pr view <pr> --json headRefOid` | §5b trigger-sett + fix-runde-diff |
-| `gate_m_i` | gate M (i) — skrives etter HVER kjøring | `ok` \| `client-code:<side>` \| `-` (ikke kjørt ennå). Bærer bindingen som blokkerer `§6(A)`; «løst» er definert i «Gate M (i)» over |
 | `stadium` | koordinator | `plan-go` \| `implementing` \| `code-review-r<n>` \| `fix-r<n>` \| `awaiting-merge` \| `serialized` (gate M overlap, venter på re-synk) \| `merged` \| `frozen:<event>` (B fryst, eskalert — se under) \| `paused:<event>` |
 
 **§6(A) sender KUN rader med `rolle: A` til §0b; B sine rader ryddes av §6(B).** Tabellen ER
@@ -211,45 +177,9 @@ tillegg for pipelinede par):
 - **Pre-commit-re-synk (delt-state-push midt i flukt):** rett før `todo-finish-worker.md` steg 6
   («Commit + PR mot dev»), kjør `git fetch origin {{BASE_BRANCH}} && git diff origin/{{BASE_BRANCH}} --stat`;
   ikke-tom med filer implementeren ikke selv rørte ⇒ merge FØR commit.
-- **e2e-kontrakten (D), BETINGET (kode-review-funn, fix-runde 2, VIKTIG 2):** se «Forutsetning for
-  parallellitet (e2e)» under — `e2e_not_applicable` er KUN lovlig SÅ LENGE egen diff ikke rører
-  `app/`, `components/` eller `lib/`; ellers kjøres steg 2 og 2a og det FAKTISKE utfallet
-  rapporteres (konsistent med `todo-finish-worker.md:20`). **«Rører» MÅLES, det tolkes ikke**
-  (kode-review-funn, fix-runde 3, MINDRE 5) — kjør ordrett, rett før steg 2:
-  ```bash
-  git diff origin/{{BASE_BRANCH}} --name-only | grep -E '^(app|components|lib)/'
-  ```
-  **Tom output ⇒ `e2e_not_applicable` er lovlig. Ikke-tom output ⇒ kjør steg 2
-  (`npm run test:e2e`) og steg 2a (web-smoke) og rapporter det faktiske utfallet.** Dette er
-  ORDRETT samme kommando som den normative målingen i «Forutsetning for parallellitet (e2e)»
-  under — én måling, to kallsteder.
-
-**Forutsetning for parallellitet (e2e), BETINGET per implementer (kode-review-funn, fix-runde 2,
-VIKTIG 2 — rettet fra en tidligere ubetinget «begge hopper alltid»).** Gate P avviser enhver fil
-under `app/`, `components/` eller `lib/` i B sin DEKLARERTE plan (`--forbid-prefix`, precondition
-(C)) FØR B claimes — men en fix-runde på ENTEN A eller B kan lovlig utvide diffen etter det
-punktet (samme observasjon som gate M sin `client-code`-gren over). En ubetinget «begge hopper
-steg 2/2a» ville motsagt `todo-finish-worker.md:20`, som gjør `e2e_not_applicable` betinget av at
-diffen FAKTISK ikke rører klientkode — ikke av at en gate sa det ikke gjorde det på et TIDLIGERE
-tidspunkt. Regelen er derfor: `e2e_not_applicable` er lovlig for en implementer KUN SÅ LENGE dens
-EGEN diff ikke rører `app/`, `components/` eller `lib/` på det tidspunktet steg 2/2a faktisk
-kjøres; har diffen rømt inn i et av disse prefiksene (oppdaget av gate M over, eller av
-implementeren selv), kjører DEN implementeren steg 2 (`npm run test:e2e`) og steg 2a (web-smoke)
-og rapporterer det faktiske utfallet i stedet. **Den NORMATIVE målingen av «rører» er denne
-kommandoen, kjørt av implementeren rett før steg 2** (kode-review-funn, fix-runde 3, MINDRE 5 — den
-står ORDRETT likelydende i par-dispatch-maltillegget over, slik at implementeren ikke skal måtte
-tolke ordet):
-
-```bash
-git diff origin/{{BASE_BRANCH}} --name-only | grep -E '^(app|components|lib)/'
-```
-
-Tom output ⇒ `e2e_not_applicable` er lovlig for DEN implementeren. Ikke-tom ⇒ steg 2 + steg 2a
-kjøres og det faktiske utfallet rapporteres. `grep` returnerer exit 1 på tom output; det er
-IKKE en feil her, kun «ingen klientkode rørt». Port-/Metro-kontensjonen er løst i
-`todo-finish-worker.md` steg 1–2 (TODO 184): egen port per implementer, drap bare via egen port,
-og e2e-låsen serialiserer fulle kjøringer. Å parallellisere et klientkode-par krever fortsatt en
-egen beslutning (gate P/M `--forbid-prefix`, og delte testbrukere, CF-233-1).
+- **e2e:** steg 2 og 2a kjøres som normalt når egen diff rører `app/`, `components/` eller `lib/`,
+  med egen port og e2e-låsen fra `todo-finish-worker.md` steg 2 (TODO 184). Låsen serialiserer
+  kjøringene, så de delte testbrukerne brukes aldri samtidig (lukker CF-233-1).
 
 **Release claim med to claimede todos.** «Release claim» i §3/§4/§5b refererer normalt til DEN ENE
 claimede todoen. Med §5d armet er BÅDE A og B claimet samtidig — et pausepunkt som rammer ÉN av dem

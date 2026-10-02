@@ -59,7 +59,7 @@ rows = []
 for nr, d in todos.items():
     deps = re.findall(r'"([^"]+)"', d.get('deps','') or '')
     tags_raw = d.get('tags', '')
-    eligible = (d.get('status')=='open' and (d.get('claimed_by','null') in ('null','',None))
+    eligible = (d.get('status') in ('open','reviewed') and (d.get('claimed_by','null') in ('null','',None))
                 and not d['_brainstorm'] and all(dep_done(x) for x in deps)
                 and not re.search(r'\bforslag\b|\bprod-release\b', tags_raw))
     if eligible and rel and d.get('release') != rel:
