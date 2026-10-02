@@ -13,6 +13,7 @@ Grupperingen er «neste i køen / venter på deps / pågår / utenfor aktiv rele
 aktiv release (tasks/releases/) står fremdriften fra `tasks/release.py status` øverst.
 """
 import glob
+import json
 import os
 import pathlib
 import re
@@ -139,6 +140,22 @@ out = [
     f"{len(todos)} todo-filer. Rekkefølge = §1: `priority: prioritert` først, så `order`.",
     "",
 ]
+# Nivå B siste 24 t — vetoflaten før neste release (TODO 455). Feil skal synes, aldri en stille tom liste.
+out += ["## Nivå B siste 24 t — veto før neste release", ""]
+_rb = subprocess.run([sys.executable, "tasks/decision-level.py", "--recent-b", "--hours", "24"],
+                     capture_output=True, text=True)
+if _rb.returncode != 0:
+    out.append(f"> **Kunne ikke lese decision-log:** {_rb.stderr.strip()}")
+else:
+    _rbj = json.loads(_rb.stdout)
+    if _rbj["unparsed"]:
+        out.append(f"> **{_rbj['unparsed']} decision-log-overskrift(er) siste 24 t følger ikke "
+                   "«### YYYY-MM-DD HH:MM — …» og vises ikke her.**")
+    if not _rbj["entries"]:
+        out.append("Ingen nivå B-beslutninger siste 24 t.")
+    for e in _rbj["entries"]:
+        out.append(f"- **{e['ts']} — {e['header']}** — reversibel til: {e['reversibel']}")
+out.append("")
 if REL or len(_active) > 1:
     _r = subprocess.run([sys.executable, "tasks/release.py", "status"], capture_output=True, text=True)
     out += ["> " + line for line in (_r.stdout or _r.stderr).splitlines()] + [""]

@@ -34,7 +34,7 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
      gatens detaljlinjer; tom logg ⇒ les ANNOTATIONS i `gh run view <run-id>`, lesson
      2026-09-17). Er den røde linja en `status <context>` (ingen run-id), ⇒ PAUSEPUNKT.
      Peker feilen ellers på en fil i PR-ens egen diff (`gh pr diff <pr> --name-only`) ⇒
-     tilbake til §5b fix-mode med CI-feilen som BLOKKERENDE funn; B1-reglene og rundetaket gjelder
+     tilbake til §5b fix-mode med CI-feilen som BLOKKERENDE funn; B1-reglene og konvergensregelen gjelder
      uendret. Ellers (samme sjekk rød på `{{BASE_BRANCH}}`, jobb som aldri startet, uklar årsak)
      ⇒ ⚠️ PAUSEPUNKT.
    - `ci=cancelled` ⇒ `gh run rerun <run-id>` én gang, deretter gaten på nytt. Fortsatt ikke

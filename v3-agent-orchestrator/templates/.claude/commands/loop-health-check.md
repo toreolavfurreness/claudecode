@@ -320,7 +320,7 @@ Del D's format.
 python3 tasks/decision-level.py --self-test
 ```
 
-Krav: exit 0 **og** `30/30` i stderr-oppsummeringen. Ikke-grønn ⇒ **RØD** (regelmotoren selv er i
+Krav: exit 0 **og** `39/39` **og** `logg-parser: PASS` i stderr-oppsummeringen. Ikke-grønn ⇒ **RØD** (regelmotoren selv er i
 utakt med sine egne fixtures — ALDRI stol på klassifiseringer denne runden).
 
 ### D1b — Regelmotor ekte-kall-sjekk (runbookens DOKUMENTERTE `--context`-kall virker, ikke bare `--self-test`)
@@ -332,11 +332,13 @@ kalleformene ordrett slik de står i runbook-stegfilene `docs/superpowers/loop/s
 
 ```bash
 python3 tasks/decision-level.py --event technical_risk --context source=planner --context kind=docs_selfmod --context executable_gate=yes
-python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=2 --context blocking_now=2 --context new_class=no --context content=no --context cost_over=no
 ```
 
-Krav: begge exit 0 **og** `"level": "B"` (hhv. `"rule": "B5"` og `"rule": "B1"`) i JSON-outputen.
-Enten kall som gir `"level": "A"`/`"rule": "A0"` ⇒ **RØD** — nivå B er da inert i drift uansett hva
+Krav: de to første exit 0 **og** `"level": "B"` (hhv. `"rule": "B5"` og `"rule": "B1"`) i JSON-outputen. Det
+tredje (konvergerer ikke, TODO 455) skal gi `"rule": "A0"`, exit 1 og `no_convergence` i `violations`
+— gir det B1, er konvergensvakten borte ⇒ **RØD**. Ett av de to første kallene som gir `"level": "A"`/`"rule": "A0"` ⇒ **RØD** — nivå B er da inert i drift uansett hva
 D1/D2 sier, samme feilklasse som ble reprodusert og rettet i kode-review r1.
 
 ### D2 — Regel-paritet (skript ↔ runbook-prosa)
@@ -405,7 +407,8 @@ awk '/\| 246 \|/{f=1} f' docs/superpowers/loop/run-log.md \
 Krav: **steg 2 == sum (steg 3)** OG **mangler_token = 0** ⇒ `OK`. Avvik ⇒ **RØD** («AVVIK» i
 rapportblokken), eskalér — en koordinator som logget et nivå-B-valg uten `auto_decided=` (eller
 omvendt) har brutt en av de fire logg-pliktene. Hver V16a/b-treffende rad MÅ ha en tilsvarende
-decision-log-entry (`[A0]` for V16a, `[B1]` for V16b). En V16c-treffende rad (`crr >= 4`) MÅ ha
+decision-log-entry (`[B7]` eller `[A0]`/`[A…]` for V16a, `[B1]` eller `[A0]`/`[A…]` for V16b — fast
+rundetak er fjernet i TODO 455, så runde 3+ kan være en konvergerende B-runde). En V16c-treffende rad (`crr >= 4`) MÅ ha
 enten `[B1]` (lukking — den vanlige klassen: `merge_carry`/`stop` ved `crr>=4` er B1 uansett
 rundetall) eller `[A0]` (et forkastet nytt fix-runde-forsøk) — IKKE strengt `[A0]`. Rad uten NOEN
 av de tillatte entry-typene ⇒ **RØD**.
@@ -417,5 +420,14 @@ Del D4 verifiserer IKKE `Runde-SHA:` mekanisk i denne PR-en (ingen `git log`-avh
 til Del D — kun de fire kommandoene over); det er en dokumentert, bevisst avgrensning, ikke en
 påstått lukket gate.
 
-Rødt i D1-D4 ⇒ helsesjekk RØD (samme eskalering som Del A6) — §8b kjøres IKKE (se
+### D5 — Treffsikkerhet per type (TODO 455)
+
+```bash
+python3 tasks/decision-level.py --agreement
+```
+
+TSV-en (`type n fulgt avvek forslag`) går inn i rapportblokken. En rad med `flytt-til-B` gir ett
+nivå A-spørsmål (`Type: calibration`, se `coordinator-runbook.md` § Kalibrering). Exit ≠ 0 ⇒ **RØD**.
+
+Rødt i D1-D5 ⇒ helsesjekk RØD (samme eskalering som Del A6) — §8b kjøres IKKE (se
 `coordinator-runbook.md` «Etter §6c»).

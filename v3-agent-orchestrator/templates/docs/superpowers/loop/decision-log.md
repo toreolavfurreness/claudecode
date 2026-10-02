@@ -36,6 +36,13 @@ Entries **UNDER** `<!-- FORMAT-V2 (TODO 246) -->`-markøren følger dette frosne
 - **Reversibel til:** det siste punktet der valget kan omgjøres
 ```
 
+- **Nivå A-entries (TODO 455)** får i tillegg tre linjer, som `decision-level.py --agreement` leser:
+  `- **Type:** <--event, ellers kort kebab-navn>`, `- **Anbefaling:** <koordinatorens anbefaling>` og
+  `- **Eierens svar:** fulgt | avvek: <hva> | venter`. Å bytte ut `venter`-linja når svaret kommer
+  er den ENESTE tillatte redigeringen av en eksisterende entry.
+- `[B1]`/`[B7]` fra runde 2 får `- **Konvergens:** gate-funn <prev>→<now>, ny feilklasse nei, innhold
+  nei, kost <usd>/<median>` (se `coordinator-runbook.md` § Konvergensregel).
+
 - `<regel-id>` ∈ `A1`…`A8` | `A0` | `B1`…`B7` | `VETO av <B-id>` — hentet fra
   `python3 tasks/decision-level.py`, aldri fra hukommelsen. A-valg logges også (de bærer menneskets
   svar); `[B…]` er den greppbare diskriminatoren for nivå-B-avstemmingen i `loop-health-check.md`
