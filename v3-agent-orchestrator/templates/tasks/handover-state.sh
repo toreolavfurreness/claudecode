@@ -12,6 +12,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$SINCE" ] || { echo "mangler --since <YYYY-MM-DDTHH:MM>" >&2; exit 2; }
+# --since er lokal tid; GitHub-søket tolker en dato uten sone som UTC. Legg på lokal offset (+02:00).
+TZ_OFF=$(date +%z | sed -E 's/([+-][0-9]{2})([0-9]{2})/\1:\2/')
 RC=0
 fail() { echo "FEIL: $1"; RC=1; }
 or_none() { local out; out=$(cat); [ -n "$out" ] && echo "$out" || echo "(ingen)"; }
@@ -52,7 +54,7 @@ if out=$(gh pr list --base "$BASE" --state open --json number,title -q '.[] | "-
   echo "$out" | or_none; else fail "gh pr list (open): $out"; fi
 
 echo; echo "### Merget mot $BASE siden $SINCE"
-if out=$(gh pr list --base "$BASE" --state merged --search "merged:>=$SINCE" --limit 100 \
+if out=$(gh pr list --base "$BASE" --state merged --search "merged:>=${SINCE}${TZ_OFF}" --limit 100 \
     --json number,title -q '.[] | "- #\(.number) \(.title)"' 2>&1); then
   echo "$out" | or_none; else fail "gh pr list (merged): $out"; fi
 
