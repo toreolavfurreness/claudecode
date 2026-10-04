@@ -132,7 +132,7 @@ def group_of(d):
 
 
 # Fasen til en claimet todo. Koordinatoren setter `phase` i frontmatter ved hvert steg. Første ord
-# er nøkkelen, resten er fritekst (runde, PR): `phase: kode-review r2 PR 1112`. Ikke bruk `#`: parseren leser det som kommentar.
+# er nøkkelen, resten er fritekst (runde, PR): `phase: kode-review r2 PR 1112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`.
 PHASES = {
     "plan": "planlegges",
     "plan-review": "plan til review",

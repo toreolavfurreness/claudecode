@@ -71,25 +71,25 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 
 ## 3. Dispatch planner
 → `steps/3-dispatch-planner.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: velg canary, ta pre-snapshot, dispatch, verifiser canary + `evidence.toplevel`, overlever planfila (`cp` + `cmp -s`), commit/push med speil-guard, §0b-rydding; re-dispatch akkumulerer per forsøk.
+- [ ] Hva: sett `phase: plan` (`plan-revisjon` ved revisjonsrunde); velg canary, ta pre-snapshot, dispatch, verifiser canary + `evidence.toplevel`, overlever planfila (`cp` + `cmp -s`), commit/push med speil-guard, §0b-rydding; re-dispatch akkumulerer per forsøk.
 - [ ] Vakt/kommando: proporsjonalitetsport (grep etter eksisterende løsning, kjerne-anslag, budsjett i dispatchen); canary med linjenummer; `git worktree list --porcelain > "<scratch>/wt-pre-3-planner-<runde>.txt"`; `cmp -s`
 - [ ] Pausepunkt: `canary`-mismatch som ikke løses (§3)
 
 ## 4. Dispatch reviewer + gate
 → `steps/4-dispatch-reviewer.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: pre-snapshot, dispatch, bevis-sjekk (`evidence.reviewed_head`), gate på `verdict` (no-go → Konsolideringsgate (≥ 400 linjer og tidligere runde) → bremsen + konvergensregelen, så §3-revisjon; go → re-mål `effort`, bær VIKTIG/MINDRE til §5); `technical_risk` → STOPP med mindre klassifiseringen gir B5.
+- [ ] Hva: sett `phase: plan-review`; pre-snapshot, dispatch, bevis-sjekk (`evidence.reviewed_head`), gate på `verdict` (no-go → Konsolideringsgate (≥ 400 linjer og tidligere runde) → bremsen + konvergensregelen, så §3-revisjon; go → re-mål `effort`, bær VIKTIG/MINDRE til §5); `technical_risk` → STOPP med mindre klassifiseringen gir B5.
 - [ ] Vakt/kommando: `python3 tasks/vblock-lint.py <plan> --log` FØR dispatch (exit 1 ⇒ tilbake til planneren, teller ikke som runde); `planned_diff` > ~5× budsjettet ⇒ pausepunkt; `python3 tasks/decision-level.py --event technical_risk`
 - [ ] Pausepunkt: Reviewer no-go uten konvergens eller over kostnadstaket (§4, se Konvergensregel); Proporsjonalitet: `planned_diff` > ~5× budsjettet (§4); Teknisk risiko flagget (§4) eller truffet (§5/§6); B5; B7
 
 ## 5. Dispatch implementer
 → `steps/5-dispatch-implementer.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: pipelining på → §5c dispatcher par 1; ellers pre-snapshot + dispatch med plan-review-funnene; `status: failed|blocked` → STOPP; noter `F3a_ref`; akkumuler (toplevel, snapshot)-par for §6; bevaringsregel ved abort.
+- [ ] Hva: sett `phase: implementering` (`fix <n>` ved fix-runde); pipelining på → §5c dispatcher par 1; ellers pre-snapshot + dispatch med plan-review-funnene; `status: failed|blocked` → STOPP; noter `F3a_ref`; akkumuler (toplevel, snapshot)-par for §6; bevaringsregel ved abort.
 - [ ] Vakt/kommando: `git worktree list --porcelain > "<scratch>/wt-pre-5-implementer-<runde>.txt"`; `F3a_ref`
 - [ ] Pausepunkt: Teknisk risiko flagget (§4) eller truffet (§5/§6); andre `plan_invalid` på samme todo (§5); ingen egen rad for STOPP ved `status: failed|blocked` (pre-eksisterende — står kun i stegfilen)
 
 ## 5b. Uavhengig kode-review
 → `steps/5b-kode-review.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: Minne-gate → trigger-sett beregnet SELV → dispatch kode-reviewer → gate på severity (revise-gate) med kontrakt-vakt og liveness-vakt → fix-mode-dispatch («Rotårsaksanalyse før eskalering»; «Modell-eskalering fra fix-runde 3»: dyp modell fra runde 3) → Gate F re-verifisering av V-blokken før neste runde. Riving/migrering av brukervendt flate: gatene G1–G3.
+- [ ] Hva: sett `phase: kode-review r<n> PR <nr>`; Minne-gate → trigger-sett beregnet SELV → dispatch kode-reviewer → gate på severity (revise-gate) med kontrakt-vakt og liveness-vakt → fix-mode-dispatch («Rotårsaksanalyse før eskalering»; «Modell-eskalering fra fix-runde 3»: dyp modell fra runde 3) → Gate F re-verifisering av V-blokken før neste runde. Riving/migrering av brukervendt flate: gatene G1–G3.
 - [ ] Vakt/kommando: `tasks/review-lens-select.py`; `tasks/review-severity-floor.py` (se «Gulvunntak for ordlyd»); `tasks/review-fan-in-verify.py`; `python3 tasks/decision-level.py --event revise_gate_choice`; `.claude/hooks/guard-fix-round-model.sh` (krever eksplisitt `model` på HVER implementer-dispatch, dyp modell fra fix-runde 3)
 - [ ] Pausepunkt: Kode-reviewer revise-gate — **nivå B1 så lenge funnene konvergerer og kostnaden er under 2× medianen**; Agent-probe i preflight feiler; B1
 
@@ -107,7 +107,7 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 
 ## 6. Skriv delt state (seriell, re-kjørbar) + merge (kun koordinator)
 → `steps/6-delt-state-og-merge.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: fra ferdig-rapporten: CI-gate `ci=green` for pinnet head-SHA (steg 0, før delt state røres) → lessons → bugs → arkiver todo + planfil → verifiser base = `{{BASE_BRANCH}}` → todo-nr-gater (a) + (b) → merge via REST med `sha=` fra gaten → `stadium: merged` → §0b per akkumulert par → (§5d: seriell merge + CI-differensial) → steg 4b sweep (`wtsweep=`, `wtsweep_named=`) → steg 5 run-log-rad (dedup-guardet, notat-felt) → steg 6 delt-state-git-hale; selv-modifiserende PR ⇒ re-les endrede filer.
+- [ ] Hva: sett `phase: merge-klar` (`venter-eier` ved pausepunkt, i ethvert steg); fra ferdig-rapporten: CI-gate `ci=green` for pinnet head-SHA (steg 0, før delt state røres) → lessons → bugs → arkiver todo + planfil → verifiser base = `{{BASE_BRANCH}}` → todo-nr-gater (a) + (b) → merge via REST med `sha=` fra gaten → `stadium: merged` → §0b per akkumulert par → (§5d: seriell merge + CI-differensial) → steg 4b sweep (`wtsweep=`, `wtsweep_named=`) → steg 5 run-log-rad (dedup-guardet, notat-felt) → steg 6 delt-state-git-hale; selv-modifiserende PR ⇒ re-les endrede filer.
 - [ ] Vakt/kommando: `python3 tasks/ci-gate.py <pr-nummer>`; `gh pr view <pr> --json baseRefName -q .baseRefName`; `gh api --method PUT "repos/{owner}/{repo}/pulls/<pr-nummer>/merge" -f merge_method=merge -f sha=<sha fra steg 0>`; `./tasks/worktree-sweep.sh`
 - [ ] Pausepunkt: CI-gate ikke grønn (§6 steg 0); todo-nr-kollisjon (§6.4 gate b, se §9); Merge-konflikt (§6.4); Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b); Teknisk risiko flagget (§4) eller truffet (§5/§6)
 

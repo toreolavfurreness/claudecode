@@ -188,8 +188,7 @@ Se CLAUDE.md for kanonisk dokumentasjon av kommando-protokollen.
 
 Koordinatoren setter `phase` på en claimet todo ved hvert steg, i samme commit som resten av delt
 state. Køsiden (`tasks/queue-status.py`) viser fasen i stedet for plan-status. Første ord er nøkkelen,
-resten er fritekst: `phase: kode-review r2 PR 1112`. Ikke bruk `#` i verdien: parseren leser det som
-kommentar.
+resten er fritekst: `phase: kode-review r2 PR 1112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`. Feltet gjelder bare mens todoen er `in_progress`.
 
 | `phase`          | Vises som         | Settes når                                    |
 | ---------------- | ----------------- | --------------------------------------------- |
