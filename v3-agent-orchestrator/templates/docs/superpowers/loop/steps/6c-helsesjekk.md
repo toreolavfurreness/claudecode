@@ -54,6 +54,6 @@ er en rød helsesjekk.
   §8b og §8c kjøres IKKE.
 
 **TODO 246 — Del D:** `/loop-health-check` kjører i tillegg Del D (regelmotor-selvtest,
-regel-paritet, monoton decision-log, nivå-B-oppsummering + avstemming mot run-loggen) som en del av
+regel-paritet, monoton decision-log, nivå-B-oppsummering + avstemming mot run-loggen, treffsikkerhet per type (D5)) som en del av
 DENNE helsesjekken, FØR «Etter §6c» over evalueres — se `loop-health-check.md` Del D. Rødt i Del D
 er samme klasse som Del A/A6: rød helsesjekk, §8b kjøres IKKE.

@@ -386,7 +386,7 @@ bindende: **en pausetilstand i B-sporet stopper ALDRI A.** B er u-claimet og spe
 claimet og i drift.
 
 **TODO 246 — drop-regelen under er hygiene, ikke et pausepunkt-nivå.** De fire drop-tilfellene
-under (technical_risk i plan/plan-review, §4 no-go 2 runder, canary-mismatch) kjøres UAVHENGIG av
+under (technical_risk i plan/plan-review, §4 no-go uten konvergens, canary-mismatch) kjøres UAVHENGIG av
 om den utløsende hendelsen ellers ville vært klassifisert nivå A eller B av `decision-level.py` —
 en pipelinet B som ikke besto §4/canary droppes alltid stille ut av pipelinen, den spørres aldri
 OG den logges aldri som et nivå-B-valg.

@@ -19,6 +19,18 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.4.5** — kalibrert beslutningsgrense (konvergens i stedet for rundetak, kostnadsbrems, samsvarsmåling, veto-flate) fra FamilieHub TODO 455:
+- **Konvergensregel** (`coordinator-runbook.md` § Konvergensregel): fast rundetak (fjernet i TODO 455) er
+  erstattet av konvergens. Fra runde 2 er en ny plan-/fix-runde nivå B (B7/B1) bare når gate-funnene går ned,
+  ingen ny feilklasse dukker opp og funnene bare gjelder form (ikke RLS/datamodell/omfang); ellers A0. `tasks/decision-level.py` har 39 fixtures.
+- **Kostnadsbrems:** `python3 tasks/measure-cost.py --brake <nr> [--pr <n>]` gir `over=yes` når todoen koster
+  mer enn 2× medianen i samme effort-klasse. `cost_over=yes` gir A0 i alle runder, også runde 1.
+- **Samsvarsmåling:** nivå A-entries i `decision-log.md` får `Type:`/`Anbefaling:`/`Eierens svar:`.
+  `decision-level.py --agreement` teller fulgt/avvek per type (helsesjekk D5, § Kalibrering).
+- **Veto-flate:** `decision-level.py --recent-b` og en «Nivå B siste 24 t»-seksjon øverst i `tasks/queue-status.py`.
+- Sjekk: `python3 tasks/decision-level.py --self-test` (`39/39`, `logg-parser: PASS`) og
+  `python3 tasks/measure-cost.py --brake-self-test` (`5/5`).
+
 **v3.4.4** (fra FamilieHub 2026-10-02):
 - **`/todo-new`** oppretter én todo: duplikatsøk først, neste ledige nr fra `tasks/next-todo-nr.sh`
   (todos, arkiv og åpne PR-er på `origin/<base>`; exit 1 når en kilde ikke kan leses), frontmatter
