@@ -14,6 +14,11 @@ Bruk: python3 tasks/measure-cost.py [<since-iso>] [<session-dir>...] [--html <st
   --pr <n>         (med --brake) todoens åpne PR: rader tilskrevet `PR<n>` (review/fix før merge-raden
                    finnes i run-loggen) legges til todoens sum. Uten --pr teller de ikke med.
   --brake-self-test  5 asserts mot brake_verdict/fold_pr.
+  --calibrate      egen sum (hovedfil + underagenter) mot harnessens `cost-state.totalCostUSD` per økt (TODO 457):
+                   `calibrate session=… harness=… own=… diff=…% final=…% over=…`, vindu `startTime`–slutt.
+                   Exit 1 ved minst én over=yes uten KJENT HULL, exit 2 når ingen økt ble målt.
+  --calibrate-self-test  9 tilfeller, kjører CLI-en mot konstruerte økter.
+  --prices-check <fil>   sammenligner PRICES med prissiden (hent den med curl, se kommentaren ved PRICES).
   Uten <since-iso> brukes nå − 30 dager (UTC).
   MEASURE_ROWS=<sti.json> skriver i tillegg radene som JSON (legg den i scratchpad, ikke i repoet).
 Merk: Claude Code sletter transkripter eldre enn `cleanupPeriodDays` (standard 30 dager), så et
@@ -64,6 +69,46 @@ def _brake_self_test():
     assert fold_pr('99', {'99': 8.0, 'PR1091': 1.5}, '1091') == {'99': 9.5}, 'PR-rad teller i usd='
     print('brake-self-test: 5/5')
 
+def _calibrate_self_test():
+    import tempfile
+    def msg(ts, mid, stop=None):   # $5,00 per melding (Haiku, 1 MTok output)
+        return {'timestamp': ts, 'message': {'id': mid, 'model': 'claude-haiku-4-5', 'stop_reason': stop,
+                                             'usage': {'output_tokens': 1000000}}}
+    def session(total=10.0, stop='end_turn', sub=True, first=None, start=1788256800000):
+        d = os.path.join(tempfile.mkdtemp(), 'sess0001')
+        os.makedirs(os.path.join(d, 'subagents'))
+        main = [msg('2026-09-01T09:00:00.000Z', 'm-a'),      # før startTime: telles ikke
+                msg('2026-09-01T10:30:00.000Z', 'm-b'),
+                {'timestamp': '2026-09-01T13:00:00.000Z'}]   # gir sluttidspunktet
+        if total is not None:                                # startTime = 2026-09-01T10:00:00Z
+            main.append({'type': 'cost-state', 'startTime': start, 'totalCostUSD': total})
+        files = {d + '.jsonl': ([first] if first else []) + main}
+        if sub:
+            files[os.path.join(d, 'subagents', 'agent-x.jsonl')] = [msg('2026-09-01T12:00:00.000Z', 'm-c', stop)]
+        for path, lines in files.items():
+            with open(path, 'w', encoding='utf-8') as fh:
+                fh.write(''.join(json.dumps(x) + '\n' for x in lines))
+        return d
+    cases = [   # (navn, økter, exit, skal stå i utskriften, skal IKKE stå)
+        ('vindu', [session()], 0, ['over=no', 'final=100%'], []),
+        ('flere cost-state', [session(first={'type': 'cost-state', 'startTime': 1788249600000, 'totalCostUSD': 20.0})],
+         0, ['over=no'], []),
+        ('over', [session(total=20.0)], 1, ['over=yes'], ['KJENT HULL']),
+        ('kjent hull', [session(total=20.0, stop=None)], 0, ['over=yes', 'final=0%', 'KJENT HULL'], []),
+        ('hull, positivt avvik', [session(total=5.0, stop=None)], 1, ['over=yes', 'final=0%'], ['KJENT HULL']),
+        ('ingen underagent-meldinger', [session(total=20.0, sub=False)], 1, ['over=yes', 'final=-'], ['KJENT HULL']),
+        ('ingen måling', [session(total=None)], 2, [], ['calibrate session=']),
+        ('uten startTime', [session(start=None)], 2, [], ['calibrate session=']),
+        # Exit-koden skal ikke settes fra siste økt alene.
+        ('over foran kjent hull', [session(total=20.0), session(total=20.0, stop=None)], 1, ['KJENT HULL'], []),
+    ]
+    for name, dirs, code, has, hasnt in cases:
+        r = subprocess.run([sys.executable, __file__, '2020-01-01T00:00', *dirs, '--calibrate'],
+                           capture_output=True, text=True)
+        assert (r.returncode == code and all(x in r.stdout for x in has)
+                and not any(x in r.stdout for x in hasnt)), f'{name}: exit={r.returncode} {r.stdout!r} {r.stderr[-300:]!r}'
+    print('calibrate-self-test: 9/9')
+
 _KEY = r'([0-9]+(?:[A-Za-z][0-9]*)?)'
 
 def effort_classes():
@@ -97,6 +142,12 @@ def _opt(flag, default=None):
     return default
 if '--brake-self-test' in args:
     _brake_self_test(); sys.exit(0)
+if '--calibrate-self-test' in args:
+    _calibrate_self_test(); sys.exit(0)
+prices_check = _opt('--prices-check')
+want_calibrate = '--calibrate' in args
+if want_calibrate:
+    args.remove('--calibrate')
 brake_nr = _opt('--brake')
 brake_pr = _opt('--pr')
 html_path = _opt('--html')
@@ -137,7 +188,7 @@ dirs = args[1:] or sorted(d for d in glob.glob(os.path.join(PROJECT_DIR, '*')) i
 
 # Et tomt `dirs` skal ALDRI kunne leses som en måling: uten denne vakten rapporterer
 # scriptet «SUM: $0.00» med exit 0 når PROJECT_DIR peker feil. (Kode-review PR #852.)
-if not dirs:
+if not dirs and not prices_check:
     sys.exit(f'ingen sesjonskataloger med subagents under {PROJECT_DIR}\n'
              f'  cwd = {os.getcwd()}\n'
              f'  Dette er IKKE et $0-resultat — det er en manglende måling.')
@@ -146,22 +197,45 @@ if not dirs:
 def weight(u):
     return (u['in'] + 1.25 * u['cc'] + 0.1 * u['cr'] + 5 * u['out'])
 
-# USD per MTok (platform.claude.com/docs/en/about-claude/pricing, hentet 2026-09-15;
-# Opus 5.5 lagt til 2026-09-23 fra claude-api-skillens modelltabell):
-# (input, cache-write 5m, cache-write 1h, cache-read, output)
+# USD per MTok, (input, cache-write 5m, cache-write 1h, cache-read, output) — samme kolonnerekkefølge
+# som https://platform.claude.com/docs/en/about-claude/pricing (hentet 2026-10-04). Etterprøv med:
+#   curl -sL https://platform.claude.com/docs/en/about-claude/pricing.md -o <fil>
+#   python3 tasks/measure-cost.py --prices-check <fil>
+# Halekommentaren er radnavnet på siden. Cache-lesing er 0,1x input, unntatt fotnotene: Fable 5.1
+# 0,025x og Opus 5.5 0,05x. Fable 5 har egen rad fordi cache-lesing der er $1,00 mot $0,25 for
+# Fable 5.1; en ukjent Fable-variant prises som Fable 5. Hovedfiler prises av --calibrate, --trend
+# og --html, underagent-filer av rapporten og --brake: søk i begge før du sier at en modell ikke er
+# brukt. Ikke dekket: Opus 4.1/4 ($15, treffer 'opus'), fast mode og inference_geo "us" (1,1x).
 PRICES = {
     # Opus 5.5 er billigere per token enn Opus 5. Uten egen rad prises den som 'opus', og et
-    # modellbytte ser da 25 % dyrere ut enn det er. Cache-write = standard 1,25x / 2x av input.
-    'opus-5-5': (4, 5.00, 8, 0.20, 20),
-    'opus': (5, 6.25, 10, 0.50, 25),       # Opus 5 / 4.8 / 4.7 / 4.6 / 4.5
-    'sonnet-5': (2, 2.50, 4, 0.20, 10),
-    'sonnet': (3, 3.75, 6, 0.30, 15),      # Sonnet 4.x
-    'haiku': (1, 1.25, 2, 0.10, 5),
-    'fable': (10, 12.50, 20, 0.25, 50),
+    # modellbytte ser da 25 % dyrere ut enn det er.
+    'opus-5-5': (4, 5.00, 8, 0.20, 20),    # Claude Opus 5.5
+    'opus': (5, 6.25, 10, 0.50, 25),       # Claude Opus 5 / 4.8 / 4.7 / 4.6 / 4.5
+    'sonnet-5': (2, 2.50, 4, 0.20, 10),    # Claude Sonnet 5 / 5.5
+    'sonnet': (3, 3.75, 6, 0.30, 15),      # Claude Sonnet 4.6 / 4.5
+    'haiku': (1, 1.25, 2, 0.10, 5),        # Claude Haiku 4.5
+    'fable-5-1': (10, 12.50, 20, 0.25, 50),  # Claude Fable 5.1
+    'fable': (10, 12.50, 20, 1.00, 50),    # Claude Fable 5
 }
+PRICE_ROWS = {'opus-5-5': ['Claude Opus 5.5'], 'opus': ['Claude Opus 5', 'Claude Opus 4.8'],
+              'sonnet-5': ['Claude Sonnet 5', 'Claude Sonnet 5.5'], 'sonnet': ['Claude Sonnet 4.6'],
+              'haiku': ['Claude Haiku 4.5'], 'fable-5-1': ['Claude Fable 5.1'], 'fable': ['Claude Fable 5']}
+if prices_check:
+    assert set(PRICES) == set(PRICE_ROWS), f'PRICES-nøkler {sorted(PRICES)} != {sorted(PRICE_ROWS)}'
+    page, bad = open(prices_check, encoding='utf-8').read(), 0
+    for key, name in ((k, n) for k, names in PRICE_ROWS.items() for n in names):
+        line = next((l for l in page.splitlines()
+                     if re.match(r'\|\s*' + re.escape(name) + r'\s*\|', l) and l.count('/ MTok') == 5), None)
+        assert line, f'fant ikke prisraden «{name}» med 5 priser på siden'
+        want = [float(x) for x in re.findall(r'\$([0-9.]+) / MTok', line)]
+        got = [float(x) for x in PRICES[key]]
+        bad += want != got
+        print(f"{'FEIL' if want != got else 'OK  '} {key:9} tabell={got} side={want} ({name})")
+    sys.exit(1 if bad else 0)
+
 def price_of(model):
     m = model or ''
-    for k in ('sonnet-5', 'opus-5-5', 'opus', 'sonnet', 'haiku', 'fable'):
+    for k in ('sonnet-5', 'opus-5-5', 'opus', 'sonnet', 'haiku', 'fable-5-1', 'fable'):
         if k in m: return PRICES[k]
     return PRICES['opus']
 
@@ -173,6 +247,71 @@ def usd(u, model):
         c5, c1 = (u.get('cache_creation_input_tokens') or 0), 0
     return ((u.get('input_tokens') or 0) * pi + (c5 or 0) * p5 + (c1 or 0) * p1
             + (u.get('cache_read_input_tokens') or 0) * pr + (u.get('output_tokens') or 0) * po) / 1e6
+
+# Kalibrering (TODO 457). Terskel 10 %: økter fra før Claude Code 2.1.281 avviker høyst 3,5 % fra
+# harnessens tall. Fra 2.1.281 mangler underagent-transkriptene endelig usage (output-tokens), og
+# egen sum blir ~25 % for lav. Det meldes som KJENT HULL når `final` (andelen underagent-meldinger
+# med stop_reason) er under 50 %. Begrensning: KJENT HULL har ingen nedre grense og skjuler enhver
+# undermåling i de øktene: prisfeil, avkortet hovedfil, manglende underagent-filer (når minst én
+# underagent-melding er igjen) og avvik som stammer fra hovedfila. Prisene har da bare
+# --prices-check som bevis.
+CALIB_THRESHOLD = 10.0
+CALIB_FINAL_MIN = 50.0
+
+def _msgs(path):
+    """(ts, usd, har_stop_reason) per unike message.id i en JSONL — siste linje vinner."""
+    seen = {}
+    for line in open(path, encoding='utf-8', errors='replace'):
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+        msg = e.get('message') or {}
+        if not isinstance(msg, dict) or not msg.get('usage'):
+            continue
+        seen[msg.get('id') or id(e)] = ((e.get('timestamp') or '')[:19], usd(msg['usage'], msg.get('model')),
+                                        bool(msg.get('stop_reason')))
+    return seen.values()
+
+def calibrate(dirs, since):
+    n = bad = 0
+    for d in dirs:
+        d = d.rstrip('/')
+        main = d + '.jsonl'
+        cs = end = last_ts = None
+        for line in open(main, encoding='utf-8', errors='replace') if os.path.exists(main) else ():
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            if e.get('type') == 'cost-state':   # siste linje vinner, med SIN startTime og slutt
+                cs, end = e, last_ts
+            elif e.get('timestamp'):
+                last_ts = e['timestamp'][:19]
+        if (not cs or not cs.get('totalCostUSD') or not end or end < since
+                or not isinstance(cs.get('startTime'), (int, float))):
+            continue
+        # startTime er epoch ms i UTC, som transkriptenes `timestamp`. Harnessen teller fra den.
+        start = datetime.fromtimestamp(cs['startTime'] / 1000, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+        sub = [m for f in glob.glob(os.path.join(d, 'subagents', 'agent-*.jsonl'))
+               for m in _msgs(f) if start <= m[0] <= end]
+        own = sum(m[1] for m in sub) + sum(m[1] for m in _msgs(main) if start <= m[0] <= end)
+        final = 100.0 * sum(m[2] for m in sub) / len(sub) if sub else None
+        diff = 100.0 * (own - cs['totalCostUSD']) / cs['totalCostUSD']
+        over = abs(diff) > CALIB_THRESHOLD
+        hole = over and diff < 0 and final is not None and final < CALIB_FINAL_MIN
+        n += 1
+        bad += over and not hole
+        print(f"calibrate session={os.path.basename(d)[:8]} harness={cs['totalCostUSD']:.2f} own={own:.2f} "
+              f"diff={diff:+.1f}% final={'-' if final is None else f'{final:.0f}%'} over={'yes' if over else 'no'}"
+              + (' KJENT HULL: underagent-usage ufullstendig (Claude Code >= 2.1.281)' if hole else ''))
+    if not n:
+        print('calibrate: ingen økt med cost-state i vinduet — IKKE en måling.', file=sys.stderr)
+        return 2
+    return 1 if bad else 0
+
+if want_calibrate:
+    sys.exit(calibrate(dirs, since))
 
 # PR-nummer → todo fra run-loggens merge-rader (`| <todo> | <slug> | merged | - | #NNNN |`). Uten dette
 # ble «PR 1007» lest som todo 100 (`\d{3}` tok de tre første sifrene).
