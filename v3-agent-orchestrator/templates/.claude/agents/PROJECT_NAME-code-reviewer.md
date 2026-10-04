@@ -56,6 +56,17 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
      **(c) Bootstrap-tripwire** — inneholder den fila fortsatt strengen `BOOTSTRAP-UNVERIFIED`?
      = **MINDRE**: skrivestien til agent-minnet er ennå ikke verifisert i drift. Gjelder også når
      diffen ikke rører minnefila — les fila fra arbeidstreet.
+   - **Kit-regelen:** kjør `python3 scripts/kit-release-check.py --pr <nr>` og les raden
+     `PR #<nr> (<kitfiler>) → <dom>`.
+     `offender` (exit 1: kitfil endret uten gyldig `Kit:`-linje i PR-teksten) = **VIKTIG**.
+     `FEIL …` (exit 2) = **VIKTIG** «Kit-sjekken kunne ikke kjøres», med `FEIL`-linja sitert.
+     Finnes ingen `PR #<nr> (…) → <dom>`-rad i det hele tatt (vakt-avslag, manglende fil,
+     Traceback) = **VIKTIG** «Kit-sjekken kunne ikke kjøres», med utskriften sitert.
+     `pending` (`Kit: porteres …`, exit 0) og `skip` (ingen kitfil i diffen) er ikke funn.
+     `ok` med `Kit: ingen endring – …` der begrunnelsen sier at en port kommer senere = **VIKTIG**:
+     en utsatt port skal skrives `Kit: porteres …`, ellers slipper den gjennom releasevakten.
+     Legger diffen en rad i `WAIVED` i skriptet, les begrunnelsen: den skal navngi kit-PR-en eller
+     si hvorfor ingen trengs, ellers **VIKTIG**.
 3. **Tech-review-arm (frisk sub-dispatch — IKKE absorbert sjekkliste):**
 {{TECH_REVIEW_AGENTS_DISPATCH}}
    - **Parallell dispatch:** trigger diffen FLERE av agentene over, dispatch dem i ÉN melding med
