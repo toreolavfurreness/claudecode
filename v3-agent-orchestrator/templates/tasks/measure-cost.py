@@ -202,13 +202,10 @@ def weight(u):
 #   curl -sL https://platform.claude.com/docs/en/about-claude/pricing.md -o <fil>
 #   python3 tasks/measure-cost.py --prices-check <fil>
 # Halekommentaren er radnavnet på siden. Cache-lesing er 0,1x input, unntatt fotnotene: Fable 5.1
-# 0,025x og Opus 5.5 0,05x. Målt 2026-10-04: `claude-fable-5` står i 545 meldinger i tre hovedfiler
-# (11. juli til 2. september) og i ingen underagent-fil. Hovedfiler prises av --calibrate, --trend
-# og --html. 433 av meldingene (økt 3faa6a2f, til 23. juli) prises av --trend og --html når
-# <since-iso> er 23. juli eller tidligere. De to andre filene har ingen subagents-katalog og leses
-# ikke uten at katalogen oppgis. Ingen av de tre har `cost-state`, så --calibrate priser dem ikke.
-# Ikke dekket, og ikke funnet i transkriptene samme dag: Opus 4.1/4 ($15, treffer 'opus'), fast
-# mode og inference_geo "us" (1,1x).
+# 0,025x og Opus 5.5 0,05x. Fable 5 har egen rad fordi cache-lesing der er $1,00 mot $0,25 for
+# Fable 5.1; en ukjent Fable-variant prises som Fable 5. Hovedfiler prises av --calibrate, --trend
+# og --html, underagent-filer av rapporten og --brake: søk i begge før du sier at en modell ikke er
+# brukt. Ikke dekket: Opus 4.1/4 ($15, treffer 'opus'), fast mode og inference_geo "us" (1,1x).
 PRICES = {
     # Opus 5.5 er billigere per token enn Opus 5. Uten egen rad prises den som 'opus', og et
     # modellbytte ser da 25 % dyrere ut enn det er.
