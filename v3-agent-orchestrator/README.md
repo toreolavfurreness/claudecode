@@ -19,6 +19,16 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.4.6** — kostnadsmålingen kalibreres mot harnessens eget tall, fra FamilieHub TODO 457:
+- **`python3 tasks/measure-cost.py --calibrate`** skriver én linje per avsluttet økt: harnessens
+  `cost-state.totalCostUSD`, egen sum (hovedfil + underagenter i vinduet `startTime`–slutt), avvik og `final`
+  (andelen underagent-meldinger med endelig usage). Avvik over 10 % gir `over=yes` og exit 1.
+- **KJENT HULL:** fra Claude Code 2.1.281 mangler underagent-transkriptene endelig usage, så egen sum blir for
+  lav. Negativt avvik med `final` under 50 % meldes som `KJENT HULL` (exit 0) og etterprøver ikke prisene.
+- **`--prices-check <fil>`** sammenligner pristabellen med prissiden (hentes med `curl`, se kommentaren ved `PRICES`).
+- **Helsesjekken** har steget A5e, som kjører kalibreringen og aldri gjør helsesjekken rød.
+- Sjekk: `python3 tasks/measure-cost.py --calibrate-self-test` (`8/8`).
+
 **v3.4.5** — kalibrert beslutningsgrense (konvergens i stedet for rundetak, kostnadsbrems, samsvarsmåling, veto-flate) fra FamilieHub TODO 455:
 - **Konvergensregel** (`coordinator-runbook.md` § Konvergensregel): fast rundetak (fjernet i TODO 455) er
   erstattet av konvergens. Fra runde 2 er en ny plan-/fix-runde nivå B (B7/B1) bare når gate-funnene går ned,
