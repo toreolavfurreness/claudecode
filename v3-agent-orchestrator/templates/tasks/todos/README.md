@@ -23,6 +23,7 @@ priority: normal                  # normal | prioritert
 tags: []                          # [domene-tag] | []
 deps: []                          # ["18","60"] — nr-strenger til avhengige todos
 claimed_by: null                  # branch/worktree som jobber med den (ADVISORY i MVP)
+phase: null                       # valgfri — fasen til en claimet todo, settes av koordinatoren (se «Fase»)
 plan: null                        # tasks/plans/todo-NN-slug.md (settes når en plan finnes — også for en pipelinet, u-claimet todo)
 effort: M                         # valgfri — S | M | L, implementeringskost (se Verdifelter)
 saves: "≈2 opus-dispatcher per todo"   # valgfri — hva den sparer, i loopens egne enheter
@@ -182,3 +183,22 @@ done
 
 Commands (`/start`, `/status`, `/todo-execute`, `/todo-done`) bruker glob + frontmatter-lesing.
 Se CLAUDE.md for kanonisk dokumentasjon av kommando-protokollen.
+
+## Fase (`phase`)
+
+Koordinatoren setter `phase` på en claimet todo ved hvert steg, i samme commit som resten av delt
+state. Køsiden (`tasks/queue-status.py`) viser fasen i stedet for plan-status. Første ord er nøkkelen,
+resten er fritekst: `phase: kode-review r2 PR 1112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`. Feltet gjelder bare mens todoen er `in_progress`.
+
+| `phase`          | Vises som         | Settes når                                    |
+| ---------------- | ----------------- | --------------------------------------------- |
+| `plan`           | planlegges        | claim, planner dispatchet (§3)                |
+| `plan-review`    | plan til review   | plan committet, reviewer dispatchet (§4)      |
+| `plan-revisjon`  | plan revideres    | no-go, tilbake til planner                    |
+| `implementering` | implementeres     | plan `go`, implementer dispatchet (§5)        |
+| `kode-review`    | kode-review       | PR åpnet, kode-reviewer dispatchet (§5b)      |
+| `fix`            | fix-runde         | revise-gate, tilbake til implementer          |
+| `merge-klar`     | venter CI / merge | kode-review `go` (§6 steg 0)                  |
+| `venter-eier`    | venter på deg     | pausepunkt eller nivå A-spørsmål              |
+
+Feltet er bare visning: ingen gate leser det. Mangler det, viser siden «fase ikke satt».

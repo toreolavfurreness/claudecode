@@ -131,6 +131,32 @@ def group_of(d):
     return None  # done/split vises ikke
 
 
+# Fasen til en claimet todo. Koordinatoren setter `phase` i frontmatter ved hvert steg. Første ord
+# er nøkkelen, resten er fritekst (runde, PR): `phase: kode-review r2 PR 1112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`.
+PHASES = {
+    "plan": "planlegges",
+    "plan-review": "plan til review",
+    "plan-revisjon": "plan revideres",
+    "implementering": "implementeres",
+    "kode-review": "kode-review",
+    "fix": "fix-runde",
+    "merge-klar": "venter CI / merge",
+    "venter-eier": "venter på deg",
+}
+
+
+def phase_label(d):
+    key, _, rest = (d.get("phase") or "").strip().strip("\"'").partition(" ")
+    if key in ("", "null"):
+        return "fase ikke satt"
+    return (PHASES.get(key, "ukjent fase: " + key) + " " + rest).strip()
+
+
+assert phase_label({"phase": "kode-review r2 PR 1112"}) == "kode-review r2 PR 1112"
+assert phase_label({"phase": "fix 1"}) == "fix-runde 1"
+assert phase_label({}) == "fase ikke satt"
+assert phase_label({"phase": "tull"}) == "ukjent fase: tull"
+
 GROUPS = ["Pågår", "Neste i køen", "Venter (deps, brainstorm, forslag eller prod-release)", "Utenfor aktiv release", "Utsatt"]
 
 out = [
@@ -168,7 +194,8 @@ for g in GROUPS:
     for i, d in enumerate(rows, 1):
         prio = " ⭐" if d.get("priority") == "prioritert" else ""
         eff = f" `{d['effort']}`" if d.get("effort") else ""
-        out.append(f"{i}. **{d['nr']}** {short_title(d)}{eff}{prio}{deps_str(d)}")
+        fase = f" — {phase_label(d)}" if g == "Pågår" else ""
+        out.append(f"{i}. **{d['nr']}** {short_title(d)}{eff}{prio}{deps_str(d)}{fase}")
     out.append("")
 
 # Avhengighetsgraf over ikke-ferdige todos som har eller er en dep.

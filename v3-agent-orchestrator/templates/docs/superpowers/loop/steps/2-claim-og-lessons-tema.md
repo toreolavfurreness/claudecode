@@ -40,4 +40,4 @@ Gir grafen ingen treff **eller feiler kommandoen** (traceback, ikke-null exit) �
 
 Velg 1–3 tema relevant for todoens domene ut fra scope-katalogen i `tasks/lessons.md` (gyldige tema: `ls tasks/lessons/`).
 
-**Claim-release:** I ENHVER stopp-sti senere (teknisk risiko, blocked, failed, merge-konflikt) → sett `claimed_by: null` tilbake før du stopper, så todoen ikke lekker ut av køen.
+**Claim-release:** I ENHVER stopp-sti senere (teknisk risiko, blocked, failed, merge-konflikt) → sett `claimed_by: null` og `phase: null` tilbake før du stopper, så todoen ikke lekker ut av køen.
