@@ -59,7 +59,7 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 
 ## 2. Claim + pre-løs lessons-tema
 → `steps/2-claim-og-lessons-tema.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: sett `claimed_by`; pipelinet plan eller `status: reviewed` → hopp §3/§4 via §5c-ferskhetsgaten; graf-oppslag + velg 1–3 tema fra katalogen i tasks/lessons.md; claim-release i ENHVER stopp-sti.
+- [ ] Hva: sett `claimed_by` og `phase` (oppdater `phase` ved hvert senere steg, se `tasks/todos/README.md` § Fase); pipelinet plan eller `status: reviewed` → hopp §3/§4 via §5c-ferskhetsgaten; graf-oppslag + velg 1–3 tema fra katalogen i tasks/lessons.md; claim-release i ENHVER stopp-sti.
 - [ ] Vakt/kommando: `python3 tasks/graph-query.py --todo <nr>`
 - [ ] Pausepunkt: ingen
 
