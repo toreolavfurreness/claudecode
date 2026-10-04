@@ -195,10 +195,14 @@ aldri helsesjekken rød.
 python3 tasks/measure-cost.py --calibrate; echo "exit=$?"
 ```
 
-`final` er andelen underagent-meldinger som har endelig usage. Per linje:
-- `over=yes` uten `KJENT HULL`, og exit 2 (ingen økt målt) → **ADVARSEL**.
+`final` er andelen underagent-meldinger som har endelig usage. Exit 2 (ingen økt målt) →
+**ADVARSEL**. Annen exit ≠ 0 uten en `over=yes`-linje (traceback, eller ingen sesjonskataloger) →
+**ADVARSEL** med stderr ordrett. Per linje:
+- `over=yes` uten `KJENT HULL` → **ADVARSEL**.
 - `KJENT HULL` → meld som «KJENT HULL», ikke som ADVARSEL: fra Claude Code 2.1.281 mangler
-  underagent-transkriptene endelig usage, så egen sum er for lav.
+  underagent-transkriptene endelig usage, så egen sum er for lav. `KJENT HULL` har ingen nedre grense
+  og skjuler enhver undermåling i økta: prisfeil, avkortet hovedfil, manglende underagent-filer (når
+  minst én underagent-melding er igjen) og avvik som stammer fra hovedfila.
 - En linje med `final` under 50 % etterprøver ikke prisene, uansett `over=`. Har ingen linje `final` på
   50 % eller mer, meld steget som «ikke en prismåling denne runden». Prisene kan da bare etterprøves
   slik (`<fil>` i scratchpad):

@@ -17,7 +17,7 @@ Bruk: python3 tasks/measure-cost.py [<since-iso>] [<session-dir>...] [--html <st
   --calibrate      egen sum (hovedfil + underagenter) mot harnessens `cost-state.totalCostUSD` per økt (TODO 457):
                    `calibrate session=… harness=… own=… diff=…% final=…% over=…`, vindu `startTime`–slutt.
                    Exit 1 ved minst én over=yes uten KJENT HULL, exit 2 når ingen økt ble målt.
-  --calibrate-self-test  8 tilfeller, kjører CLI-en mot konstruerte økter.
+  --calibrate-self-test  9 tilfeller, kjører CLI-en mot konstruerte økter.
   --prices-check <fil>   sammenligner PRICES med prissiden (hent den med curl, se kommentaren ved PRICES).
   Uten <since-iso> brukes nå − 30 dager (UTC).
   MEASURE_ROWS=<sti.json> skriver i tillegg radene som JSON (legg den i scratchpad, ikke i repoet).
@@ -74,14 +74,14 @@ def _calibrate_self_test():
     def msg(ts, mid, stop=None):   # $5,00 per melding (Haiku, 1 MTok output)
         return {'timestamp': ts, 'message': {'id': mid, 'model': 'claude-haiku-4-5', 'stop_reason': stop,
                                              'usage': {'output_tokens': 1000000}}}
-    def session(total=10.0, stop='end_turn', sub=True, first=None):
+    def session(total=10.0, stop='end_turn', sub=True, first=None, start=1788256800000):
         d = os.path.join(tempfile.mkdtemp(), 'sess0001')
         os.makedirs(os.path.join(d, 'subagents'))
         main = [msg('2026-09-01T09:00:00.000Z', 'm-a'),      # før startTime: telles ikke
                 msg('2026-09-01T10:30:00.000Z', 'm-b'),
                 {'timestamp': '2026-09-01T13:00:00.000Z'}]   # gir sluttidspunktet
         if total is not None:                                # startTime = 2026-09-01T10:00:00Z
-            main.append({'type': 'cost-state', 'startTime': 1788256800000, 'totalCostUSD': total})
+            main.append({'type': 'cost-state', 'startTime': start, 'totalCostUSD': total})
         files = {d + '.jsonl': ([first] if first else []) + main}
         if sub:
             files[os.path.join(d, 'subagents', 'agent-x.jsonl')] = [msg('2026-09-01T12:00:00.000Z', 'm-c', stop)]
@@ -98,6 +98,7 @@ def _calibrate_self_test():
         ('hull, positivt avvik', [session(total=5.0, stop=None)], 1, ['over=yes', 'final=0%'], ['KJENT HULL']),
         ('ingen underagent-meldinger', [session(total=20.0, sub=False)], 1, ['over=yes', 'final=-'], ['KJENT HULL']),
         ('ingen måling', [session(total=None)], 2, [], ['calibrate session=']),
+        ('uten startTime', [session(start=None)], 2, [], ['calibrate session=']),
         # Exit-koden skal ikke settes fra siste økt alene.
         ('over foran kjent hull', [session(total=20.0), session(total=20.0, stop=None)], 1, ['KJENT HULL'], []),
     ]
@@ -106,7 +107,7 @@ def _calibrate_self_test():
                            capture_output=True, text=True)
         assert (r.returncode == code and all(x in r.stdout for x in has)
                 and not any(x in r.stdout for x in hasnt)), f'{name}: exit={r.returncode} {r.stdout!r} {r.stderr[-300:]!r}'
-    print('calibrate-self-test: 8/8')
+    print('calibrate-self-test: 9/9')
 
 _KEY = r'([0-9]+(?:[A-Za-z][0-9]*)?)'
 
@@ -201,8 +202,13 @@ def weight(u):
 #   curl -sL https://platform.claude.com/docs/en/about-claude/pricing.md -o <fil>
 #   python3 tasks/measure-cost.py --prices-check <fil>
 # Halekommentaren er radnavnet på siden. Cache-lesing er 0,1x input, unntatt fotnotene: Fable 5.1
-# 0,025x og Opus 5.5 0,05x. Ikke dekket (finnes ikke i transkriptene): Fable 5 (cache-read $1,
-# treffer 'fable'), Opus 4.1/4 ($15, treffer 'opus'), fast mode og inference_geo "us" (1,1x).
+# 0,025x og Opus 5.5 0,05x. Målt 2026-10-04: `claude-fable-5` står i 545 meldinger i tre hovedfiler
+# (11. juli til 2. september) og i ingen underagent-fil. Hovedfiler prises av --calibrate, --trend
+# og --html. 433 av meldingene (økt 3faa6a2f, til 23. juli) prises av --trend og --html når
+# <since-iso> er 23. juli eller tidligere. De to andre filene har ingen subagents-katalog og leses
+# ikke uten at katalogen oppgis. Ingen av de tre har `cost-state`, så --calibrate priser dem ikke.
+# Ikke dekket, og ikke funnet i transkriptene samme dag: Opus 4.1/4 ($15, treffer 'opus'), fast
+# mode og inference_geo "us" (1,1x).
 PRICES = {
     # Opus 5.5 er billigere per token enn Opus 5. Uten egen rad prises den som 'opus', og et
     # modellbytte ser da 25 % dyrere ut enn det er.
@@ -211,11 +217,12 @@ PRICES = {
     'sonnet-5': (2, 2.50, 4, 0.20, 10),    # Claude Sonnet 5 / 5.5
     'sonnet': (3, 3.75, 6, 0.30, 15),      # Claude Sonnet 4.6 / 4.5
     'haiku': (1, 1.25, 2, 0.10, 5),        # Claude Haiku 4.5
-    'fable': (10, 12.50, 20, 0.25, 50),    # Claude Fable 5.1
+    'fable-5-1': (10, 12.50, 20, 0.25, 50),  # Claude Fable 5.1
+    'fable': (10, 12.50, 20, 1.00, 50),    # Claude Fable 5
 }
 PRICE_ROWS = {'opus-5-5': ['Claude Opus 5.5'], 'opus': ['Claude Opus 5', 'Claude Opus 4.8'],
               'sonnet-5': ['Claude Sonnet 5', 'Claude Sonnet 5.5'], 'sonnet': ['Claude Sonnet 4.6'],
-              'haiku': ['Claude Haiku 4.5'], 'fable': ['Claude Fable 5.1']}
+              'haiku': ['Claude Haiku 4.5'], 'fable-5-1': ['Claude Fable 5.1'], 'fable': ['Claude Fable 5']}
 if prices_check:
     assert set(PRICES) == set(PRICE_ROWS), f'PRICES-nøkler {sorted(PRICES)} != {sorted(PRICE_ROWS)}'
     page, bad = open(prices_check, encoding='utf-8').read(), 0
@@ -231,7 +238,7 @@ if prices_check:
 
 def price_of(model):
     m = model or ''
-    for k in ('sonnet-5', 'opus-5-5', 'opus', 'sonnet', 'haiku', 'fable'):
+    for k in ('sonnet-5', 'opus-5-5', 'opus', 'sonnet', 'haiku', 'fable-5-1', 'fable'):
         if k in m: return PRICES[k]
     return PRICES['opus']
 
@@ -247,8 +254,10 @@ def usd(u, model):
 # Kalibrering (TODO 457). Terskel 10 %: økter fra før Claude Code 2.1.281 avviker høyst 3,5 % fra
 # harnessens tall. Fra 2.1.281 mangler underagent-transkriptene endelig usage (output-tokens), og
 # egen sum blir ~25 % for lav. Det meldes som KJENT HULL når `final` (andelen underagent-meldinger
-# med stop_reason) er under 50 %. Begrensning: KJENT HULL skjuler også en prisfeil i de øktene —
-# prisene har da bare --prices-check som bevis.
+# med stop_reason) er under 50 %. Begrensning: KJENT HULL har ingen nedre grense og skjuler enhver
+# undermåling i de øktene: prisfeil, avkortet hovedfil, manglende underagent-filer (når minst én
+# underagent-melding er igjen) og avvik som stammer fra hovedfila. Prisene har da bare
+# --prices-check som bevis.
 CALIB_THRESHOLD = 10.0
 CALIB_FINAL_MIN = 50.0
 
@@ -282,7 +291,8 @@ def calibrate(dirs, since):
                 cs, end = e, last_ts
             elif e.get('timestamp'):
                 last_ts = e['timestamp'][:19]
-        if not cs or not cs.get('totalCostUSD') or not end or end < since:
+        if (not cs or not cs.get('totalCostUSD') or not end or end < since
+                or not isinstance(cs.get('startTime'), (int, float))):
             continue
         # startTime er epoch ms i UTC, som transkriptenes `timestamp`. Harnessen teller fra den.
         start = datetime.fromtimestamp(cs['startTime'] / 1000, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
