@@ -27,7 +27,7 @@ v3-formatene.
   lav. Negativt avvik med `final` under 50 % meldes som `KJENT HULL` (exit 0) og etterprøver ikke prisene.
 - **`--prices-check <fil>`** sammenligner pristabellen med prissiden (hentes med `curl`, se kommentaren ved `PRICES`).
 - **Helsesjekken** har steget A5e, som kjører kalibreringen og aldri gjør helsesjekken rød.
-- Sjekk: `python3 tasks/measure-cost.py --calibrate-self-test` (`8/8`).
+- Sjekk: `python3 tasks/measure-cost.py --calibrate-self-test` (`9/9`).
 
 **v3.4.5** — kalibrert beslutningsgrense (konvergens i stedet for rundetak, kostnadsbrems, samsvarsmåling, veto-flate) fra FamilieHub TODO 455:
 - **Konvergensregel** (`coordinator-runbook.md` § Konvergensregel): fast rundetak (fjernet i TODO 455) er
