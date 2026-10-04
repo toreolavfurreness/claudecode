@@ -170,6 +170,7 @@ v3-agent-orchestrator/
 ├── examples/
 │   ├── tech-review-agents/    rls-auditor, security-reviewer, race-reviewer (pluggbare EKSEMPLER)
 │   └── hooks/                 guard-supabase-ref.example.sh (miljø-vakt for Supabase-prosjekter)
+│                              format-on-edit.example.sh (PostToolUse: Prettier på den redigerte fila)
 └── scaffolding/
     ├── githooks/pre-push      Produksjons-branch-beskyttelse
     ├── githooks/pre-commit    Delt-checkout-vern: koordinatoren committer kun loop-state på base
