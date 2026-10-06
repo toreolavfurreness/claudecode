@@ -9,7 +9,8 @@ er avledet og overskrives; rediger aldri queue-status.md for hånd.
 Kjør fra repo-roten (koordinatoren kan gjøre det i §6-halen):
     python3 tasks/queue-status.py > tasks/queue-status.md
 
-Grupperingen er «neste i køen / venter på deps / pågår / utenfor aktiv release / utsatt». Med en
+Grupperingen er «neste i køen / venter på deps / pågår / planlagt release <versjon> / utenfor aktiv
+release / utsatt». Hver release med `status: planned` får sin egen gruppe med målet. Med en
 aktiv release (tasks/releases/) står fremdriften fra `tasks/release.py status` øverst.
 """
 import glob
@@ -60,6 +61,11 @@ for p in glob.glob("tasks/todos/todo-*.md"):
 _active = [p for p in glob.glob("tasks/releases/*.md")
            if os.path.basename(p) != "README.md" and fm(p).get("status") == "active"]
 REL = os.path.basename(_active[0])[:-3] if len(_active) == 1 else None
+# Planlagte releaser leses fra filene, aldri fra en fast liste: en ny release skal få sin egen
+# gruppe uten kodeendring.
+PLANNED = {os.path.basename(p)[:-3]: fm(p).get("goal", "")
+           for p in glob.glob("tasks/releases/*.md")
+           if os.path.basename(p) != "README.md" and fm(p).get("status") == "planned"}
 
 
 def deps_of(d):
@@ -122,6 +128,8 @@ def group_of(d):
         return "Pågår"
     if eligible(d):
         return "Neste i køen"
+    if s in ("open", "reviewed") and d.get("release") in PLANNED:
+        return f"Planlagt release {d['release']}"
     if s in ("open", "reviewed") and REL and d.get("release") != REL:
         return "Utenfor aktiv release"
     if s in ("open", "reviewed"):
@@ -157,7 +165,8 @@ assert phase_label({"phase": "fix 1"}) == "fix-runde 1"
 assert phase_label({}) == "fase ikke satt"
 assert phase_label({"phase": "tull"}) == "ukjent fase: tull"
 
-GROUPS = ["Pågår", "Neste i køen", "Venter (deps, brainstorm, forslag eller prod-release)", "Utenfor aktiv release", "Utsatt"]
+GROUPS = (["Pågår", "Neste i køen", "Venter (deps, brainstorm, forslag eller prod-release)"]
+          + [f"Planlagt release {v}" for v in sorted(PLANNED)] + ["Utenfor aktiv release", "Utsatt"])
 
 out = [
     "<!-- GENERERT av tasks/queue-status.py — IKKE rediger for hånd. -->",
@@ -191,6 +200,9 @@ for g in GROUPS:
     if not rows:
         continue
     out += [f"## {g} ({len(rows)})", ""]
+    goal = PLANNED.get(g.removeprefix("Planlagt release "))
+    if goal:
+        out += [f"Mål: {goal}", ""]
     for i, d in enumerate(rows, 1):
         prio = " ⭐" if d.get("priority") == "prioritert" else ""
         eff = f" `{d['effort']}`" if d.get("effort") else ""
