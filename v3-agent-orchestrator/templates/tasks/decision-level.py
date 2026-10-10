@@ -25,17 +25,30 @@ review-severity-floor.py/review-lens-select.py) — ALDRI av kode-revieweren,
 som er read-only uten python3 i Bash-allowlisten (M10, TODO 246 plan §3.4).
 
 Bruk:
-    python3 tasks/decision-level.py --event <navn> [--context k=v]...
+    python3 tasks/decision-level.py --event <navn> [--context k=v]... [--todo <nr>] [--title <tekst>]
     python3 tasks/decision-level.py --dump-rules
     python3 tasks/decision-level.py --self-test
     python3 tasks/decision-level.py --agreement [--log <sti>]
     python3 tasks/decision-level.py --recent-b [--hours 24] [--log <sti>]
+    python3 tasks/decision-level.py --auto-decided <nr> [--log <sti>] [--run-log <sti>]
+    python3 tasks/decision-level.py --reconcile [--since YYYY-MM-DDTHH:MM] [--log <sti>] [--run-log <sti>]
 
 `--event`/`--context` skriver JSON på stdout:
-    {"level": "A"|"B", "rule": "B1", "trigger": "...", "obligations": [...], "violations": [...]}
+    {"level": "A"|"B", "rule": "B1", "trigger": "...", "obligations": [...], "violations": [...],
+     "header": "### <tid> — TODO <nr> [B1]: <tittel>", "warnings": [...]}
+
+`header` er overskriftslinja for decision-log-oppføringen, med maskinens klokke. Den limes inn
+ordrett. `warnings` sier fra når `--title` peker på en annen todo enn `--todo`.
+
+`--auto-decided <nr>` skriver run-log-tokenet `auto_decided=<nr>:<n>`. `--reconcile` sammenligner
+hver run-log-rad etter `--since` (standard: siste `health`-rad) med oppføringene som hører til
+raden. Begge bruker `attribute()`: en `[B<siffer>]`-oppføring eies av første `TODO <nr>` i
+overskriften og telles på eierens første rad med radtid >= oppføringstid. Exit 1 ved avvik,
+manglende token eller oppføring etter en `merged`-rad, 2 når en fil ikke kan leses.
 
 `rule` er `"A0"` når klassifiseringen feiler høyt (ukjent hendelse, manglende
-påkrevd kontekst, manglende konvergens eller kostnadsbrems) — DA er `level` alltid `"A"`,
+påkrevd kontekst, kostnadsbrems, manglende konvergensdata, innholdsfunn, eller i §4 funn som
+ikke går ned) — DA er `level` alltid `"A"`,
 `trigger` er `None`, og exit-koden er != 0. Et ikke-klassifiserbart valg blir
 ALDRI stilltiende et B-valg (fail-closed). For alle andre resultater
 (inkludert legitime A1-A8-treff, som bare betyr «spør mennesket», ikke et
@@ -47,13 +60,14 @@ kontraktbrudd) er exit-koden 0.
 
 `--self-test` kjører fixturene og skriver `<N>/<total>` + PASS/FEIL per
 fixture til stderr, JSON-sammendrag til stdout, og deretter logg-parser-testen
-(`logg-parser: PASS|FEIL`). Exit 0 kun hvis begge besto.
+(`logg-parser: PASS|FEIL`) og avstemmingstesten (`avstemming: PASS|FEIL`). Exit 0 kun hvis alle
+tre besto.
 
 `--agreement` skriver TSV `type n fulgt avvek forslag` over nivå A-entries med
 `Eierens svar:` i decision-log (TODO 455). `--recent-b` skriver JSON-objekt
 `{"entries": [...], "unparsed": N}`: `entries` er nivå B-entries fra de siste `--hours`
 timene; `unparsed` teller `### `-linjer under markøren som ikke følger
-`### YYYY-MM-DD HH:MM — …` og hvis første dato er innenfor samme vindu (linjer uten
+`### YYYY-MM-DD HH:MM …` og hvis første dato er innenfor samme vindu (linjer uten
 dato telles alltid) — de er usynlige for begge kommandoene. Begge: exit 2 hvis loggen ikke
 kan leses eller markøren mangler.
 """
@@ -65,8 +79,9 @@ from datetime import datetime, timedelta
 
 # CAP markerer første runde som har en forrige runde å sammenligne med
 # (konvergensdata kreves fra runde 2), og terskelen for decision_logged.
-# Fast rundetak (fjernet i TODO 455): antall runder begrenses nå av at
-# gate-funnene må gå ned for hver runde, pluss kostnadsbremsen.
+# Fast rundetak (fjernet i TODO 455): i §4 begrenses antall runder av at
+# gate-funnene må gå ned for hver runde, pluss kostnadsbremsen. I §5b
+# (TODO 472) begrenser bare kostnadsbremsen og innholdsregelen.
 CAP = 2
 
 # --- Regeltabellen (frossen prosa, én kilde i kode) -------------------------
@@ -84,7 +99,7 @@ A_RULES = [
     ("A8", "Edge Function-deploy (dev eller prod)"),
 ]
 B_RULES = [
-    ("B1", "§5b revise-gate: ny fix-runde (fra runde 2 kun ved konvergens) vs. merge m/carry-forwards vs. stopp — alle runder under kostnadstaket"),
+    ("B1", "§5b revise-gate: ny fix-runde (fra runde 2 kun uten innholdsfunn) vs. merge m/carry-forwards vs. stopp — alle runder under kostnadstaket"),
     ("B2", "Splitt av en todo i del-todos"),
     ("B3", "Valg eller hopp av neste todo innenfor mennesket-godkjent rekkefølge (§1)"),
     ("B4", "Pipelining: valg eller drop av B-sporet (§5c)"),
@@ -94,8 +109,8 @@ B_RULES = [
 ]
 TRIGGER_BY_ID = dict(A_RULES + B_RULES)
 
-# Rundebetingelsene i B1/B7-teksten er PROSA. Konvergens og kostnadsbrems
-# bor UTELUKKENDE i vakt 1 (_convergence), ikke i B1/B7-matchingen.
+# Rundebetingelsene i B1/B7-teksten er PROSA. Konvergens, innholdsregel og
+# kostnadsbrems bor UTELUKKENDE i vakt 1 (_convergence), ikke i B1/B7-matchingen.
 
 # --- Påkrevd kontekst per hendelsesklasse -----------------------------------
 # `technical_risk` med `source == "planner"` krever i TILLEGG `kind` og
@@ -119,8 +134,11 @@ def obligations_for(rule_id):
     """De fire logg-pliktene (§3.2) for et B-valg, eller menneske-spørring for A."""
     if rule_id.startswith("B"):
         return [
-            "Decision-log-entry i frosset format (docs/superpowers/loop/decision-log.md § Format).",
-            "auto_decided=<rad-eier>:<antall> i run-log.md felt 11, ved siden av selector=/floor=/pipelined_from=.",
+            "Decision-log-entry i frosset format (docs/superpowers/loop/decision-log.md § Format). "
+            "Overskriften limes inn ordrett fra header-feltet i dette svaret.",
+            "auto_decided=<rad-eier>:<antall> i run-log.md felt 11, limt inn ordrett fra "
+            "`--auto-decided <rad-eier>`. Tallet er [B<siffer>]-oppføringene der rad-eieren står først "
+            "i overskriften. `— loop`-valg uten todo står ikke på noen rad.",
             f"Én linje i sluttmeldingen: '{rule_id} — <kort valg> (reversibel til <punkt>; veto: svar i chatten)'.",
             "Regel-IDen er hentet fra DETTE skriptet (--event/--context), ikke fra hukommelsen.",
         ]
@@ -139,10 +157,16 @@ def _a0(violations):
     return "A", "A0", None, [], violations
 
 
-def _convergence(ctx, n):
-    """Konvergensregelen (TODO 455). Ikke-tom liste ⇒ A0."""
+def _convergence(ctx, n, narrow=False):
+    """Konvergensregelen (TODO 455). Ikke-tom liste ⇒ A0.
+
+    narrow=True er §5b (TODO 472, eierens vedtak 2026-10-04 18:08): at gate-funnene ikke går
+    ned, og en ny feilklasse, er B1. Innholdsfunn, manglende data og kostnadsbremsen er A0.
+    `cost_over=few` (bremsen mangler utvalg, TODO 483, eierens vedtak 2026-10-09 18:40) er A0
+    bare i §5b fra runde 2 og teller ellers som `no`.
+    """
     v = []
-    if ctx.get("cost_over") != "no":
+    if ctx.get("cost_over") not in (("no",) if narrow and n >= CAP else ("no", "few")):
         v.append(f"cost_brake: cost_over={ctx.get('cost_over')!r}")
     if n >= CAP:
         try:
@@ -150,9 +174,11 @@ def _convergence(ctx, n):
         except (KeyError, TypeError, ValueError):
             v.append("konvergensdata mangler/ugyldig: blocking_prev/blocking_now")
         else:
-            if now >= prev:
+            if now >= prev and not narrow:
                 v.append(f"no_convergence: blocking {prev}->{now}")
-        if ctx.get("new_class") != "no":
+        if narrow and ctx.get("new_class") not in ("yes", "no"):
+            v.append(f"konvergensdata mangler/ugyldig: new_class={ctx.get('new_class')!r}")
+        elif not narrow and ctx.get("new_class") != "no":
             v.append(f"no_convergence: new_class={ctx.get('new_class')!r}")
         if ctx.get("content") != "no":
             v.append(f"no_convergence: content={ctx.get('content')!r}")
@@ -181,9 +207,9 @@ def classify(event, ctx):
         # bærer code_review_rounds >= CAP, ikke bare revise_gate_choice.
         if n >= CAP and ctx.get("decision_logged") != "yes":
             violations.append(f"decision_logged mangler ved code_review_rounds={n}")
-        # (ii) Konvergens + kostnadsbrems for en NY fix-runde.
+        # (ii) Kostnadsbrems, konvergensdata og innholdsregel for en NY fix-runde (smal lesning).
         if event == "revise_gate_choice" and ctx.get("action") == "fix_round":
-            violations += _convergence(ctx, n)
+            violations += _convergence(ctx, n, narrow=True)
 
     if event == "plan_review_choice" and "plan_review_rounds" in ctx:
         try:
@@ -252,13 +278,13 @@ def classify(event, ctx):
     return _a0([f"ukjent hendelse eller ingen regel treffer: event={event!r} context={ctx!r}"])
 
 
-# --- Fixtures (39 stk.: F1..F36 + F1b/F1c/F25b) -----------------------------
+# --- Fixtures (52 stk.: F1..F49 + F1b/F1c/F25b) -----------------------------
 _CONV = {"blocking_prev": "3", "blocking_now": "1", "new_class": "no", "content": "no", "cost_over": "no"}
 _F28 = {"code_review_rounds": "2", "action": "fix_round", "decision_logged": "yes", **_CONV}
 _F34 = {"plan_review_rounds": "2", "action": "revise", **_CONV, "blocking_prev": "2"}
 FIXTURES = [
     ("F1", "revise_gate_choice", {"code_review_rounds": "2", "action": "fix_round", "decision_logged": "yes", **_CONV}, "B", "B1"),
-    ("F1b", "revise_gate_choice", {"code_review_rounds": "3", "action": "fix_round", "decision_logged": "yes", **_CONV, "blocking_prev": "2", "blocking_now": "2"}, "A", "A0"),
+    ("F1b", "revise_gate_choice", {"code_review_rounds": "3", "action": "fix_round", "decision_logged": "yes", **_CONV, "blocking_prev": "2", "blocking_now": "2"}, "B", "B1"),
     ("F1c", "revise_gate_choice", {"code_review_rounds": "3", "action": "merge_carry", "decision_logged": "yes"}, "B", "B1"),
     ("F2", "technical_risk", {"source": "planner", "kind": "hook_selfmod", "executable_gate": "yes"}, "B", "B5"),
     ("F3", "todo_split", {}, "B", "B2"),
@@ -283,8 +309,8 @@ FIXTURES = [
     ("F22", "main_push", {}, "A", "A4"),
     ("F23", "destructive_op", {}, "A", "A5"),
     ("F24", "revise_gate_choice", {"action": "fix_round"}, "A", "A0"),
-    # F25/F25b: lukking (merge_carry) er alltid B1; et NYTT fix_round-forsøk
-    # uten konvergensdata (F25b) er A0.
+    # F25/F25b: lukking (merge_carry) er alltid B1; fix_round uten cost_over er A0 (bremsen er
+    # fail-closed). F25b mangler også konvergensdata.
     ("F25", "revise_gate_choice", {"code_review_rounds": "4", "action": "merge_carry", "decision_logged": "yes"}, "B", "B1"),
     ("F25b", "revise_gate_choice", {"code_review_rounds": "4", "action": "fix_round", "decision_logged": "yes"}, "A", "A0"),
     ("F26", "revise_gate_choice", {"code_review_rounds": "2", "action": "merge_carry", "decision_logged": "yes"}, "B", "B1"),
@@ -295,16 +321,32 @@ FIXTURES = [
     # 3 punkt (i)) — uten den ville F27 vært A0 på manglende loggplikt, ikke
     # på konvergensvakten.
     ("F27", "todo_split", {"code_review_rounds": "4", "decision_logged": "yes"}, "B", "B2"),
-    # F28-F36 (TODO 455): hver A0-fixture skiller seg fra F28/F34 i ÉN nøkkel.
+    # F28-F40 (TODO 455/472): hver fixture skiller seg fra F28/F34 i ÉN nøkkel. §5b leses smalt:
+    # F29 (funnene går ikke ned) og F30 (ny feilklasse) er B1. §4 er uendret (F35, F37, F38).
     ("F28", "revise_gate_choice", _F28, "B", "B1"),
-    ("F29", "revise_gate_choice", {**_F28, "blocking_now": "3"}, "A", "A0"),
-    ("F30", "revise_gate_choice", {**_F28, "new_class": "yes"}, "A", "A0"),
+    ("F29", "revise_gate_choice", {**_F28, "blocking_now": "3"}, "B", "B1"),
+    ("F30", "revise_gate_choice", {**_F28, "new_class": "yes"}, "B", "B1"),
     ("F31", "revise_gate_choice", {**_F28, "content": "yes"}, "A", "A0"),
     ("F32", "revise_gate_choice", {**_F28, "cost_over": "yes"}, "A", "A0"),
     ("F33", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round", "cost_over": "yes"}, "A", "A0"),
     ("F34", "plan_review_choice", _F34, "B", "B7"),
     ("F35", "plan_review_choice", {**_F34, "blocking_prev": "1"}, "A", "A0"),
     ("F36", "revise_gate_choice", {**_F28, "code_review_rounds": "6", "blocking_prev": "2"}, "B", "B1"),
+    ("F37", "plan_review_choice", {**_F34, "new_class": "yes"}, "A", "A0"),
+    ("F38", "plan_review_choice", {**_F34, "content": "yes"}, "A", "A0"),
+    ("F39", "revise_gate_choice", {k: v for k, v in _F28.items() if k != "blocking_now"}, "A", "A0"),
+    ("F40", "revise_gate_choice", {k: v for k, v in _F28.items() if k != "new_class"}, "A", "A0"),
+    # F41-F49 (TODO 483): `few` stopper bare §5b fra runde 2. F46-F48 fester at `unknown` stopper
+    # også i §4 og i §5b runde 1, F49 at manglende `cost_over` stopper i §5b runde 1.
+    ("F41", "revise_gate_choice", {**_F28, "cost_over": "few"}, "A", "A0"),
+    ("F42", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round", "cost_over": "few"}, "B", "B1"),
+    ("F43", "plan_review_choice", {**_F34, "cost_over": "few"}, "B", "B7"),
+    ("F44", "plan_review_choice", {"plan_review_rounds": "1", "action": "revise", "cost_over": "few"}, "B", "B7"),
+    ("F45", "revise_gate_choice", {**_F28, "code_review_rounds": "3", "cost_over": "few"}, "A", "A0"),
+    ("F46", "plan_review_choice", {"plan_review_rounds": "1", "action": "revise", "cost_over": "unknown"}, "A", "A0"),
+    ("F47", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round", "cost_over": "unknown"}, "A", "A0"),
+    ("F48", "plan_review_choice", {**_F34, "cost_over": "unknown"}, "A", "A0"),
+    ("F49", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round"}, "A", "A0"),
 ]
 
 
@@ -332,7 +374,11 @@ def run_self_test():
 
 # --- Logg-parser (TODO 455) -------------------------------------------------
 LOG_PATH = "docs/superpowers/loop/decision-log.md"
-_HEADER = re.compile(r"^### (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) — (.*)$")
+RUN_LOG_PATH = "docs/superpowers/loop/run-log.md"
+_HEADER = re.compile(r"^### (\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?: —)? (.*)$")
+_TODO = re.compile(r"TODO (\d+[A-Za-z0-9]*)")
+_BTAG = re.compile(r"\[B\d+\]")
+_TOKEN = re.compile(r"auto_decided=[^ |;]*:(\d+)")
 _FIELD = re.compile(r"\*\*([^*:]+):\*\*\s*(.*)")
 
 
@@ -384,10 +430,12 @@ def agreement(entries):
             continue
         typ = e["fields"].get("Type") or re.split(r"[,\]]", _bracket(e["header"]))[0].strip()
         rows.setdefault(typ, []).append(svar.lower().startswith("fulgt"))
+    # En type med en [B, calibration]-oppføring er alt flyttet og foreslås ikke på nytt.
+    moved = {e["fields"].get("Type") for e in entries if _bracket(e["header"]).startswith("B, calibration")}
     out = []
     for typ in sorted(rows):
         r = rows[typ]
-        forslag = "flytt-til-B" if len(r) >= 10 and all(r[-10:]) else "-"
+        forslag = "flytt-til-B" if len(r) >= 10 and all(r[-10:]) and typ not in moved else "-"
         out.append(f"{typ}\t{len(r)}\t{sum(r)}\t{len(r) - sum(r)}\t{forslag}")
     return out
 
@@ -419,12 +467,15 @@ def _mini_log():
     out += entry("2026-10-02 09:00", "B1", Reversibel_til="merge")
     out += entry("2026-10-01 11:00", "B", Reversibel_til="y")
     out += entry("2026-10-02 10:00", "VETO av B1", Reversibel_til="z")
+    for d in range(10, 20):
+        out += entry(f"2026-08-{d} 10:00", "A0", Type="W", Eierens_svar="fulgt")
+    out += entry("2026-08-20 10:00", "B, calibration", Type="W", Reversibel_til="første VETO")
     return out
 
 
 def run_parser_self_test():
     entries = parse_log(_mini_log())
-    exp_agr = ["A\t1\t1\t0\t-", "X\t10\t10\t0\tflytt-til-B", "Y\t2\t1\t1\t-", "Z\t9\t9\t0\t-"]
+    exp_agr = ["A\t1\t1\t0\t-", "W\t10\t10\t0\t-", "X\t10\t10\t0\tflytt-til-B", "Y\t2\t1\t1\t-", "Z\t9\t9\t0\t-"]
     got_agr = agreement(entries)
     got_rb = [(h["ts"], h["reversibel"]) for h in recent_b(entries, 24, datetime(2026, 10, 2, 12, 0))]
     exp_rb = [("2026-10-02 09:00", "merge")]
@@ -440,13 +491,177 @@ def run_parser_self_test():
     return ok
 
 
-def _load_entries(path):
+# --- Avstemming mot run-loggen (TODO 472) -----------------------------------
+def attribute(entries, run_text):
+    """Hvilken run-log-rad bærer hver [B<siffer>]-oppføring. Ingen filsystemkall.
+
+    Eier = første `TODO <nr>` i overskriften. Oppføringen telles på eierens første rad med
+    radtid >= oppføringstid. Returnerer (rader, ventende, eierløse): rader i filrekkefølge med
+    `token` (tallet raden fører, None når det mangler) og `n` (tallet loggen gir), ventende som
+    (tid, todo, siste radutfall eller None) og eierløse som tid.
+    Rader med `-` i todo-feltet hoppes over og avstemmes ikke.
+    """
+    rows, by_todo = [], {}
+    for line in run_text.splitlines():
+        f = [x.strip() for x in line.split("|")]
+        if not re.match(r"20\d\d-", line) or len(f) < 4 or f[3] == "health" or f[1] == "-":
+            continue
+        m = _TOKEN.search(line)
+        row = {"ts": f[0][:16].replace("T", " "), "todo": f[1], "outcome": f[3],
+               "token": int(m.group(1)) if m else None, "n": 0}
+        rows.append(row)
+        by_todo.setdefault(f[1], []).append(row)
+    for rs in by_todo.values():
+        rs.sort(key=lambda r: r["ts"])
+    waiting, ownerless = [], []
+    for e in entries:
+        if not _BTAG.search(e["header"]):
+            continue
+        m = _TODO.search(e["header"])
+        if not m:
+            ownerless.append(e["ts"])
+            continue
+        rs = by_todo.get(m.group(1), [])
+        # ponytail: minuttoppløsning. En oppføring skrevet etter raden i samme minutt telles
+        # på raden og gir AVVIK ved neste helsesjekk. Sekunder i begge logger hvis det plager.
+        row = next((r for r in rs if r["ts"] >= e["ts"]), None)
+        if row:
+            row["n"] += 1
+        else:
+            waiting.append((e["ts"], m.group(1), rs[-1]["outcome"] if rs else None))
+    return rows, waiting, ownerless
+
+
+def auto_decided(entries, run_text, nr):
+    waiting = attribute(entries, run_text)[1]
+    return f"auto_decided={nr}:{sum(1 for _, todo, _ in waiting if todo == nr)}"
+
+
+def last_health(run_text):
+    ts = [l[:16] for l in run_text.splitlines() if re.match(r"20\d\d-.*\| health \|", l)]
+    return ts[-1] if ts else ""
+
+
+def reconcile(entries, run_text, since):
+    """(linjer, exit-kode) for vinduet etter `since` (YYYY-MM-DDTHH:MM)."""
+    since = since.replace("T", " ")
+    rows, waiting, ownerless = attribute(entries, run_text)
+    out, n_rows, bad, missing = [], 0, 0, 0
+    for r in rows:
+        if r["ts"] <= since:
+            continue
+        n_rows += 1
+        ts = r["ts"].replace(" ", "T")
+        if r["token"] is None:
+            missing += 1
+            out.append(f"{ts} {r['todo']} rad=- logg={r['n']} MANGLER_TOKEN")
+        else:
+            bad += r["token"] != r["n"]
+            out.append(f"{ts} {r['todo']} rad={r['token']} logg={r['n']} {'OK' if r['token'] == r['n'] else 'AVVIK'}")
+    after, wait = {}, {}
+    for ts, todo, outcome in waiting:
+        if ts > since:
+            d = after if outcome == "merged" else wait
+            d[todo] = d.get(todo, 0) + 1
+
+    def fmt(d):
+        return " ".join(f"{k}:{v}" for k, v in d.items()) or "-"
+
+    n_after = sum(after.values())
+    out.append(f"etter merged-rad: {fmt(after)}")
+    out.append(f"venter på merge: {fmt(wait)}")
+    out.append(f"uten todo: {sum(1 for ts in ownerless if ts > since)}")
+    out.append(f"rader={n_rows} avvik={bad} mangler_token={missing} etter_merged={n_after}")
+    return out, 1 if bad + missing + n_after else 0
+
+
+def build_header(rule, todo, title, now):
+    who = f"TODO {todo}" if todo else "loop"
+    return f"### {now:%Y-%m-%d %H:%M} — {who} [{rule}]: {title or '<kort valg>'}"
+
+
+def header_warnings(todo, title):
+    other = [n for n in _TODO.findall(title or "") if n != todo]
+    if not other:
+        return []
+    nums = ", ".join(other)
+    if todo:
+        return [f"tittelen nevner TODO {nums}, men --todo er {todo}: oppføringen telles på {todo}"]
+    return [f"--todo mangler, og tittelen nevner TODO {nums}: oppføringen telles på {other[0]}"]
+
+
+def run_reconcile_self_test():
+    t = "2026-01-01"
+    log = "<!-- FORMAT-V2 (test) -->\n" + "".join(f"### {t} {h}\n" for h in [
+        "09:01 [B1] TODO 11 nivået foran",
+        "09:02 — TODO 11 [B7]: nivået etter nummeret",
+        "09:03 — TODO 11: nivået sist [B1]",
+        "10:05 — TODO 11 [B]: uten siffer",
+        "10:06 — TODO 11 [B, calibration]: flytting",
+        "10:07 — TODO 11 [VETO av B1]: veto",
+        "10:08 — TODO 11 [A0]: spørsmål",
+        "10:30 — TODO 12 [B1]: før pausen",
+        "11:30 — TODO 15 [B3]: før helseraden",
+        "12:10 — TODO 12 [B1]: etter pausen",
+        "12:20 — TODO 12 [B1]: etter pausen igjen",
+        "12:30 — TODO 15 [B7]: etter helseraden",
+        "13:10 — TODO 13 go, TODO 14 no-go [B7]",
+        "13:15 — 352 og 315 go [B7]",
+        "14:05 — TODO 16 [B1]: etter merge",
+    ])
+
+    def row(hhmm, todo, outcome, tok):
+        return f"{t}T{hhmm} | {todo} | slug | {outcome} | - | #1 | 1 | 1 | m | - | - | selector=none; {tok}ci=green\n"
+
+    row11 = row("10:00", "11", "merged", "auto_decided=koordinator:3; ")
+    run = "# test\n" + row11 + row("11:00", "12", "paused", "auto_decided=12:1; ")
+    run += f"{t}T12:00 | - | loop-health-check | health | helsesjekk-grønn | - | 0 | 0 | m | sha=x\n"
+    run += row("13:00", "12", "merged", "auto_decided=12:2; ") + row("13:30", "13", "merged", "auto_decided=13:1; ")
+    run += row("13:40", "14", "merged", "auto_decided=14:0; ") + row("14:00", "16", "merged", "auto_decided=16:0; ")
+    run += row("14:10", "17", "merged", "")
+    entries = parse_log(log)
+    n = {(r["todo"], r["outcome"]): r["n"] for r in attribute(entries, run)[0]}
+    lines, code = reconcile(entries, run, last_health(run))
+    plus, _ = reconcile(entries, run.replace(row11, row11.replace(":3;", ":4;")), "")
+    tok15 = auto_decided(entries, run, "15")
+    run_rt = run + row("15:00", "15", "merged", tok15 + "; ")
+    rt, _ = reconcile(entries, run_rt, last_health(run))
+    with_header = parse_log(log + build_header("B3", "15", "prøve", datetime(2026, 1, 1, 12, 40)) + "\n")
+    checks = [
+        ("varianter", 3, n[("11", "merged")]),
+        ("flerrad", (1, 2), (n[("12", "paused")], n[("12", "merged")])),
+        ("to-todoer", (1, 0), (n[("13", "merged")], n[("14", "merged")])),
+        ("uten-todo", True, "uten todo: 1" in lines),
+        ("b-uten-siffer", "auto_decided=11:0", auto_decided(entries, run, "11")),
+        ("venter", ("venter på merge: 15:1", "auto_decided=15:2"), (lines[-3], tok15)),
+        ("etter-merged", ("etter merged-rad: 16:1", "rader=5 avvik=0 mangler_token=1 etter_merged=1", 1),
+         (lines[-4], lines[-1], code)),
+        ("mangler-token", True, f"{t}T14:10 17 rad=- logg=0 MANGLER_TOKEN" in lines),
+        ("pluss-en", [f"{t}T10:00 11 rad=4 logg=3 AVVIK"], [l for l in plus if l.endswith("AVVIK")]),
+        ("rundtur", (True, "auto_decided=15:0"),
+         (f"{t}T15:00 15 rad=2 logg=2 OK" in rt, auto_decided(entries, run_rt, "15"))),
+        ("header", "auto_decided=15:3", auto_decided(with_header, run, "15")),
+    ]
+    ok = True
+    for name, exp, got in checks:
+        if exp != got:
+            ok = False
+            print(f"  avstemming {name}: forventet {exp!r}, faktisk {got!r}", file=sys.stderr)
+    print(f"[decision-level --self-test] avstemming: {'PASS' if ok else 'FEIL'}", file=sys.stderr)
+    return ok
+
+
+def _read(path):
     try:
         with open(path, encoding="utf-8") as fh:
-            entries = parse_log(fh.read())
+            return fh.read()
     except OSError as exc:
         print(f"FEIL: kan ikke lese {path}: {exc}", file=sys.stderr)
         sys.exit(2)
+
+
+def _load_entries(path):
+    entries = parse_log(_read(path))
     if entries is None:
         print(f"FEIL: <!-- FORMAT-V2-markøren mangler i {path}", file=sys.stderr)
         sys.exit(2)
@@ -480,7 +695,23 @@ def main():
     ap.add_argument("--recent-b", action="store_true", help="Nivå B-entries siste --hours timer (JSON).")
     ap.add_argument("--hours", type=float, default=24)
     ap.add_argument("--log", default=LOG_PATH)
+    ap.add_argument("--run-log", default=RUN_LOG_PATH)
+    ap.add_argument("--auto-decided", metavar="NR", help="Skriv auto_decided=<nr>:<n> for run-log-raden.")
+    ap.add_argument("--reconcile", action="store_true", help="Avstem run-log-rader mot decision-log (D4).")
+    ap.add_argument("--since", help="YYYY-MM-DDTHH:MM (standard: siste health-rad).")
+    ap.add_argument("--todo", help="Todo-nummeret oppføringen eies av (til header-feltet).")
+    ap.add_argument("--title", help="Kort valg (til header-feltet).")
     args = ap.parse_args()
+
+    if args.auto_decided:
+        print(auto_decided(_load_entries(args.log), _read(args.run_log), args.auto_decided))
+        return
+
+    if args.reconcile:
+        entries, run_text = _load_entries(args.log), _read(args.run_log)
+        lines, code = reconcile(entries, run_text, args.since or last_health(run_text))
+        print("\n".join(lines))
+        sys.exit(code)
 
     if args.agreement:
         print("\n".join(agreement(_load_entries(args.log))))
@@ -502,6 +733,7 @@ def main():
     if args.self_test:
         ok = run_self_test()
         ok = run_parser_self_test() and ok
+        ok = run_reconcile_self_test() and ok
         sys.exit(0 if ok else 1)
 
     if not args.event:
@@ -515,7 +747,9 @@ def main():
         "trigger": trigger,
         "obligations": obligations,
         "violations": violations,
-    }))
+        "header": build_header(rule, args.todo, args.title, datetime.now()),
+        "warnings": header_warnings(args.todo, args.title),
+    }, ensure_ascii=False))
     if rule == "A0":
         sys.exit(1)
 

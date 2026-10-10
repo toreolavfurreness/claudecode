@@ -201,11 +201,8 @@ implementeringen. §1-filterets ledd 1 og ledd 4 reduserer frekvensen, men kan i
   in-flight-tabellen — ellers må mennesket lete etter en halvferdig PR uten spor i run-loggen.
 - **Run-log:** B får ingen rad før den lukkes. Blir runden avsluttet med B fryst, skrives B sin rad
   som `paused` med `pause_event` = eskaleringsårsaken, med `pipelined_from=<A>` (var B pipelinet)
-  OG `parallel_with=<A>`, og med **`auto_decided=<B>:<m>`** satt per den TEMPORALE
-  partisjoneringsregelen over (§ «Partisjonering ved flere rader i SAMME runde») — `<m>` teller
-  nivå-B-valg tatt ETTER at A-raden ble skrevet, normalt `0` men ikke mandatert til å være det (selve
-  eskalerings-hendelsen er som regel ikke et nivå-B-valg, men en etterfølgende re-synk-beslutning
-  på B sitt spor kan være det).
+  OG `parallel_with=<A>`, og med `auto_decided=`-tokenet fra `--auto-decided <B>` (§5b «Flere
+  rader i samme runde eller for samme todo»): B-raden bærer B sine egne valg fram til radtiden.
 
 ### B4 dekker også arming av parallellitet — ingen ny regel i `decision-level.py`
 

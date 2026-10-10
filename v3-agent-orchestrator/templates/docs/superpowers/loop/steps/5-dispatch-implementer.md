@@ -59,7 +59,7 @@ worktree; med ett felles snapshot ville runde 1s sti blitt avvist som `preexisti
 hadde blokkert nettopp de stiene akkumuleringen finnes for.
 
 **Bevaringsregel ved abort:** ved `status: failed|blocked`, technical_risk-stopp,
-ikke-konvergerende revise-gate, merge-konflikt eller sesjonsdød nås §6 ALDRI. Implementer-
+revise-gate som ender i A0 eller stopp, merge-konflikt eller sesjonsdød nås §6 ALDRI. Implementer-
 worktreene **BEHOLDES** da bevisst — de kan bære ucommittet arbeid, og mennesket eskaleres til
 uansett. Koordinatoren LISTER de akkumulerte stiene i pause-rapporten. Ryddes av mennesket, TODO
 245 — aldri av loopen.

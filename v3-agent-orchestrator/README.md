@@ -19,6 +19,21 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.5** — tre endringer fra FamilieHub v1.16 (TODO 472, TODO 483 og eierens vedtak 2026-10-09):
+- **Avstemming per todo (TODO 472):** `python3 tasks/decision-level.py --auto-decided <nr>` skriver run-log-tokenet
+  `auto_decided=<nr>:<n>`, og `--reconcile` avstemmer hver run-log-rad mot decision-log (helsesjekk D4). Tokenet
+  telles aldri for hånd. `--event … --todo <nr> --title <tekst>` gir `header`-feltet, som limes ordrett inn som
+  overskrift i decision-log. §6 steg 5: tell først, ta radtiden fra klokka etterpå.
+- **§5b leses smalt (TODO 472):** at gate-funnene ikke går ned, eller at en ny feilklasse dukker opp, er nivå B1 i
+  §5b. Innholdsfunn, manglende konvergensdata og kostnadsbremsen er fortsatt A0. §4 er uendret.
+- **`over=few` (TODO 483):** `measure-cost.py --brake` gir `over=few` når effort-klassen har færre enn 5 andre
+  todoer med målt kost. `cost_over=few` gir A0 for en ny fix-runde i §5b fra runde 2, og teller som `no` i §4 og
+  i runde 1.
+- **Tak for samtidige implementere:** FamilieHub hevet `parallel_implementers.max` til 3. Kitet trenger ingen
+  endring: verdien kommer fra `loop.config.yaml` (`{{PARALLEL_IMPLEMENTERS_MAX}}`), og `/setup` godtar alle heltall ≥ 1.
+- Sjekk: `python3 tasks/decision-level.py --self-test` (`52/52`, `logg-parser: PASS`, `avstemming: PASS`) og
+  `python3 tasks/measure-cost.py --brake-self-test` (`6/6`).
+
 **v3.4.6** — kostnadsmålingen kalibreres mot harnessens eget tall, fra FamilieHub TODO 457:
 - **`python3 tasks/measure-cost.py --calibrate`** skriver én linje per avsluttet økt: harnessens
   `cost-state.totalCostUSD`, egen sum (hovedfil + underagenter i vinduet `startTime`–slutt), avvik og `final`
