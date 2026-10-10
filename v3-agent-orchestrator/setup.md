@@ -25,7 +25,8 @@ leser config-en og **kompilerer** templates inn i prosjektets faktiske stier.
    `v3-agent-orchestrator/templates/`. Skriptet skriver generert output til
    prosjektets `.claude/`, `docs/`, `tasks/`. Du kan alltid diffe de to.
 5. **Prosjekt-eide filer seedes, aldri overskrives.** `CLAUDE.md`, lessons-katalogen,
-   lessons-tema-mappene, agent-minnet og doc-skjelettene skrives kun hvis de mangler.
+   lessons-tema-mappene, agent-minnet, doc-skjelettene, `tasks/queue-config.py` og
+   `docs/superpowers/loop/artifacts.md` skrives kun hvis de mangler.
    Kit-eide regler ligger i den genererte `docs/loop-rules.md`, som `CLAUDE.md` importerer.
 6. **Eksisterende prosjektfiler merges minimalt og idempotent.** `.claude/settings.json` får
    kun kit-ets egne hook-oppføringer (nøkkel = kommandostrengen), `CLAUDE.md` får én
@@ -684,6 +685,11 @@ SEED_ONLY = {
     "tasks/lessons.md",
     "docs/naming-conventions.md",
     "docs/data-model.md",
+    # v3.6: køsidens prosjektdel og artefakt-lenkene. queue-status.py er kit-eid og lik overalt;
+    # tittel, eierskap, notater og leverte releaser står i queue-config.py. artifacts.md bærer
+    # prosjektets URL-er — en regenerering ville slettet dem (kit-drift.py vokter Køsiden-raden).
+    "tasks/queue-config.py",
+    "docs/superpowers/loop/artifacts.md",
 }
 written, leftovers, preserved, skipped = [], [], [], []
 PROJ = c["project_name"]

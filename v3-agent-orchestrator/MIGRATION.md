@@ -2,6 +2,8 @@
 
 Inngangsstier:
 
+- **Prosjektet kjører v3.4 eller v3.5** → [Fra v3.5 til v3.6](#fra-v35-til-v36): køsiden er felles. Les
+  seksjonen FØR `/setup`, siden `/setup` overskriver en prosjektspesifikk `tasks/queue-status.py`.
 - **Prosjektet kjører v3.3** → kjør `/setup` på nytt. Releaser er valgfrie: uten en fil i
   `tasks/releases/` med `status: active` er køutvalget som før. Vil du ta dem i bruk, følg
   `tasks/releases/README.md`. Arkivoppføringer skrevet før v3.4 mangler `**Release:**`-linja og
@@ -20,6 +22,68 @@ Inngangsstier:
 - **Prosjektet kjører v1** (sekvensiell human-orchestrator) → [Fra v1](#fra-v1-til-v3). Stegene der
   er skrevet for v2 og gjelder uendret med v3-kit-et; v3-nøklene har defaults.
 - **Nytt prosjekt** → [`README.md`](README.md).
+
+---
+
+## Fra v3.5 til v3.6
+
+Køsiden er lik i alle prosjekter. `tasks/queue-status.py` er kit-eid (markdown, `--html`, mermaid,
+epics, release-baner, filtre) og leser releaser, mål, `done_when`, epics og fremdrift fra
+`tasks/releases/` via `release.py`. Alt prosjektspesifikt står i den prosjekt-eide
+`tasks/queue-config.py`. Tom eller manglende fil gir en fungerende side.
+
+Nytt i kit-et:
+
+- `tasks/queue-status.py` (erstatter versjonen med bare markdown) med `--print-title` og `--self-test`.
+- `tasks/queue-config.py`: seedes av `/setup` bare hvis den mangler. Hver nøkkel er forklart i fila.
+  Fullt eksempel: [`examples/queue-config.familiehub.py`](examples/queue-config.familiehub.py).
+- `docs/superpowers/loop/artifacts.md` er nå seed-only (URL-ene er prosjektets) og har en felles
+  Køsiden-rad med samme generator og vakter for alle.
+- `tasks/kit-drift.py`: melder `AVVIK` når `tasks/queue-status.py` eller generator- eller vakt-kolonnen
+  i Køsiden-raden avviker fra malen. Helsesjekken kjører den (A5f). Et avvik melder bare fra og gjør
+  ikke helsesjekken rød.
+- Release-filer kan ha `shipped: "ÅÅÅÅ-MM-DD"`. Da får en levert release en egen bane på køsiden uten config.
+
+### 1. Flytt det prosjektspesifikke til `tasks/queue-config.py` (før `/setup`)
+
+Kartlegg hva prosjektets egen køgenerator har som malen ikke har, og legg det i config-nøklene:
+
+| Har prosjektet … | Nøkkel i `queue-config.py` |
+|---|---|
+| egen tittel (`<title>…</title>`) | `TITLE` |
+| en base-branch som ikke er `origin/<base_branch>` fra config | `BASE_REF` |
+| «hvem kan flytte raden» per todo | `EIERSKAP` (+ `OWNER_NAME` for pillen) |
+| epic-klynger på nummer eller tag | `CLUSTERS`, `EPIC_TAG_CLUSTER` (`EPIC_FROM_FIELD = False` hvis `epic:`-feltet ikke skal brukes) |
+| notat per todo | `NOTES` |
+| releaser som tag (`release-x.y.z`) fra før `release:`-feltet | `RELEASE_TAGS` |
+| leverte releaser uten fil i `tasks/releases/` | `LEVERT` (eller lag release-filen med `status: shipped`) |
+| egne farger per release | `RELEASE_COLORS` |
+| merknader, agenda, egne varsler | `MERKNADER`, `EKSTRA_MERKNADER`, `AGENDA`, `EKSTRA_FLAGG` |
+| ekstra tekst om scope/prod | `SCOPE_NOTE`, `RELEASE_NOTE` |
+
+Har prosjektet en egen HTML-generator ved siden av (f.eks. `tasks/queue-page.py`), flytt det den viser
+til nøklene over og slett den når siden er sjekket (steg 3).
+
+### 2. Kjør `/setup`
+
+`tasks/queue-status.py` blir overskrevet med malen. `tasks/queue-config.py` og `artifacts.md` beholdes
+hvis de finnes.
+
+### 3. Sjekk siden og oppdater `artifacts.md`
+
+```bash
+python3 tasks/queue-status.py --self-test
+python3 tasks/queue-status.py --html <scratchpad>/queue-status.html > tasks/queue-status.md
+python3 tasks/kit-drift.py
+```
+
+- Sammenlign siden med den gamle. Den gamle genereres med `git show HEAD:tasks/queue-status.py > <scratchpad>/old.py`
+  og kjøres fra repo-roten.
+- I `docs/superpowers/loop/artifacts.md`: erstatt prosjektets kø-rad med Køsiden-raden fra
+  `v3-agent-orchestrator/templates/docs/superpowers/loop/artifacts.md`, men behold URL-en.
+  Republiser med samme `url`. `kit-drift.py` er grønn når generator- og vakt-kolonnen står som i malen.
+- Commit `tasks/queue-status.py`, `tasks/queue-config.py`, `tasks/kit-drift.py`, `artifacts.md` og den
+  nye `tasks/queue-status.md` i samme PR.
 
 ---
 
@@ -104,9 +168,10 @@ done
 
 For hver `AVVIK`: er det prosjektets egen forbedring, ta den inn i
 `v3-agent-orchestrator/templates/` (tokenisert) før du går videre — ellers forsvinner den i steg 3.
-Er prosjektets versjon bevisst prosjektspesifikk og rikere (f.eks. en `queue-status.py` med `--html`,
-modellforsøk-seksjonene i `measure_cost_html.py`), gjenopprett den etter steg 3 med
-`git checkout HEAD -- <fil>`. Merk at neste `/setup` overskriver den igjen.
+Er prosjektets versjon bevisst prosjektspesifikk og rikere (f.eks. modellforsøk-seksjonene i
+`measure_cost_html.py`), gjenopprett den etter steg 3 med `git checkout HEAD -- <fil>`. Merk at neste
+`/setup` overskriver den igjen. Unntak: `tasks/queue-status.py` er felles fra v3.6. Det prosjektspesifikke
+flyttes til `tasks/queue-config.py` (se [Fra v3.5 til v3.6](#fra-v35-til-v36)).
 
 ### 3. Kjør `/setup`
 
