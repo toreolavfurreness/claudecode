@@ -43,7 +43,8 @@ _DEFAULTS = {
     "EIERSKAP": {},           # nr -> ("loop" | "eier", hva som må skje) for rader i aktiv/levert release
     "CLUSTERS": [],           # [(epic-navn, {nr, ...})] — eksplisitte nummer-sett, i visningsrekkefølge
     "EPIC_TAG_CLUSTER": {},   # tag eller epic-slug -> epic-navn
-    "EPIC_FROM_FIELD": True,  # bruk todoens `epic:`-felt når nummeret ikke står i CLUSTERS
+    "EPIC_FROM_FIELD": True,  # todoens `epic:`-felt vinner over CLUSTERS og tags
+    "REST_EPICS": (),         # epic-navn som er restkort: sorteres sist sammen med «Uklassifisert»
     "NOTES": {},              # nr -> to setninger om hva todoen gjelder (rendres under raden)
     "PAUSE_TAGS": r"migrasjon|migration|prod\b|edge-function|native|secrets|rls",
     "PAUSE_TITLE": r"migrasjon|edge function|oauth|prod-|deploy|native",
@@ -194,6 +195,14 @@ def _self_test():
     check("epic-rekkefølge: Uklassifisert sist",
           rc == 0 and -1 < html.find('class="epic-t">annet<') < html.find('class="epic-t">Uklassifisert<'))
 
+    # 8. Vente-grunn og plan-status på raden, epic-feltet foran CLUSTERS, restkort sist.
+    rc, md, err, html, title = run({**base, "tasks/queue-config.py":
+                                    'CLUSTERS = [("Klynge A", {"1", "2"})]\nREST_EPICS = ("Klynge A",)\n'}, "--html", "q.html")
+    check("venter-pillen sier hva", rc == 0 and ">venter på 1</span>" in html)
+    check("plan-status på radene", 'title="plan-status"' in html and "plan skrevet" not in html)
+    check("epic-feltet vinner over CLUSTERS, REST_EPICS sist",
+          -1 < html.find('class="epic-t">grunnmur<') < html.find('class="epic-t">Klynge A<'))
+
     print("SELF-TEST " + ("GRØNN" if not fails else f"RØD ({len(fails)} feil)"))
     return 0 if not fails else 1
 
@@ -316,16 +325,17 @@ def eligible(d):
 
 def cluster_of(nr, tags=""):
     """Epic-navnet en todo vises under. Første treff vinner:
-    1. nummeret står i et CLUSTERS-sett (config),
-    2. todoens `epic:`-felt (når EPIC_FROM_FIELD), oversatt via EPIC_TAG_CLUSTER hvis slugen står der,
+    1. todoens `epic:`-felt (når EPIC_FROM_FIELD), oversatt via EPIC_TAG_CLUSTER hvis slugen står der.
+       Feltet vinner over nummer-sett og tagg-gjetting: det er satt med vilje på todoen,
+    2. nummeret står i et CLUSTERS-sett (config),
     3. en tag som står i EPIC_TAG_CLUSTER,
     ellers «Uklassifisert»."""
-    for name, members in CLUSTERS:
-        if nr in members:
-            return name
     epic = (todos.get(nr) or {}).get("epic") or ""
     if CFG["EPIC_FROM_FIELD"] and epic not in ("", "null", "-"):
         return EPIC_TAG_CLUSTER.get(epic, epic)
+    for name, members in CLUSTERS:
+        if nr in members:
+            return name
     for tag in re.findall(r"[\w-]+", tags or ""):
         if tag in EPIC_TAG_CLUSTER:
             return EPIC_TAG_CLUSTER[tag]
@@ -726,9 +736,26 @@ if "--html" in sys.argv:
 
     STATE_LABEL = {"arbeid": "i arbeid", "klar": "kan claimes", "venter": "venter", "utsatt": "utsatt"}
 
+    def waits_on(d):
+        """Hva en `venter`-todo venter på, i klartekst. Første grunn som treffer, samme ledd som eligible()."""
+        blocked = [x for x in deps_of(d) if not dep_done(x)]
+        if blocked:
+            return "venter på " + ", ".join(blocked)
+        if d["_brainstorm"]:
+            return "venter på brainstorm"
+        if re.search(r"\bforslag\b", d.get("tags", "") or ""):
+            return "venter på triage"
+        if re.search(r"\bprod-release\b", d.get("tags", "") or ""):
+            return "venter på eier"
+        if REL is not None and d.get("release") != REL:
+            r = release_of(d)
+            return f"venter på {r}" if r else "utenfor releasen"
+        return "venter"
+
     def state_pill(d):
         s = state_of(d)
-        return f'<span class="pill st-{s}">{STATE_LABEL[s]}</span>'
+        label = waits_on(d) if s == "venter" else STATE_LABEL[s]
+        return f'<span class="pill st-{s}">{_h.escape(label)}</span>'
 
     def plan_state(d):
         """Plan-status for en todo: godkjent (status reviewed), utkast (plan finnes, ikke godkjent)
@@ -785,12 +812,13 @@ if "--html" in sys.argv:
         epics.setdefault(c, []).append(d)
     for v in epics.values():
         v.sort(key=key)
-    # Rekkefølge: «Uklassifisert» sist uansett, så epics med arbeid i en release, så størst først.
+    # Rekkefølge: restkortene («Uklassifisert» og REST_EPICS) sist uansett, så epics med arbeid i en release, så størst først.
     # Restkortet sto øverst når én av todoene i det hadde en release-merkelapp.
     def epic_rank(item):
         name, mem = item
         har_rel = any(rel_of(x) != "ingen" for x in mem)
-        return (1 if name == "Uklassifisert" else 0, 0 if har_rel else 1, -len(mem), name)
+        rest = name == "Uklassifisert" or name in CFG["REST_EPICS"]
+        return (1 if rest else 0, 0 if har_rel else 1, -len(mem), name)
     epic_order = sorted(epics.items(), key=epic_rank)
 
     # ---------------- Datakvalitet: felter §1 ikke forstår ----------------
@@ -1091,7 +1119,8 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
             for d in lk:
                 a(f'<div class="orow"><span class="nr">{d["nr"]}</span>'
                   f'<span class="ti">{inl(short_title(d, 74))}</span>'
-                  f'<span class="pills">{state_pill(d)}{plan_html(d)}{effort_html(d)}</span></div>')
+                  f'<span class="pills"><span class="pill">{_h.escape(d.get("epic", "") or "–")}</span>'
+                  f'{state_pill(d)}{plan_html(d)}{effort_html(d)}</span></div>')
             a("</div>")
         a("</article>")
 
@@ -1250,15 +1279,11 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
         st = state_of(d)
         ep = cluster_of(d["nr"], d.get("tags", ""))
         note = NOTES.get(d["nr"])
-        badges = [effort_html(d), state_pill(d)]
-        if st == "arbeid":
-            badges.append(plan_html(d))
+        badges = [effort_html(d), state_pill(d), plan_html(d)]
         if r != "ingen":
             badges.append(f'<span class="pill relp {slug(r)}">{r}</span>')
         if is_pause(d):
             badges.append('<span class="pill pause">pausepunkt</span>')
-        if d in plan_ready:
-            badges.append('<span class="pill pipe">plan skrevet</span>')
         p = pos.get(d["nr"])
         a(f'<div class="row {slug(r) if r != "ingen" else ""}" data-rel="{r}" data-st="{st}" '
           f'data-epic="{slug(ep)}" data-q="{_h.escape((d["nr"] + " " + (d.get("title") or "")).lower())}">')

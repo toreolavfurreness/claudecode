@@ -32,6 +32,7 @@ v3-agent-orchestrator/examples/queue-config.example.py.
 # ]
 # EPIC_TAG_CLUSTER = {"auth": "Innlogging-epic"}   # tag eller epic-slug -> epic-navn
 # EPIC_FROM_FIELD = True                # False = ignorer `epic:`-feltet, bruk bare CLUSTERS og tags
+# REST_EPICS = ("Smått uten epic",)     # restkort: sorteres sist sammen med «Uklassifisert»
 
 # To setninger per todo om hva den gjelder. Rendres under raden i både markdown og HTML.
 # NOTES = {
