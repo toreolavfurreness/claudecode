@@ -26,53 +26,10 @@ egen worktree og svarer med en kort rapport. Koordinatoren er den eneste som skr
 | Implementer | `<prosjekt>-implementer` | koder, verifiserer, åpner PR | feature-branch |
 | Kode-reviewer | `<prosjekt>-code-reviewer` | uavhengig review av PR-diffen | ingenting (read-only-hook) |
 
-Boksene er steg i `coordinator-runbook.md`. Rombene er gater, der et skript eller en rapport avgjør
-neste kant. Stiplede kanter er sidespor og veier ut til eieren.
+Boksene er steg i `coordinator-runbook.md`. Gule bokser er gater, der et skript eller en rapport
+avgjør neste kant. Røde, stiplede kanter går ut til eieren.
 
-```mermaid
-flowchart TD
-    START(["/run-loop"]) --> S0["§0 Synk<br/>ff-only mot base-branchen"]
-    S0 --> S1{"§1 Kø-utvelgelse<br/>kvalifisert todo?"}
-
-    S1 -- "ja" --> S2["§2 Claim<br/>+ lessons-tema"]
-    S2 --> FP{"§2b Fast-path,<br/>eller plan alt godkjent?"}
-    FP -- "nei" --> S3["§3 Planner<br/>skriver plan"]
-    S3 --> S4{"§4 Reviewer<br/>go eller no-go?"}
-    S4 -- "no-go: revisjon (B7)" --> S3
-    S4 -- "go" --> S5["§5 Implementer<br/>kode, verifisering, PR"]
-    FP -- "ja" --> S5
-
-    S5 --> S5B{"§5b Kode-reviewer<br/>BLOKKERENDE eller VIKTIG?"}
-    S5B -- "ja: fix-runde (B1)" --> FIX["§5 Implementer<br/>fix-mode"]
-    FIX --> GF{"Gate F<br/>V-blokken grønn?"}
-    GF -- "nei: mekanisk retur" --> FIX
-    GF -- "ja: ny review-runde" --> S5B
-    S5B -- "nei, eller merge med<br/>carry-forwards (B1)" --> S6["§6 CI-gate, lessons, arkiv,<br/>merge til base-branchen"]
-
-    S6 --> S6B["§6b Bug-innboks<br/>§6d Worktree-sweep"]
-    S6B --> CAD{"Hver 5. merge?<br/>loop-cadence.py"}
-    CAD -- "nei: neste todo" --> S0
-    CAD -- "ja (trigger 2)" --> HC
-
-    S1 -- "nei: kø tom (trigger 1)" --> HC{"§6c Helsesjekk<br/>/loop-health-check"}
-    HC -- "grønn" --> S8B["§8b Drain retro-logg<br/>§8c Agér på tallene"]
-    S8B -- "trigger 2: fortsett" --> S0
-    S8B -- "trigger 1: kø tom" --> S7["§7 Grooming<br/>inntil 3 utkast"]
-    S7 --> S8["§8 Mini-retro"]
-    S8 --> STOP(["Stopp:<br/>venter på eieren"])
-
-    S5 -. "§5c: samtidig" .-> P5C["Planner + reviewer<br/>for neste todo"]
-    S5 -. "§5d: samtidig,<br/>fil-disjunkt" .-> P5D["Implementer<br/>for neste todo"]
-
-    S0 -. "skittent tre" .-> PAUSE
-    S1 -. "release-scope tomt<br/>eller blokkert" .-> PAUSE
-    S4 -. "A0 eller<br/>teknisk risiko" .-> PAUSE
-    S5 -. "failed eller blocked" .-> PAUSE
-    S5B -. "A0: innholdsfunn<br/>eller kostnadsbrems" .-> PAUSE
-    S6 -. "CI rød eller<br/>merge-konflikt" .-> PAUSE
-    HC -. "rød" .-> PAUSE
-    PAUSE(["Pausepunkt nivå A<br/>claim slippes, eieren spørres"]) --> S8
-```
+![Flytdiagram: orkestreringsloopen fra synk til merge, med planløkke, fix-løkke, helsesjekk og pausepunkt](docs/img/loop-flow.svg)
 
 **Løkkene i grafen:**
 
@@ -83,6 +40,8 @@ flowchart TD
   planens verifiseringsblokk på nytt før neste review-runde.
 - **Helseløkka** (§6c): `/loop-health-check` kjører når køen er tom og etter hver femte merge. Grønn
   sjekk slipper retro-forslagene og tallene videre (§8b, §8c). Rød sjekk stopper loopen.
+- **Ikke tegnet:** fast-path (§2b) hopper fra §2 rett til §5 når planen alt er godkjent. §5c og §5d
+  kjører planlegging eller implementering av neste todo samtidig med §5.
 
 **Hvem avgjør i gatene:** `tasks/decision-level.py` klassifiserer hvert valg. Nivå B (B1–B7)
 avgjør koordinatoren selv, logger i `decision-log.md`, og eieren kan vetoe etterpå. Nivå A (A0–A8)
@@ -108,27 +67,7 @@ verktøyet. Fila har `**Problem:**`, `**Årsak:**`, `**Løsning:**` og `**Unngå
 `tags` og `kilder` (`TODO-NN`, `BUG-NNN`). Det finnes ingen indeks og ingen telling som kan bli
 utdatert. Filsystemet er indeksen.
 
-```mermaid
-flowchart TD
-    W["Worker-rapport<br/>lessons-kandidater"] --> S6["§6 Koordinator skriver<br/>én fil per lesson"]
-    S6 --> L[("tasks/lessons/tema/<br/>atomiske lesson-filer")]
-
-    L --> G["graph-build.py<br/>kanter: todo, bug, PR, fil, lesson"]
-    G --> S2["§2 graph-query.py<br/>foreslår lessons-tema for todoen"]
-    S2 --> R["Planner, implementer og kode-reviewer<br/>leser 3–5 relevante lessons"]
-    R -- "neste todo unngår<br/>den kjente fallgruven" --> W
-
-    L --> C["§8c lesson-classes.py<br/>teller feilklasser siste 7 døgn"]
-    C --> Q{"Høyest rangerte klasse<br/>uten mekanisk gate?"}
-    Q -- "nei" --> OK(["Ingen handling"])
-    Q -- "ja" --> A{"Kan regelen<br/>uttrykkes mekanisk?"}
-    A -- "ja, under ca. 30 linjer" --> GATE["Ny gate: vblock-lint.py,<br/>hook eller skript"]
-    A -- "ja, men større" --> TODO["Todo-utkast<br/>tags: forslag"]
-    A -- "nei: krever skjønn" --> NG["Merkes ikke gatebar<br/>i lesson-classes.py"]
-    GATE -- "stopper feilklassen<br/>i §4 og §5b" --> W
-    GATE --> M["Neste §8c måler effekten:<br/>har klassen falt?"]
-    M --> C
-```
+![De to læringsløkkene rundt atomiske lessons: per todo og per helsesjekk](docs/img/lessons-loops.svg)
 
 - **Rask løkke, per todo (minne):** workers skriver aldri lessons selv. De melder kandidater i
   rapporten, og koordinatoren skriver filene i §6. Før neste todo slår §2 opp i kantgrafen
