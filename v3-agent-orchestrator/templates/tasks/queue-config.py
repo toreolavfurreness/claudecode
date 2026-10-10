@@ -8,7 +8,7 @@ under stopper generatoren (en feilstavet nøkkel ville ellers blitt ignorert ute
 Egne hjelpenavn må derfor begynne med `_` eller være små bokstaver.
 
 Fjern `#` foran det du vil bruke. Eksempel med alle nøklene i bruk:
-v3-agent-orchestrator/examples/queue-config.familiehub.py.
+v3-agent-orchestrator/examples/queue-config.example.py.
 """
 
 # Tittelen på siden (<title> og <h1>). Vakten i docs/superpowers/loop/artifacts.md greper etter den.

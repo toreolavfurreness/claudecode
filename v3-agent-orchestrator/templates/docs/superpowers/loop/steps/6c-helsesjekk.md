@@ -25,8 +25,8 @@ python3 tasks/loop-cadence.py
 
 Den teller `outcome=merged` etter den *nyeste* `outcome=health`-raden, sortert på tidsstempel
 (run-loggen står ikke alltid i tidsrekkefølge, så «siste health-rad i fila» kan være en eldre rad).
-Exit 1 (`FORFALT`) → kjør §6c nå, før neste dispatch. Ikke en huskeregel: målt i opphavsprosjektet
-kom helsesjekkene etter 44, 13, 11, 9 og 7 merger med intervall 5. Helseraden som §6c skriver blir den nye
+Exit 1 (`FORFALT`) → kjør §6c nå, før neste dispatch. Ikke en huskeregel:
+uten gaten glipper intervallet. Helseraden som §6c skriver blir den nye
 nullstillings-markøren. Ingen health-rad ennå → tell fra toppen av fila.
 
 **Begge triggere skriver en health-rad** → telleren nullstilles alltid uansett hvilken som fyrer.
@@ -53,7 +53,7 @@ er en rød helsesjekk.
   sett `pause_event=helsesjekk-rød` i health-raden, release evt. aktiv claim og stopp loopen.
   §8b og §8c kjøres IKKE.
 
-**TODO 246 — Del D:** `/loop-health-check` kjører i tillegg Del D (regelmotor-selvtest,
+**Del D:** `/loop-health-check` kjører i tillegg Del D (regelmotor-selvtest,
 regel-paritet, monoton decision-log, nivå-B-oppsummering + avstemming mot run-loggen, treffsikkerhet per type (D5)) som en del av
 DENNE helsesjekken, FØR «Etter §6c» over evalueres — se `loop-health-check.md` Del D. Rødt i Del D
 er samme klasse som Del A/A6: rød helsesjekk, §8b kjøres IKKE.

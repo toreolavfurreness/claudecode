@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # {{PROJECT_NAME}} — PreToolUse hook: gjør read-only roller (reviewer/kode-reviewer/
-# tech-review-agentene) faktisk skrivefri (TODO 187).
+# tech-review-agentene) faktisk skrivefri.
 #
 # Charter-prosaen "Du SKRIVER INGENTING TIL FILSYSTEMET" og
-# `tools: Agent(a, b, c)` er hint, ikke håndhevede grenser (lesson 2026-08-31).
+# `tools: Agent(a, b, c)` er hint, ikke håndhevede grenser.
 # Denne hooken er den håndhevende gaten, med TRE armer — alle default-deny
-# allowlists (jf. TODO 188s regel: ikke jag en uendelig denylist):
+# allowlists (regel: ikke jag en uendelig denylist):
 #
 #   Arm 1 (Bash)      — kommandoen må matche en allowlist av lese-kommandoer.
 #                        Lander i "observe"-modus (logger WOULD-BLOCK,
 #                        returnerer 0) — menneskets bindende beslutning
 #                        (planens D7). Flippes til "enforce" av en egen
-#                        oppfølgings-PR (TODO 187 Steg 13).
+#                        oppfølgings-PR.
 #   Arm 2 (Agent/Task)— subagent-type må stå i rollens EGEN Agent-liste i
 #                        KONTRAKTFILA (se under). Håndhever fra dag én.
 #   Arm 3 (alt annet) — verktøynavnet må stå i rollens ekstra-verktøy-felt i
@@ -25,7 +25,7 @@
 #                        fix runde 8 (VIKTIG 1) — se WRITE_DENYLIST_EXACT=
 #                        under for hvorfor.
 #
-# KONTRAKTFILA (TODO 187 FIX-MODE RUNDE 7 — STRUKTURENDRING) —
+# KONTRAKTFILA (STRUKTURENDRING) —
 # .claude/hooks/reviewer-readonly.contract, parset av parse_contract() under.
 # Dette er hookens ENESTE beslutningsinput for (a) hvem som er read-only,
 # (b) hvilke subagenter arm 2 tillater, (c) hvilke ekstra verktøy arm 3
@@ -44,8 +44,7 @@
 # igjen. Rotårsaken er strukturell, ikke en enkelt streng-bug: prosa som
 # tolkes flere steder kan alltid driftes ut av synk. Løsningen er å FJERNE
 # tolkningen, ikke lappe den en gang til — én maskin-eid fil, ETT format,
-# ingen kommentarsyntaks, eksakt linje-for-rolle-match. Se
-# opphavsprosjektets docs/workflow.md (ikke med i kit-et) § TODO 187 runde 7 for full begrunnelse og formatet.
+# ingen kommentarsyntaks, eksakt linje-for-rolle-match.
 #
 # Klassifisering "er denne rollen read-only?": rollenavnet (agent_type) MÅ stå
 # som feltets første kolonne i kontraktfila. Tilstedeværelse = read-only.
@@ -62,10 +61,7 @@
 #   tasks/hook-readonly-gate.log  — ALLE beslutninger for read-only roller
 #                                    (ALLOW, BLOCK, WOULD-BLOCK, PARSE-FAIL).
 #                                    Tom logg etter en runde med reviewere =
-#                                    gaten er død (kanari-regel, se
-#                                    opphavsprosjektets docs/workflow.md (ikke med i kit-et)).
-#
-# Se tasks/plans/todo-187-reviewer-read-only-ikke-handhevet.md for full spec.
+#                                    gaten er død (kanari-regel).
 
 set -uo pipefail
 
@@ -157,7 +153,7 @@ list_contains() {
 # TOKEN i tools:-linja, ikke om det var et verktøy denne rollen (etter egen
 # klassifisering) ikke skulle ha. mcp__-prefikset dekker HELE mcp__*-
 # navnerommet (Supabase/GitHub/enhver fremtidig MCP-server), ikke bare kjente
-# navn — konsistent med hookens generelle default-deny-prinsipp (TODO 188).
+# navn — konsistent med hookens generelle default-deny-prinsipp.
 #
 # Monitor/SendMessage lagt til (VIKTIG 1, koordinator-fix runde 8): begge var
 # fjernet fra SESSION_SAFE (se kommentaren over SESSION_SAFE= under, "FJERNET"),
@@ -287,7 +283,7 @@ block() {
   exit 2
 }
 
-# parse_contract <sti> — TODO 187 FIX-MODE RUNDE 7. Leser kontraktfila ÉN
+# parse_contract <sti>. Leser kontraktfila ÉN
 # gang og validerer den strengt. Format: én linje per read-only rolle, TRE
 # felt adskilt av bokstavelig TAB — INGEN kommentarsyntaks noe sted (se
 # toppkommentaren for hvorfor: kommentarer var selve rotårsaken til at tre
@@ -372,12 +368,11 @@ parse_contract() {
 }
 
 # ── 1. jq tilgjengelig? Parsbar stdin? ──────────────────────────────────────
-# MINDRE 5 (dokumentert i opphavsprosjektets docs/workflow.md (ikke med i kit-et)): jq hardkodes fortsatt til
+# jq hardkodes fortsatt til
 # /usr/bin/jq for selve tilgjengelighetssjekken, uavhengig av PATH-
 # konvensjonen over — dette er hookens ENESTE bevisste fail-open (mangler
 # /usr/bin/jq → exit 0 uten at noen arm kan evaluere payloaden, med én
-# PARSE-FAIL-linje logget). Se opphavsprosjektets docs/workflow.md (ikke med i kit-et) for begrunnelsen og hvorfor
-# den ikke er utnyttbar i praksis (roten på PATH-katalogene er ikke
+# PARSE-FAIL-linje logget). Den er ikke utnyttbar i praksis (roten på PATH-katalogene er ikke
 # skrivbar for angriperen).
 if ! command -v /usr/bin/jq >/dev/null 2>&1; then
   decide "PARSE-FAIL" "-" "jq (/usr/bin/jq) finnes ikke"
@@ -431,8 +426,8 @@ if ! printf '%s' "$AGENT_TYPE" | grep -qE '^[A-Za-z0-9._-]+$'; then
   exit 0
 fi
 
-# ── 4. Kontraktfil — parse ÉN gang, fail-closed ved ethvert avvik (TODO 187
-# FIX-MODE RUNDE 7). Se parse_contract() og toppkommentaren for format og
+# ── 4. Kontraktfil — parse ÉN gang, fail-closed ved ethvert avvik.
+# Se parse_contract() og toppkommentaren for format og
 # begrunnelse. En ikke-tom agent_type uten en gyldig kontrakt å slå opp mot
 # BLOKKERES alltid — en sikkerhetsgate uten kontrakt skal aldri slippe
 # gjennom, uansett hvilken rolle som spør.
@@ -479,7 +474,7 @@ fi
 # Verktøy som passerer uansett kontrakt-innhold (SESSION_SAFE), MED en
 # etterprøvbar begrunnelse per verktøy for hvorfor det ikke kan mutere
 # filsystem/repo-tilstand. En uverifisert "beviselig ikke-muterende"-påstand
-# er ikke et bevis (koordinatorens fix-mode-runde, TODO 187) — derfor listes
+# er ikke et bevis (koordinatorens fix-mode-runde) — derfor listes
 # begrunnelsen her, ikke bare i en samle-kommentar.
 #
 #   Read           — leser en fil, returnerer innhold. Ingen skriveparameter.
@@ -502,10 +497,10 @@ fi
 #                    2.1.280+). Eneste parameter er `message`; ingen fil-/repo-
 #                    effekt, og i motsetning til SendMessage kan den ikke
 #                    adressere eller styre en annen agent. Uten den kan ingen
-#                    read-only-rolle levere rapport (målt 2026-09-25: 23 BLOCK
+#                    read-only-rolle levere rapport (målt: 23 BLOCK
 #                    i hook-readonly-gate.log fra kl. 22:01).
 #
-# FJERNET (runde koordinator-fix, TODO 187 FIX-MODE): Monitor og SendMessage
+# FJERNET (runde koordinator-fix): Monitor og SendMessage
 # lå i settet fra runde 3s VIKTIG 4, men begge er selv en styringskanal inn i
 # kjørende/skrivende prosesser:
 #   - SendMessage bærer i kjørende runtime-dokumentasjon presis definisjonen
@@ -513,7 +508,7 @@ fi
 #     en kanal til å instruere en allerede spawnet SKRIVENDE agent (f.eks.
 #     general-purpose eller {{PROJECT_NAME}}-implementer) om å utføre skriving på
 #     read-only-rollens vegne. Det er nøyaktig bruddet arm 2 finnes for å
-#     stoppe (TODO 173 Steg 15), bare pakket inn i en annen kanal.
+#     stoppe, bare pakket inn i en annen kanal.
 #   - Monitor bærer et `command`-felt (kjører et skall-kommando-vindu til en
 #     betingelse er oppfylt) — det er ikke et lesetak, det er en kommando-
 #     kjøring, og hører hjemme i Bash-armens skanner, ikke i en ubetinget
@@ -581,8 +576,8 @@ if [ "$TOOL" = "Bash" ]; then
   fi
 
   # ── Fase-1–4-skanneren (D6+D9) — implementert i Perl for korrekthet
-  # (ekte tilstandsmaskin for sitering/escaping, ikke regex på rå tekst —
-  # TODO 188s regel) og ytelse (bash 3.2s tegn-for-tegn-løkker er O(n²) på
+  # (ekte tilstandsmaskin for sitering/escaping, ikke regex på rå tekst)
+  # og ytelse (bash 3.2s tegn-for-tegn-løkker er O(n²) på
   # store strenger, målt av plan-reviewen runde 3 til 54s på 200 kB).
   # Programmet ligger inline (ikke en egen fil — «Filer som berøres» lister
   # kun guard-reviewer-readonly.sh + test-fila).
@@ -596,8 +591,8 @@ use warnings;
 # ingen fiks skal utvide. X5s tidsassersjon i harnessen ble i stedet rettet
 # til å teste det den FAKTISK kan bevise (BLOCK-utfallet ved 200 kB), ikke en
 # komparativ ytelsespåstand den aldri målte differansen for. Vurderes på nytt
-# ved selve enforce-flippen (TODO 187 Steg 13), med en ekte før/etter-måling
-# da (se opphavsprosjektets docs/workflow.md (ikke med i kit-et)).
+# ved selve enforce-flippen, med en ekte før/etter-måling
+# da.
 my $MAXLEN = 8192;
 
 # $cmd leses nå fra STDIN, ikke @ARGV (VIKTIG, koordinator-fix runde 6
@@ -715,14 +710,14 @@ my %GH_SUBCMDS_SIMPLE = (
 
 sub block_reason { print "BLOCK\t$_[0]\n"; exit 0; }
 
-# Carve-out SNEVRET (MINDRE 2, koordinator-fix-runde TODO 187): kun
+# Carve-out SNEVRET (MINDRE 2): kun
 # test-*.sh (aldri guard-*.sh — den vokteren skal ikke kunne kjøre SEG SELV
 # med frie argumenter), og kun UTEN argumenter (bare kommandoordet alene i
 # segmentet). Tidligere versjon matchet kun $ft (segmentets FØRSTE token) og
 # gjorde deretter `next` for HELE segmentet uansett hva som fulgte —
 # `.claude/hooks/guard-reviewer-readonly.sh --whatever` ga dermed ALLOW med
 # et fritt, angriper-styrt argument inn i selve vakten (som appender til
-# gate-loggen — logg-injeksjon, se opphavsprosjektets docs/workflow.md (ikke med i kit-et) restrisiko-avsnitt).
+# gate-loggen — logg-injeksjon).
 sub check_carveout_token {
   my ($tok) = @_;
   if ($tok =~ m{^(?:\./)?\.claude/hooks/test-[A-Za-z0-9._-]+\.sh$}) { return 1; }
@@ -1078,8 +1073,8 @@ EOF
     TI_ISOLATION_STRVAL="$(printf '%s' "$TI_ISOLATION_RAW" | jq -r 'if type=="string" then . else tostring end' 2>/dev/null)"
     block "agent" "isolation satt ('$TI_ISOLATION_STRVAL')"
   fi
-  # Ingen separat run_in_background-sjekk her (fjernet i koordinator-fix-runden,
-  # TODO 187 FIX-MODE VIKTIG 3): payload UTEN feltet gir samme utfall som
+  # Ingen separat run_in_background-sjekk her (fjernet):
+  # payload UTEN feltet gir samme utfall som
   # payload MED feltet satt til true, fordi bakgrunnsdispatch er verktøyets
   # DEFAULT, ikke et unntak — en sjekk som kun fanger den eksplisitte
   # `true`-verdien dekker ikke det faktiske overflatearealet og var derfor en
@@ -1088,7 +1083,7 @@ EOF
   # formål (samme skrivetilgang, samme charter) — resultatet leses uansett kun
   # via TaskOutput, som er eksplisitt tillatt i SESSION_SAFE.
 
-  # MERK (TODO 187 FIX-MODE RUNDE 7): den gamle "uscopet charter"-eskapen
+  # MERK: den gamle "uscopet charter"-eskapen
   # (et bart Agent/Task-token uten Agent(...)-parentes tillot ALL
   # subagent-dispatch) er FJERNET. Kontraktfilas AGENT_ALLOWLIST er nå
   # eneste kilde — "-" (tom allowlist) betyr at ALL Agent/Task-dispatch for

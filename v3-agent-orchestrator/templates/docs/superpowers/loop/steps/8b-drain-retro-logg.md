@@ -13,9 +13,9 @@ koordinator som leser §6c ovenfra og ned aldri lære at dette steget finnes): v
 (kø-tom/grooming) kjøres §8b FØR §7s grooming-forslag skrives (se forover-peker i §7); ved
 Trigger 2 (hver N-te merge) kjøres §8b rett etter helseraden er skrevet, uavhengig av om
 grooming kjører i samme runde. Uten denne todelte kadensen fyrer §8b nesten aldri — kø-tom er en
-sjelden hendelse sammenlignet med merge-takten (opphav: TODO 174 fix-mode).
+sjelden hendelse sammenlignet med merge-takten.
 
-**TODO 246 — nivå B6:** hvilke Forbedringsforslag-linjer som forfremmes (`promoted`) eller lukkes
+**Nivå B6:** hvilke Forbedringsforslag-linjer som forfremmes (`promoted`) eller lukkes
 (`adopted`/`obsolete`) under er nivå B6 i `decision-level.py`. Logg per §8b-runde som faktisk
 promoterer/lukker minst én rad — ikke per enkelt rad.
 
@@ -43,7 +43,7 @@ skrives for dem her; de vurderes på nytt ved neste §8b-runde). Taket gjelder *
 triggere og er IKKE et per-invokasjons-budsjett**: det er bundet til hvor mange §8b-drafts som
 venter på triage, ikke til hvor ofte §8b kjører — ellers ville hyppig Trigger 2-kjøring (hver
 N-te merge) fylle køen ubegrenset, siden et per-invokasjons-budsjett gir friskt rom hver eneste
-gang (opphav: TODO 174 fix-mode runde 2). Ved Trigger 1 (kø-tom) teller det §8b faktisk
+gang. Ved Trigger 1 (kø-tom) teller det §8b faktisk
 promoterer denne runden i tillegg mot §7s EGNE, separate rundebudsjett på inntil 3 (se §7) — to
 uavhengige tak som begge må være oppfylt, ikke ett delt tak.
 
@@ -76,11 +76,11 @@ committes og pushes før §8b anses ferdig — hvordan avhenger av hvilken trigg
   etterpå. §8b MÅ derfor selv kjøre **Delt-state-git-halen** (§6, steg 6) med eget
   `$MSG="chore(loop): §8b retro-drain — N rader"`. Uten denne invokasjonen blir working tree
   skitten etter §8b, og neste todo treffer §0s «Working tree ikke ren → rapporter til
-  mennesket og stopp» (opphav: TODO 174 fix-mode runde 2-funn — hver Trigger-2-kjøring som
+  mennesket og stopp» (hver Trigger-2-kjøring som
   skrev noe, stoppet loopen ved neste todo, siden ingen hale committet den).
 
-`retro-triage.md` er runtime-state (seed-only, samme vern som `run-log.md`/`retro-log.md` — se
-lesson 2026-06-30): filen seedes av `/setup` én gang og regenereres ALDRI (kun appendes av
+`retro-triage.md` er runtime-state (seed-only, samme vern som `run-log.md`/`retro-log.md`):
+filen seedes av `/setup` én gang og regenereres ALDRI (kun appendes av
 koordinatoren).
 
 `docs/superpowers/loop/retro-log.md` selv røres IKKE av dette steget — den forblir ren

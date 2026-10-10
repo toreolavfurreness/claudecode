@@ -11,7 +11,7 @@
 #
 # Bakgrunn: Den vanligste dokumenterte feilkilden i prosjektet er forveksling
 # av dev-/prod-ref, og at den globale FIFA Match Night-CLAUDE.md har lekket inn
-# en fremmed ref to ganger (lessons 2026-04-10 og 2026-04-15). Denne hooken er
+# en fremmed ref to ganger. Denne hooken er
 # en allowlist-vakt: enhver Supabase-ref som dukker opp i et MCP- eller CLI-kall
 # må være <prosjekt>s dev- eller prod-ref — alt annet blokkeres.
 #

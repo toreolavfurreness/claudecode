@@ -4,8 +4,8 @@
 """graph-query.py — oppslag mot kantgrafen fra graph-build.py.
 
 Bruk:
-    python3 tasks/graph-query.py --file components/AddRecipeModal.tsx
-    python3 tasks/graph-query.py --todo 168
+    python3 tasks/graph-query.py --file components/AddItemModal.tsx
+    python3 tasks/graph-query.py --todo 12
     python3 tasks/graph-query.py --file <sti> --json     # maskinlesbart {"edges": [...]}
     python3 tasks/graph-query.py --file <sti> --graph <lagret-graf.json>   # feilsoking
 

@@ -3,7 +3,7 @@
 # Endre loop.config.yaml og kjør /setup på nytt.
 """tasks/decision-level.py — klassifiserer koordinator-hendelser til nivå A
 (spør mennesket, loopen stopper) eller nivå B (koordinatoren bestemmer selv,
-logger, mennesket kan vetoe) — TODO 246.
+logger, mennesket kan vetoe).
 
 Leser IKKE loop.config.yaml ved kjøring. `CAP` og regeltabellene
 under er FROSSET tekst, ikke substituert av /setup (i motsetning til
@@ -13,7 +13,7 @@ GENERERT-kontrakt som resten av kit-et: rediger templaten
 og kjør /setup på nytt. `{{PROD_ENV_ID}}`/`{{PROD_BRANCH}}`/`{{DEV_ENV_ID}}`/
 `{{RELEASE_COMMAND}}` i trigger-tekstene under ER ekte substitusjonstokens —
 disse fire gjør V12 (idempotens) og V13 (V-DRY) substitusjons-BEVISSTE, ikke
-trivielt sanne (lesson 2026-09-02, tasks/lessons/workflow-process/).
+trivielt sanne.
 
 Regeltabellen (A1-A8 + B1-B7) og konvergensvakten under er én kilde i KODE.
 Den andre kilden er PROSA i `docs/superpowers/loop/coordinator-runbook.md`
@@ -22,7 +22,7 @@ Den andre kilden er PROSA i `docs/superpowers/loop/coordinator-runbook.md`
 
 Kjøres av koordinatoren OG av implementeren (samme mønster som
 review-severity-floor.py/review-lens-select.py) — ALDRI av kode-revieweren,
-som er read-only uten python3 i Bash-allowlisten (M10, TODO 246 plan §3.4).
+som er read-only uten python3 i Bash-allowlisten (M10).
 
 Bruk:
     python3 tasks/decision-level.py --event <navn> [--context k=v]... [--todo <nr>] [--title <tekst>]
@@ -64,7 +64,7 @@ fixture til stderr, JSON-sammendrag til stdout, og deretter logg-parser-testen
 tre besto.
 
 `--agreement` skriver TSV `type n fulgt avvek forslag` over nivå A-entries med
-`Eierens svar:` i decision-log (TODO 455). `--recent-b` skriver JSON-objekt
+`Eierens svar:` i decision-log. `--recent-b` skriver JSON-objekt
 `{"entries": [...], "unparsed": N}`: `entries` er nivå B-entries fra de siste `--hours`
 timene; `unparsed` teller `### `-linjer under markøren som ikke følger
 `### YYYY-MM-DD HH:MM …` og hvis første dato er innenfor samme vindu (linjer uten
@@ -79,14 +79,14 @@ from datetime import datetime, timedelta
 
 # CAP markerer første runde som har en forrige runde å sammenligne med
 # (konvergensdata kreves fra runde 2), og terskelen for decision_logged.
-# Fast rundetak (fjernet i TODO 455): i §4 begrenses antall runder av at
+# Intet fast rundetak: i §4 begrenses antall runder av at
 # gate-funnene må gå ned for hver runde, pluss kostnadsbremsen. I §5b
-# (TODO 472) begrenser bare kostnadsbremsen og innholdsregelen.
+# begrenser bare kostnadsbremsen og innholdsregelen.
 CAP = 2
 
 # --- Regeltabellen (frossen prosa, én kilde i kode) -------------------------
 # Trigger-tekstene er ORDRETT identiske med tabellene i runbook-templatens
-# § Pausepunkter (TODO 246 plan §3.1) — V7/Del D2 avstemmer de to. IKKE
+# § Pausepunkter — V7/Del D2 avstemmer de to. IKKE
 # reformuler den ene uten den andre.
 A_RULES = [
     ("A1", "Skriving mot prod-miljøet (`{{PROD_ENV_ID}}`) eller kjøring av `{{RELEASE_COMMAND}}`"),
@@ -158,11 +158,11 @@ def _a0(violations):
 
 
 def _convergence(ctx, n, narrow=False):
-    """Konvergensregelen (TODO 455). Ikke-tom liste ⇒ A0.
+    """Konvergensregelen. Ikke-tom liste ⇒ A0.
 
-    narrow=True er §5b (TODO 472, eierens vedtak 2026-10-04 18:08): at gate-funnene ikke går
+    narrow=True er §5b: at gate-funnene ikke går
     ned, og en ny feilklasse, er B1. Innholdsfunn, manglende data og kostnadsbremsen er A0.
-    `cost_over=few` (bremsen mangler utvalg, TODO 483, eierens vedtak 2026-10-09 18:40) er A0
+    `cost_over=few` (bremsen mangler utvalg) er A0
     bare i §5b fra runde 2 og teller ellers som `no`.
     """
     v = []
@@ -321,7 +321,7 @@ FIXTURES = [
     # 3 punkt (i)) — uten den ville F27 vært A0 på manglende loggplikt, ikke
     # på konvergensvakten.
     ("F27", "todo_split", {"code_review_rounds": "4", "decision_logged": "yes"}, "B", "B2"),
-    # F28-F40 (TODO 455/472): hver fixture skiller seg fra F28/F34 i ÉN nøkkel. §5b leses smalt:
+    # F28-F40: hver fixture skiller seg fra F28/F34 i ÉN nøkkel. §5b leses smalt:
     # F29 (funnene går ikke ned) og F30 (ny feilklasse) er B1. §4 er uendret (F35, F37, F38).
     ("F28", "revise_gate_choice", _F28, "B", "B1"),
     ("F29", "revise_gate_choice", {**_F28, "blocking_now": "3"}, "B", "B1"),
@@ -336,7 +336,7 @@ FIXTURES = [
     ("F38", "plan_review_choice", {**_F34, "content": "yes"}, "A", "A0"),
     ("F39", "revise_gate_choice", {k: v for k, v in _F28.items() if k != "blocking_now"}, "A", "A0"),
     ("F40", "revise_gate_choice", {k: v for k, v in _F28.items() if k != "new_class"}, "A", "A0"),
-    # F41-F49 (TODO 483): `few` stopper bare §5b fra runde 2. F46-F48 fester at `unknown` stopper
+    # F41-F49: `few` stopper bare §5b fra runde 2. F46-F48 fester at `unknown` stopper
     # også i §4 og i §5b runde 1, F49 at manglende `cost_over` stopper i §5b runde 1.
     ("F41", "revise_gate_choice", {**_F28, "cost_over": "few"}, "A", "A0"),
     ("F42", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round", "cost_over": "few"}, "B", "B1"),
@@ -372,7 +372,7 @@ def run_self_test():
     return passed == total
 
 
-# --- Logg-parser (TODO 455) -------------------------------------------------
+# --- Logg-parser -------------------------------------------------
 LOG_PATH = "docs/superpowers/loop/decision-log.md"
 RUN_LOG_PATH = "docs/superpowers/loop/run-log.md"
 _HEADER = re.compile(r"^### (\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?: —)? (.*)$")
@@ -491,7 +491,7 @@ def run_parser_self_test():
     return ok
 
 
-# --- Avstemming mot run-loggen (TODO 472) -----------------------------------
+# --- Avstemming mot run-loggen -----------------------------------
 def attribute(entries, run_text):
     """Hvilken run-log-rad bærer hver [B<siffer>]-oppføring. Ingen filsystemkall.
 

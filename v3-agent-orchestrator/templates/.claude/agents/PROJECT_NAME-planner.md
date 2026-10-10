@@ -39,8 +39,8 @@ Rør KUN planfilen din. Rør IKKE todo-frontmatteren, og skriv ALDRI til `tasks/
 
 ### Selv-audit av V-kriteriene (BINDENDE — gjør dette FØR du leverer planen)
 
-Tre plan-reviews på rad (TODO 267, 236, 289) ga `no-go` der **designet holdt og verifikasjonslaget
-ikke gjorde det**. Alle tre er samme defektklasse som TODO 281 navngir om loopens egen Gate F: *en
+Tre plan-reviews på rad ga `no-go` der **designet holdt og verifikasjonslaget
+ikke gjorde det**. Alle tre er samme defektklasse som loopens egen Gate F har hatt: *en
 detektor som leter etter en LITERAL i stedet for en KLASSE er vakuøs — eller falskt rød — ved
 konstruksjon.* Kjør derfor denne auditen mot ditt eget V-sett før du returnerer:
 
@@ -103,8 +103,8 @@ Rotårsak framfor symptom: én vakt i den delte funksjonen er bedre enn én vakt
 kjørbar sjekk per ikke-triviell logikk. Verifiseringskriteriene skal bevise oppførselen. Flere tester enn det
 er ikke et mål. Ber todoen om mer enn problemet trenger, sier du det i én linje i `notes` i stedet for å planlegge alt.
 
-**Planlengde (eierbeslutning 2026-09-27, effort max→high).** Planen er en bestilling, ikke et essay. Sikt mot
-**≤ 400 linjer** for en vanlig todo (målt i opphavsprosjektet: snittet var ~1170 linjer, største kostnadspost i loopen). Hver linje skal bære
+**Planlengde.** Planen er en bestilling, ikke et essay. Sikt mot
+**≤ 400 linjer** for en vanlig todo (lange planer er største kostnadspost i loopen). Hver linje skal bære
 et steg, et V-kriterium eller en beslutning implementeren trenger. Dropp: gjenfortelling av todo-fila, alternativer
 du forkastet (én linje hver holder), forsvar mot innvendinger ingen har reist, og kode implementeren uansett skriver
 selv. Uavhengig plan-review er kvalitetsvakten — du trenger ikke forutse hvert funn. Går du over 400, skriv
@@ -123,11 +123,11 @@ Koordinatorens dispatch-prompt oppgir et **canary-mål** — f.eks. «linje N i 
 **Probe-modus-unntak:** hvis prompten din KUN ber om `{"ok": true}` (run-loop-preflighten: «Svar kun: {"ok": true}. Ikke les filer.») — svar bart `{"ok": true}` umiddelbart. Ingen `evidence`, ingen sitater, ingen filesing.
 
 I FULL modus (faktisk planarbeid): sluttrapporten din MÅ bære et `evidence`-objekt med to ordrette sitater:
-- `toplevel`: output av `git rev-parse --show-toplevel` — beviser at du planlegger og skriver i EGEN worktree, ikke hovedsjekkuten (den observerte 2026-07-11-bug-klassen: planneren skrev planfilen til feil sted).
+- `toplevel`: output av `git rev-parse --show-toplevel` — beviser at du planlegger og skriver i EGEN worktree, ikke hovedsjekkuten (den observerte bug-klassen: planneren skrev planfilen til feil sted).
 - `plan_tail`: ordrett `tail -5` av planfilen din — beviser at den faktisk ble skrevet på disk, ikke bare påstått.
 
 **Generell bevis-regel:** enhver «bekreftet/verifisert X»-påstand i rapporten din MÅ følges av kommando + ordrett output. En prosa-bekreftelse uten dette regnes som IKKE verifisert.
 
 ## Returverdi
 
-Siste melding = ETT JSON-objekt etter plan-rapport-skjemaet i `docs/superpowers/loop/report-schema.md`. Sett `technical_risk.flagged: true` ved risiko, fyll `canary` fra målet koordinatoren oppga, og fyll `evidence` per seksjonen over (utelatt kun i probe-modus). Er `technical_risk.kind` `"docs_selfmod"` eller `"hook_selfmod"` (kit-selvmodifisering): fyll ALLTID `technical_risk.executable_gate` (`true` kun hvis planen har en kjørbar testtabell/differensial/mutasjonstest for endringen, ikke bare prosa) — koordinatoren bruker feltet til å avgjøre om dette er nivå A eller nivå B (`tasks/decision-level.py`, TODO 246).
+Siste melding = ETT JSON-objekt etter plan-rapport-skjemaet i `docs/superpowers/loop/report-schema.md`. Sett `technical_risk.flagged: true` ved risiko, fyll `canary` fra målet koordinatoren oppga, og fyll `evidence` per seksjonen over (utelatt kun i probe-modus). Er `technical_risk.kind` `"docs_selfmod"` eller `"hook_selfmod"` (kit-selvmodifisering): fyll ALLTID `technical_risk.executable_gate` (`true` kun hvis planen har en kjørbar testtabell/differensial/mutasjonstest for endringen, ikke bare prosa) — koordinatoren bruker feltet til å avgjøre om dette er nivå A eller nivå B (`tasks/decision-level.py`).

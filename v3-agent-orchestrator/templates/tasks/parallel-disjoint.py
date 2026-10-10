@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-parallel-disjoint.py — TODO 233: fil-disjunkt-gate for parallelle implementere
+parallel-disjoint.py: fil-disjunkt-gate for parallelle implementere
 (coordinator-runbook.md §5d).
 
 To gater, samme skript:

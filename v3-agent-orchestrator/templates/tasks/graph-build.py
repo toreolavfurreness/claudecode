@@ -231,7 +231,7 @@ def process_todos(add_edge, resolve_file, stats):
 
 
 def process_notes(add_edge, resolve_file, stats, base, prefix):
-    """En fil = en node (TODO 275). Node-ID: <prefix>:<sti under base, uten .md>.
+    """En fil = en node. Node-ID: <prefix>:<sti under base, uten .md>.
 
     Kanter: TODO/BUG/fil-mentions i teksten etter frontmatter (tittel inkludert), pluss
     frontmatter-feltet `kilder` (`TODO-NN`/`BUG-NNN`). `tags` gir bevisst ingen kanter."""

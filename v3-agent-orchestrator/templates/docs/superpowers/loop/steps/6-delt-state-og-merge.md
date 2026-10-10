@@ -16,14 +16,14 @@
 
 <!-- mekanisk-kandidat: template↔generert-identitet — scratch-regen + cmp per generert fil, substitusjons-bevisst (mangler) -->
 
-**0. CI-gate — FØR steg 1, før noe delt state røres (TODO 216).** Kjør gaten som EGEN kommando og
+**0. CI-gate — FØR steg 1, før noe delt state røres.** Kjør gaten som EGEN kommando og
 kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer som STARTER med
 `gh`, så `python3 … && gh api … /merge` slipper forbi base-vakten.
    ```bash
    python3 tasks/ci-gate.py <pr-nummer>
    ```
    Kjør den i forgrunnen fra repo-roten med Bash-verktøyets `timeout: 600000`. Bruk aldri
-   `run_in_background`, og aldri shell-`timeout`, som ikke finnes på macOS (lesson 2026-09-17).
+   `run_in_background`, og aldri shell-`timeout`, som ikke finnes på macOS.
    Gaten henter PR-ens head-SHA og venter (tak 540 s, under verktøyets 600 s) til alle
    workflow-kjøringer, check-runs og commit-statuser for NETTOPP den SHA-en er ferdige. Linje 1 er
    run-log-tokenet `ci=<klasse>`, linje 2 er `sha=<head-sha>`. Dommen gjelder bare den SHA-en, og
@@ -31,8 +31,8 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
    skrevet en `ci=`-linje, regnes som `ci=error`.
    - `ci=green` ⇒ steg 1. Ta med `sha=` til steg 4 og `ci=green` til raden i steg 5.
    - `ci=red` ⇒ ikke merge. Les feilen: `gh run view <run-id> --log-failed` (run-id står i
-     gatens detaljlinjer; tom logg ⇒ les ANNOTATIONS i `gh run view <run-id>`, lesson
-     2026-09-17). Er den røde linja en `status <context>` (ingen run-id), ⇒ PAUSEPUNKT.
+     gatens detaljlinjer; tom logg ⇒ les ANNOTATIONS i `gh run view <run-id>`).
+     Er den røde linja en `status <context>` (ingen run-id), ⇒ PAUSEPUNKT.
      Peker feilen ellers på en fil i PR-ens egen diff (`gh pr diff <pr> --name-only`) ⇒
      tilbake til §5b fix-mode med CI-feilen som BLOKKERENDE funn; B1-reglene og konvergensregelen gjelder
      uendret. Ellers (samme sjekk rød på `{{BASE_BRANCH}}`, jobb som aldri startet, uklar årsak)
@@ -46,7 +46,7 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
    Ved pausepunkt: release claim og skriv raden med `outcome=paused`, `pause_event=ci-rød` og
    gatens `ci=`-linje i notat-feltet (`ci=error` hvis kallet ble drept). Steg 1–6 kjøres ikke.
 
-<!-- mekanisk-kandidat: CI-gate før merge — PreToolUse-hook på merge-kallet som krever ci=green for samme sha (mangler; guard-main-merge.sh håndhever A4 og ble bevisst ikke endret i TODO 216) -->
+<!-- mekanisk-kandidat: CI-gate før merge — PreToolUse-hook på merge-kallet som krever ci=green for samme sha (mangler; guard-main-merge.sh håndhever A4) -->
 
 Fra ferdig-rapporten, `status: "implemented"`:
 1. **Lessons:** for hver `lessons[]`, skriv én fil `tasks/lessons/<topic>/<YYYY-MM-DD>-<slug>.md` etter skrive-protokollen i `tasks/lessons.md` og formatet i `docs/loop-rules.md` § «Lessons learned — én fil per lesson»: `sources` → frontmatter-`kilder`, `pattern`/`checklist` → **Problem:**/**Løsning:**/**Unngå:**. Ingen indeks å oppdatere. Dekker en eksisterende lesson samme mønster: utvid den i stedet. Carry-forwards (planens CF-seksjon, rapportens `notes`) går til `tasks/followups/`, én fil per oppfølging — de er ikke et lessons-tema.
@@ -75,7 +75,7 @@ Fra ferdig-rapporten, `status: "implemented"`:
    (`scaffolding/github-workflows/ci.yml`) er backstop for NESTE PR, ikke for et race mot en
    base som flyttet seg etter siste grønne CI-kjøring.
 
-   Deretter merge via REST som default (bruker core-kvoten i stedet for GraphQL — lesson 2026-07-13):
+   Deretter merge via REST som default (bruker core-kvoten i stedet for GraphQL):
    ```bash
    gh api --method PUT "repos/{owner}/{repo}/pulls/<pr-nummer>/merge" -f merge_method=merge -f sha=<sha fra steg 0>
    ```
@@ -85,10 +85,10 @@ Fra ferdig-rapporten, `status: "implemented"`:
    Verifiser `merged: true` i responsen, og sett deretter `stadium: merged` på DENNE invokasjonens
    rad i in-flight-tabellen FØR §0b-kallene under (kode-review-funn, fix-runde 2, MINDRE 4) —
    allowlisten i «In-flight-tabell» (§5d) gater §0b nettopp på denne verdien, og ingen tidligere
-   linje sa NÅR den skulle skrives. Endepunktet tar PR-**nummer** (ikke URL), og nummeret må stå som et **literalt tall** i kallet — en shell-variabel blokkeres av `guard-main-merge.sh` (TODO 172 D). Faktumet at base settes ved PR-oppretting og ikke ved selve merge-operasjonen gjelder uansett merge-form. Fallback ved REST-problemer: `gh pr merge <pr> --merge --match-head-commit <sha fra steg 0>` (bruker GraphQL-kvoten, som kan tømmes ved høyt volum — lesson 2026-07-13).
+   linje sa NÅR den skulle skrives. Endepunktet tar PR-**nummer** (ikke URL), og nummeret må stå som et **literalt tall** i kallet — en shell-variabel blokkeres av `guard-main-merge.sh`. Faktumet at base settes ved PR-oppretting og ikke ved selve merge-operasjonen gjelder uansett merge-form. Fallback ved REST-problemer: `gh pr merge <pr> --merge --match-head-commit <sha fra steg 0>` (bruker GraphQL-kvoten, som kan tømmes ved høyt volum).
 
-   `guard-main-merge.sh` er registrert i `PreToolUse` i `.claude/settings.json` (TODO 173) og
-   kjører i alle sesjoner og alle worktrees — verifisert 2026-08-31 ved at en throwaway
+   `guard-main-merge.sh` er registrert i `PreToolUse` i `.claude/settings.json` og
+   kjører i alle sesjoner og alle worktrees — verifisert ved at en throwaway
    worktree-sub-agent ble blokkert på `gh pr merge`. Hooks lastes ved **sesjonsstart** fra
    **hovedsjekkuten** (`$CLAUDE_PROJECT_DIR` resolver dit også for worktree-agenter), så en
    endring i skriptet eller i `settings.json` får effekt først i en fersk sesjon etter at
@@ -96,11 +96,11 @@ Fra ferdig-rapporten, `status: "implemented"`:
    komme fra den gitignorerte `.claude/settings.local.json`; sjekk begge hvis atferden avviker.
    **Begrensning:** vakten inspiserer kun kommandoens FØRSTE linje — flerlinjede eller prefiksede
    kommandoer (`git add -A` ⏎ `git push origin main`, `cd x && git push origin main`) omgår den.
-   Lukkes i TODO 188. Base-sjekken over er derfor fortsatt den vakten som aldri kan hoppes over.
+   Base-sjekken over er derfor fortsatt den vakten som aldri kan hoppes over.
 
    **GraphQL-kvote-fellen:** hvis vakten blokkerer med «kunne ikke bekrefte base (fail-safe)» midt
    i et løp, er årsaken sannsynligvis tom GraphQL-kvote, ikke en farlig merge — `gh pr view` bruker
-   GraphQL, og lesson 2026-07-13 er nettopp at den kvoten tømmes under tunge løp. Verifiser base
+   GraphQL, og den kvoten tømmes under tunge løp. Verifiser base
    med core-REST (`gh api repos/{owner}/{repo}/pulls/<pr-nummer> --jq .base.ref`) og kjør
    merge-kommandoen manuelt i terminal.
 
@@ -115,8 +115,8 @@ Fra ferdig-rapporten, `status: "implemented"`:
    `-d`-nekt på en EKSISTERENDE branch teller der (§0b punkt 8).
    (iii) **K3** (den forlatte basis-branchen, oppstått når workeren byttet branch selv) dekkes av
    den **sti-utledede** slettingen i §0b punkt 7(b) — IKKE av noe sveip.
-   **Ingen glob-sveip legges inn her** — historiske foreldreløse branches (fra FØR denne PR-en)
-   eies av mennesket via TODO 245, aldri av loopen selv.
+   **Ingen glob-sveip legges inn her** — historiske foreldreløse branches 
+   eies av mennesket, aldri av loopen selv.
    **Ved en §5d-armert (parallell) runde er A og B TO adskilte §6-invokasjoner** (§5d,
    «Sekvensen»): denne worktree-ryddingen kjører per invokasjon på DEN invokasjonens egen
    akkumulerte liste alene — §6(A) sender aldri B sin rad til §0b og omvendt (§5d, «In-flight-
@@ -168,7 +168,7 @@ Fra ferdig-rapporten, `status: "implemented"`:
    umulig å skille fra «glemte å skrive det», og gaten gir RØDT på begge (fravær ELLER
    feil-formet verdi).
 
-   **Deretter: navngitt kjøring for denne todoens egne trær (TODO 401).** Kallet over rydder
+   **Deretter: navngitt kjøring for denne todoens egne trær.** Kallet over rydder
    normalt ikke denne todoens egne trær: de er rørt siste døgn, og aldersvakten (`AGE_MIN`,
    §6d punkt 4) beholder dem. Kjør derfor også `./tasks/worktree-sweep.sh agent-<id> agent-<id> …`
    med ett `agent-<id>` per worktree-isolert dispatch denne todoen har hatt: planner,
@@ -178,7 +178,7 @@ Fra ferdig-rapporten, `status: "implemented"`:
    også er `basename` av rapportens `evidence.toplevel`. Oppgi navnet, ikke stien: alt annet enn
    `agent-…` avvises med `exit 2`. Scout og lenser har ingen egen worktree og navngis ikke.
    **Aldri** en agent fra et pipelinet (§5c) eller parallelt (§5d) B-spor: den kan fortsatt leve,
-   og låsen er ikke noe vern — en agent vekket med `SendMessage` er målt uten lås (2026-09-25).
+   og låsen er ikke noe vern — en agent vekket med `SendMessage` er målt uten lås.
    **Et agent-ID som har vært navngitt i en navngitt kjøring, er dødt: det skal aldri vekkes med
    `SendMessage` igjen, dispatch en fersk agent.** Skriptet vurderer KUN de navngitte trærne og
    hopper over aldersvakten for dem; alle andre vakter og redningen gjelder uendret. Et navn uten
@@ -192,7 +192,7 @@ Fra ferdig-rapporten, `status: "implemented"`:
    `wtsweep_named=` inneholder ikke den understrengen: den navngitte kjøringen kan verken gjøre
    gaten grønn eller rød.
 
-   **Overgang (TODO 401):** 401s egen §6-rad SKAL bære både `wtsweep=` og `wtsweep_named=`.
+   **Overgang:** 401s egen §6-rad SKAL bære både `wtsweep=` og `wtsweep_named=`.
 
    **Overgang: 380s egen §6-rad SKAL bære `wtsweep=` — kjør steg 4b allerede for 380-mergen**
    (fix-runde 3, mikro).
@@ -237,25 +237,22 @@ Fra ferdig-rapporten, `status: "implemented"`:
    samme i `run-log.md`, denne fila og deres genererte tvillinger — avvik er en ny
    silent-node-failure-kilde. `printf` (ikke heredoc-&&-kjede) unngår
    del-eksekverings-fellen. Dedup-nøkkelen er `timestamp | todo_nr` — **to rader for samme
-   todo i samme minutt støttes IKKE av denne nøkkelen**; bruk et distinkt `$TS` per rad
-   (129-presedensen, run-log 2026-07-11T18:52 ×2, er et historisk unntak FRA FØR denne
-   guarden fantes — ikke en gjentakbar mal). Workers rører ALDRI run-log.md.
+   todo i samme minutt støttes IKKE av denne nøkkelen**; bruk et distinkt `$TS` per rad. Workers rører ALDRI run-log.md.
 
    **NB — notat-feltet (`selector=`/`floor=`/`viol=`/`floor_exempt=`/`pipelined_from=`/`parallel_with=`/
    `auto_decided=`/`attest=`/`vblock=`/`scout=`/`wtsweep=`/`ci=`) er IKKE med i `$ROW`-malen over.** De fleste
    appenderes som SISTE felt etter at raden er skrevet (§5b, §5c, §5d, § Pausepunkter) — feltets eget
-   NUMMER er omstridt mellom spec-tabellen og de faktiske radene (eies av TODO 210, CF-246-1/CF-246-2,
-   ikke løst av denne PR-en). `wtsweep=` er UNNTAKET: verdien er allerede kjent FØR raden skrives
+   NUMMER er omstridt mellom spec-tabellen og de faktiske radene (ikke fastsatt). `wtsweep=` er UNNTAKET: verdien er allerede kjent FØR raden skrives
    (§6 steg 4b over), så den skrives inn i notat-feltet SAMTIDIG med resten av raden i steg 5, ikke
-   appendert etterpå — se steg 4b for hvorfor rekkefølgen er bindende (B1). `ci=` (TODO 216) er samme
+   appendert etterpå — se steg 4b for hvorfor rekkefølgen er bindende (B1). `ci=` er samme
    slags unntak: verdien er linje 1 fra steg 0, ordrett, og skrives sammen med raden. Fravær av `ci=`
-   på en `merged`-rad skrevet etter TODO 216 er et kontraktbrudd, fordi raden da ikke kan skilles fra
+   på en `merged`-rad er et kontraktbrudd, fordi raden da ikke kan skilles fra
    en merge uten gate. `auto_decided=` er
    OBLIGATORISK på ALLE ikke-`health`-rader (også når verdien er `:0`)
-   og FORBUDT på `outcome=health`-rader. `attest=` (TODO 250A) skrives i samme felt, KUN på rader
+   og FORBUDT på `outcome=health`-rader. `attest=` skrives i samme felt, KUN på rader
    som har hatt en §5b-kode-review, ALDRI på `outcome=health`-rader — og til forskjell fra
    `auto_decided=` er fravær IKKE et kontraktbrudd (`observe`, se §5b). `parallel_with=<annen-todo>`
-   (TODO 233, §5d) skrives på BEGGE rader i en §5d-armert runde — A får `parallel_with=<B>`, B får
+   (§5d) skrives på BEGGE rader i en §5d-armert runde — A får `parallel_with=<B>`, B får
    `parallel_with=<A>` (og bærer `pipelined_from=<A>` I TILLEGG hvis B også var pipelinet via §5c;
    de to nøklene er ikke gjensidig utelukkende). Fravær av `parallel_with=` betyr «ikke parallell»
    og er ALDRI et kontraktbrudd — samme prinsipp som `pipelined_from=`.
@@ -324,7 +321,7 @@ Fra ferdig-rapporten, `status: "implemented"`:
    på et pipelinet B-spor føres i A sin melding, med `<B-nr>:` foran rolle-leddet. Samme presedens
    som fast-path-parentesen over. Kanalen bærer ÅRSAK og dekker **kun mergede runder** — abort-
    runder når aldri §6 og dekkes av pause-rapporten (§5, «Bevaringsregel ved abort»). Den
-   maskinlesbare TELLEREN `wtwarn=<antall>` i `run-log.md` eies av TODO 194B — denne suffiksen er
+   maskinlesbare TELLEREN `wtwarn=<antall>` i `run-log.md` finnes ikke ennå — denne suffiksen er
    ikke det.
 
    **Re-kjørbarhet, ikke atomisk:** commit→fetch→rebase→push er IKKE én atomisk operasjon —

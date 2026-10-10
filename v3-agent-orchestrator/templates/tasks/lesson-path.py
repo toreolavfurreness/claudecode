@@ -8,7 +8,7 @@
       eksisterende tagger med antall, flest først — gjenbruk før du finner på nye
   python3 tasks/lesson-path.py --self-test
 
-Slug-algoritmen er den samme som migreringen i TODO 275 brukte, så nye filnavn følger de gamle.
+Slug-algoritmen er den samme som `scripts/split-lessons.py` bruker, så nye filnavn følger de gamle.
 """
 import datetime
 import re

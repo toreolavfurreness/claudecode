@@ -36,7 +36,7 @@ Nytt i kit-et:
 
 - `tasks/queue-status.py` (erstatter versjonen med bare markdown) med `--print-title` og `--self-test`.
 - `tasks/queue-config.py`: seedes av `/setup` bare hvis den mangler. Hver nøkkel er forklart i fila.
-  Fullt eksempel: [`examples/queue-config.familiehub.py`](examples/queue-config.familiehub.py).
+  Fullt eksempel: [`examples/queue-config.example.py`](examples/queue-config.example.py).
 - `docs/superpowers/loop/artifacts.md` er nå seed-only (URL-ene er prosjektets) og har en felles
   Køsiden-rad med samme generator og vakter for alle.
 - `tasks/kit-drift.py`: melder `AVVIK` når `tasks/queue-status.py` eller generator- eller vakt-kolonnen
@@ -130,7 +130,7 @@ Resten er en vanlig rekompilering. Commit alt før du starter. Da er git-histori
 
 Kontrollmodellen er lik, så dette er en rekompilering, ikke en ombygging. Det som krever
 oppmerksomhet er at `/setup` **overskriver genererte filer** — har prosjektet redigert dem direkte
-(slik opphavsprosjektet har gjort med runbooken, måleskriptene og køvisningen), går de endringene tapt
+(for eksempel runbooken, måleskriptene eller køvisningen), går de endringene tapt
 om du ikke tar dem med først.
 
 ### 0. Forutsetning
@@ -180,7 +180,7 @@ konvensjons-docs), og merger:
 
 - **`.claude/settings.json`** — hook-registreringer legges til bare hvis akkurat den
   kommandostrengen mangler. Prosjektets egne hooks (f.eks. en miljø-vakt) bevares. Har prosjektet
-  allerede vaktene registrert med samme kommando (som opphavsprosjektet), er dette en no-op.
+  allerede vaktene registrert med samme kommando, er dette en no-op.
 - **`.gitignore`** — runtime-loggene og worktree-mappene.
 - **`CLAUDE.md`** — `@docs/loop-rules.md` legges til nederst hvis importen mangler.
 

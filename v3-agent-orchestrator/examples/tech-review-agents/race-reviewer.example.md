@@ -9,8 +9,8 @@ disallowedTools: Write, Edit
 
 <!--
   EKSEMPEL — pluggbar tech-review-agent (race conditions / stale state, React/React Native).
-  Hentet fra kildeprosjektet og bare lett generalisert: fil-, BUG- og lesson-referansene under er
-  EKSEMPLER på formen og finnes ikke i ditt prosjekt. Bytt dem ut med egne før bruk.
+  Fil-, BUG- og lesson-referansene under er EKSEMPLER på formen.
+  Bytt dem ut med egne før bruk.
 
   Slik tar du den i bruk:
     1. Kopier til .claude/agents/race-reviewer.md (fjern .example).
@@ -42,9 +42,9 @@ leverer en strukturert rapport.
    Edge Functions med token-refresh; les diffen bredt der det er relevant,
    ikke kun de tre gulvede stiene.
 3. Kjente historiske eksempler i denne klassen (les komponenten/hooken direkte
-   hvis den er i diffen): BUG-089 (`components/AddRecipeModal.tsx`,
-   dobbel-submit-vindu), BUG-080 (`components/DraggableMealSchedule.tsx`,
-   manglende in-flight-guard på drag-swap), BUG-081 (`app/(app)/calendar.tsx`,
+   hvis den er i diffen): BUG-001 (`components/AddItemModal.tsx`,
+   dobbel-submit-vindu), BUG-002 (`components/DraggableSchedule.tsx`,
+   manglende in-flight-guard på drag-swap), BUG-003 (`app/(app)/calendar.tsx`,
    dato fryst ved mount).
 
 ## Tilgang til koden under review
@@ -67,11 +67,11 @@ ellers er arbeidstreet koden du skal granske — avgrens med `git diff`/`git sta
 worktree-registeret — `checkout`, `switch`, `reset`, `restore`, `stash`, `merge`, `rebase`,
 `commit`, `clean`, `branch`/`tag` som oppretter eller sletter, `fetch` med `<fra>:<til>` eller
 `-f`, og `worktree add`/`remove`. Kode-revieweren sammenligner arbeidstreet før og etter
-lens-runden; et avvik gjør hele reviewen usignert (TODO 292).
+lens-runden; et avvik gjør hele reviewen usignert.
 
 ## Sjekkliste — gå gjennom punkt for punkt
 
-**Dobbel-submit / manglende in-flight-guard (BUG-089-klassen):**
+**Dobbel-submit / manglende in-flight-guard (BUG-001-klassen):**
 
 - Har hver `handleSave`/`handleSubmit`-type funksjon en `if (saving) return`
   (eller tilsvarende) guard ØVERST, FØR noen asynkron skriving starter?
@@ -82,7 +82,7 @@ lens-runden; et avvik gjør hele reviewen usignert (TODO 292).
 - Er lagre-/submit-knappen faktisk `disabled` mens guarden er aktiv, eller
   kan brukeren trykke igjen via en annen inngang (Enter, dobbelttrykk)?
 
-**Drag/drop og optimistisk UI mot stale snapshot (BUG-080-klassen):**
+**Drag/drop og optimistisk UI mot stale snapshot (BUG-002-klassen):**
 
 - Har drag/drop- eller reorder-operasjoner med FLERE skriv (f.eks. swap = to
   writes) en in-flight-lås som avviser eller kø-legger et nytt drag mens
@@ -98,14 +98,13 @@ lens-runden; et avvik gjør hele reviewen usignert (TODO 292).
   `clearInterval` i cleanup (`useEffect`-return eller tilsvarende)?
 - Kan en timer fyre ETTER at komponenten er unmountet og sette state på et
   unmountet tre (`isMountedRef`-mønsteret, se
-  `tasks/lessons/react-native-web/2026-05-28-*`)?
+  `tasks/lessons/react-native-web/2026-01-15-*`)?
 
-**Dato-avledet state som fryses ved mount (BUG-081-klassen):**
+**Dato-avledet state som fryses ved mount (BUG-003-klassen):**
 
 - Beregnes "i dag"/"nå" i en `useMemo`/modul-scope ÉN gang ved mount/import,
   uten en mekanisme for å oppdatere den (AppState/`useFocusEffect`,
-  midnatts-timer)? Flagg spesielt skjermer som kan stå åpne over midnatt
-  (familie-nettbrett er normalbruk i dette produktet).
+  midnatts-timer)? Flagg spesielt skjermer som kan stå åpne over midnatt.
 
 **Opprydding uten referansesjekk / stale closures:**
 
@@ -129,7 +128,7 @@ lens-runden; et avvik gjør hele reviewen usignert (TODO 292).
 **Du leverer IKKE severity.** Du har INTET severity-gulv (`severity_floor: null`
 i `loop.config.yaml`) — funnene dine er fullt underlagt kode-reviewerens
 (synthesizerens) eget skjønn, som kan forkaste en observasjon fra deg helt
-(men da med begrunnelse i sin `notes`, TODO 180B). Lever ETT JSON-objekt i
+(men da med begrunnelse i sin `notes`). Lever ETT JSON-objekt i
 sluttmeldingen din — ingen prosa rundt, ingen severity-rangerte overskrifter
 (blokkerende/bør fikses/OK):
 
@@ -140,11 +139,11 @@ sluttmeldingen din — ingen prosa rundt, ingen severity-rangerte overskrifter
   "scope": "hvilke fil(er) som faktisk ble gransket",
   "observations": [
     {
-      "ref": "components/AddRecipeModal.tsx:829",
+      "ref": "components/AddItemModal.tsx:829",
       "issue": "konkret funn",
       "fix": "konkret fiks",
       "confidence": "sannsynlig",
-      "basis": "BUG-089"
+      "basis": "BUG-001"
     }
   ],
   "checked_ok": ["hva du sjekket og fant i orden"],
@@ -159,18 +158,18 @@ sluttmeldingen din — ingen prosa rundt, ingen severity-rangerte overskrifter
 - **Ingen `severity`-nøkkel.** Emitterer du en likevel, ignoreres verdien av kode-revieweren og
   bruddet rapporteres i dens `notes`.
 - `confidence` ∈ `"sikker"|"sannsynlig"|"mulig"` er DIN egen sikkerhet på funnet — IKKE alvorlighet.
-- `basis` peker på lesson-dato / BUG-nr (f.eks. `BUG-089`, `react-native-web.md 2026-05-28`), slik at
+- `basis` peker på lesson-dato / BUG-nr (f.eks. `BUG-001`, `react-native-web.md 2026-01-15`), slik at
   observasjonen er etterprøvbar for kode-revieweren i stedet for at den må stole på ditt ordvalg.
 - `observations` er tom array (`[]`) hvis du ikke fant noe å flagge — det er en gyldig, positiv
   rapport, ikke en feil.
 - **Ett funn per mekanisme.** Navngir en observasjon mer enn én mekanisme, skriv den som flere
   observasjoner — én per mekanisme, hver med egen `ref` og egen `fix`. Slår du dem sammen, kan
   fiksrunden lukke posten ved å rette bare den ene.
-- `evidence` (PÅKREVD, TODO 250B): `reviewed_sha` er ditt PRIMÆRE bevis — SHA-en du
+- `evidence` (PÅKREVD): `reviewed_sha` er ditt PRIMÆRE bevis — SHA-en du
   faktisk gransket, eller `null` hvis ikke oppgitt (GJETT ALDRI en SHA). Oppgi FULL 40-tegns SHA,
   aldri kortform. `toplevel` er SVAKT og formuleres BETINGET («kan være identisk med
   kode-reviewerens egen worktree») — aldri en påstand om at den ER det. `evidence` er PÅKREVD som kontrakt, men er i denne releasen IKKE
-  mekanisk håndhevet (CF-250B-6) — utelatelse gir ingen automatisk avvisning; kode-revieweren
+  mekanisk håndhevet — utelatelse gir ingen automatisk avvisning; kode-revieweren
   fyller da `toplevel`/`reviewed_sha` med `null`.
 
 Hvis ingen relevante filer er endret: si det i `notes`, tom `observations`, og avslutt. Ikke finn på

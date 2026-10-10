@@ -91,15 +91,15 @@ autoritativt; tabellen er for mennesker.
 | `{{TIER1_INVARIANTS}}` | `tier1_invariants` (blokk) |
 | `{{TECH_REVIEW_AGENTS_DISPATCH}}` | `tech_review_agents` (rendret blokk, inkl. `trigger_globs` per agent — B2a) |
 | `{{TECH_REVIEW_AGENT_NAMES}}` | `tech_review_agents[].name` (rendret `Agent(...)`-ledd for `tools:`-linja, tom streng hvis ingen konfigurert) |
-| `{{TECH_REVIEW_TRIGGER_GLOBS}}` | `tech_review_agents[].trigger_globs` (rendret Python-dict-literal `{navn: [glob, …]}`, brukt av `tasks/review-lens-select.py` — TODO 180A) |
-| `{{TECH_REVIEW_SEVERITY_FLOORS}}` | `tech_review_agents[].severity_floor` (rendret Python-dict-literal `{navn: gulv-eller-None}`, brukt av `tasks/review-severity-floor.py` OG `tasks/review-fan-in-verify.py` — TODO 180B; CF-250-6) |
-| `{{TECH_REVIEW_FLOOR_EXEMPTIONS}}` | `tech_review_agents[].floor_exempt` (valgfri; rendret Python-dict-literal `{navn: [klasse, …]}`, `[]` for agenter uten nøkkelen, brukt av `tasks/review-severity-floor.py` — TODO 321) |
+| `{{TECH_REVIEW_TRIGGER_GLOBS}}` | `tech_review_agents[].trigger_globs` (rendret Python-dict-literal `{navn: [glob, …]}`, brukt av `tasks/review-lens-select.py`) |
+| `{{TECH_REVIEW_SEVERITY_FLOORS}}` | `tech_review_agents[].severity_floor` (rendret Python-dict-literal `{navn: gulv-eller-None}`, brukt av `tasks/review-severity-floor.py` OG `tasks/review-fan-in-verify.py`) |
+| `{{TECH_REVIEW_FLOOR_EXEMPTIONS}}` | `tech_review_agents[].floor_exempt` (valgfri; rendret Python-dict-literal `{navn: [klasse, …]}`, `[]` for agenter uten nøkkelen, brukt av `tasks/review-severity-floor.py`) |
 | `{{CANARY_FILE}}` | `canary_source` |
 | `{{PAUSE_TRIGGERS}}` | `pause_triggers` |
 | `{{RELEASE_COMMAND}}` | `release.command` |
 | `{{HEALTH_CHECK_INTERVAL}}` | `release.health_check_merge_interval` |
 | `{{PIPELINE_MAX_IN_FLIGHT}}` | `pipelining.max_in_flight` — valgfri nøkkel, default `0` |
-| `{{PARALLEL_IMPLEMENTERS_MAX}}` | `parallel_implementers.max` — valgfri nøkkel, default `1` (TODO 233, §5d) |
+| `{{PARALLEL_IMPLEMENTERS_MAX}}` | `parallel_implementers.max` — valgfri nøkkel, default `1` (§5d) |
 | `{{MEMORY_PLANNER}}` | `agent_memory.scope` + `agent_memory.enabled_roles` (planner) — valgfri nøkkel |
 | `{{MEMORY_REVIEWER}}` | `agent_memory.scope` + `agent_memory.enabled_roles` (reviewer) — valgfri nøkkel |
 | `{{MEMORY_IMPLEMENTER}}` | `agent_memory.scope` + `agent_memory.enabled_roles` (implementer) — valgfri nøkkel |
@@ -176,7 +176,7 @@ if "tech_review_agents" not in c: missing.append("tech_review_agents")
 if missing:
     sys.exit("FEIL: manglende config-nøkler:\n  - " + "\n  - ".join(missing))
 
-# --- Valider trigger_globs per tech-review-agent (fail høyt, TODO 180A) ----
+# --- Valider trigger_globs per tech-review-agent (fail høyt) ----
 # trigger_globs er et GULV (se loop.config.yaml-kommentaren) for koordinatorens
 # tasks/review-lens-select.py — MÅ finnes og være en ikke-tom liste av strenger
 # for HVER konfigurert agent. En tom tech_review_agents: [] er fortsatt lovlig
@@ -191,7 +191,7 @@ for _a in (c.get("tech_review_agents") or []):
 if _glob_errors:
     sys.exit("FEIL: trigger_globs mangler eller er tom liste for: " + ", ".join(_glob_errors))
 
-# --- Valider severity_floor per tech-review-agent (fail høyt, TODO 180B) ---
+# --- Valider severity_floor per tech-review-agent (fail høyt) ---
 # MEMBERSHIP-test, ikke .get(): en manglende nøkkel er en ANNEN feil enn et
 # bevisst null-gulv, og .get() ville gjort dem identiske — fail-open på
 # nøyaktig den feilen valideringen finnes for.
@@ -206,7 +206,7 @@ for _a in (c.get("tech_review_agents") or []):
 if _floor_errors:
     sys.exit("FEIL: severity_floor mangler eller er ugyldig for: " + ", ".join(_floor_errors))
 
-# --- Valider floor_exempt per tech-review-agent (valgfri, fail høyt, TODO 321) ---
+# --- Valider floor_exempt per tech-review-agent (valgfri, fail høyt) ---
 # MEMBERSHIP-test: nøkkelen er valgfri, men finnes den, må verdien være en liste av
 # kjente klasser. null er IKKE «ingen unntak» — da skal nøkkelen utelates.
 VALID_FLOOR_EXEMPT_CLASSES = {"comment_doc_wording"}
@@ -227,7 +227,7 @@ for _a in (c.get("tech_review_agents") or []):
 if _exempt_errors:
     sys.exit("FEIL: floor_exempt er ugyldig for: " + ", ".join(_exempt_errors))
 
-# --- Kryssjekk: CLI-basert e2e krever en probe (fail-closed, se TODO 181) --
+# --- Kryssjekk: CLI-basert e2e krever en probe (fail-closed) --
 # Preflightens §1 (run-loop.md) faller tilbake til "tilgjengelig" for en tom
 # CLI-probe (et tomt skall avslutter med exit 0) — uten denne sjekken kunne et
 # feilkonfigurert prosjekt generere et kit som rapporterer bevisløs "E2E:
@@ -277,7 +277,7 @@ if isinstance(_pmif, bool) or not isinstance(_pmif, int) or _pmif < 0:
 
 # --- Valider parallel_implementers (valgfri nøkkel — fravær = 1, dagens atferd) ---
 # Taket for hvor mange samtidig skrive-kapable implementere (koordinator-runbook
-# §5d, TODO 233). Default MÅ være 1, ALDRI 0 — 0 implementere ville betydd «ingen
+# §5d). Default MÅ være 1, ALDRI 0 — 0 implementere ville betydd «ingen
 # implementering» (R7), ikke «av», til forskjell fra pipelining der 0 er den
 # korrekte «av»-verdien. Ugyldig verdi feiler høyt, samme prinsipp som over.
 _pim = c.get("parallel_implementers") or {}
@@ -363,7 +363,7 @@ for _k, _rx in (("env_files", _SAFE_PATH), ("env_allowed_keys", _ENV_KEY), ("env
     if not isinstance(_v, list) or not all(isinstance(x, str) and x and _rx.fullmatch(x) for x in _v):
         sys.exit(f"FEIL: worktree_bootstrap.{_k} må være en liste av gyldige navn, fikk {_v!r}.")
 
-# --- Valider readonly_extra_tools per tech-review-agent (valgfri, TODO 365) ------------
+# --- Valider readonly_extra_tools per tech-review-agent (valgfri) ------------
 # Ekstra verktøy en read-only rolle får i kontraktfila (f.eks. WebFetch). Skrive-verktøy
 # kan aldri grantes — hooken avviser dem uansett (WRITE_DENYLIST_EXACT), men en slik
 # config er en misforståelse og feiler her i stedet for å se ut som den virker.
@@ -407,7 +407,7 @@ else:
     tech_block = "   - (Ingen tech-review-agenter konfigurert — hopp over sikkerhets-/domene-armen.)"
 
 # {{TECH_REVIEW_TRIGGER_GLOBS}}: Python-dict-literal {navn: [glob, …]} rendret
-# inn i tasks/review-lens-select.py (TODO 180A). Globene substitueres på
+# inn i tasks/review-lens-select.py. Globene substitueres på
 # SETUP-TID, ikke lest av skriptet ved kjøring — samme kontrakt som resten av
 # kit-et (loop.config.yaml:2-4). Config-rekkefølgen bevares (dict-er er
 # ordnet i Python ≥3.7) — selektorens `triggered`-output skal følge
@@ -420,7 +420,7 @@ else:
 
 # {{TECH_REVIEW_SEVERITY_FLOORS}}: Python-dict-literal {navn: gulv-eller-None}
 # rendret inn i tasks/review-severity-floor.py OG tasks/review-fan-in-verify.py
-# (TODO 180B; CF-250-6 — begge konsumerer samme token). Samme kontrakt og
+# (begge konsumerer samme token). Samme kontrakt og
 # struktur som {{TECH_REVIEW_TRIGGER_GLOBS}} over — substituert på SETUP-TID,
 # aldri lest fra loop.config.yaml ved kjøretid.
 if tras:
@@ -430,7 +430,7 @@ else:
     tech_review_severity_floors = "SEVERITY_FLOORS = {}"
 
 # {{TECH_REVIEW_FLOOR_EXEMPTIONS}}: Python-dict-literal {navn: [klasse, …]} rendret
-# inn i tasks/review-severity-floor.py (TODO 321). [] for agenter uten nøkkelen.
+# inn i tasks/review-severity-floor.py. [] for agenter uten nøkkelen.
 # Substituert på SETUP-TID, aldri lest fra loop.config.yaml ved kjøretid.
 if tras:
     _exempt_lines = [f"    {a['name']!r}: {list(a.get('floor_exempt') or [])!r}," for a in tras]
@@ -440,7 +440,7 @@ else:
 
 # {{TECH_REVIEW_AGENT_NAMES}}: rendret Agent(...)-ledd for code-reviewerens
 # tools:-linje. Utledet fra samme tras-liste som tech_block over — aldri
-# hardkod agentnavn i en template igjen (jf. TODO 173 PR1-kode-review-funn:
+# hardkod agentnavn i en template igjen (
 # hardkodede navn i tools: driftet fra tech_review_agents og feilet dispatch
 # med «Agent type not found» når en ny lens-agent ble lagt i config men ikke
 # i allowlisten). Tom streng når tras er tom — IKKE render et tomt Agent().
@@ -517,7 +517,7 @@ else:
     scout_usage_line = ""
 
 # {{SCOUT_DELEGATION_BLOCK_IMPLEMENTER}}: samme blokk + implementerens rapporteringsplikt for
-# dispatches=0 og vernet mot koordinator-pålagte minimumsdispatcher (målt 2026-09-16).
+# dispatches=0 og vernet mot koordinator-pålagte minimumsdispatcher.
 if _sc_enabled:
     scout_delegation_block_impl = scout_delegation_block.replace(
         "ikke for å presse fram bruk av den.\n",
@@ -525,14 +525,14 @@ if _sc_enabled:
         "én setning i `notes` om hvorfor** — typisk at planen allerede navnga fil og linje, slik at et\n"
         "scout-kall ikke ville spart noe. Det er en rapporteringsplikt, ikke en terskel du må forsvare:\n"
         "begrunnelsen er selve målingen av om delegeringen lønner seg for denne rollen.\n"
-        "**Koordinatoren skal ikke pålegge deg et minste antall dispatcher** (målt 2026-09-16: tre runder på\n"
+        "**Koordinatoren skal ikke pålegge deg et minste antall dispatcher** (målt: tre runder på\n"
         "rad der et slikt pålegg i dispatch-prompten motsa denne linja, og der du hadde rett i å følge\n"
         "charteret). Ser du et slikt pålegg, følg charteret og noter avviket.\n", 1)
     assert scout_delegation_block_impl != scout_delegation_block
 else:
     scout_delegation_block_impl = ""
 
-# {{READONLY_CONTRACT}}: kontraktfila guard-reviewer-readonly.sh håndhever (TODO 365). Utledet
+# {{READONLY_CONTRACT}}: kontraktfila guard-reviewer-readonly.sh håndhever. Utledet
 # fra SAMME kilder som charterne — en ny read-only rolle i config får vernet i samme /setup.
 # Format per linje: <agent>\t<tillatte subagenter, komma, eller ->\t<ekstra verktøy, komma, eller ->
 _ro = [(f"{PROJ_NAME}-reviewer", "-", "-"),
@@ -667,11 +667,11 @@ def subst(text):
 # SEED_ONLY: runtime-state-filer som /setup kun skal SEEDE (skrive hvis de ikke
 # finnes), aldri overskrive ved re-kjøring. run-log.md akkumulerer koordinator-
 # telemetri (append-only) — å regenerere den fra templaten ville slette
-# kjørehistorikk. retro-log.md (TODO 158) er samme runtime-state-klasse —
+# kjørehistorikk. retro-log.md er samme runtime-state-klasse —
 # koordinatorens §8 mini-retro-entries ville forsvunnet ved regenerering.
-# retro-triage.md (TODO 174) er også samme runtime-state-klasse — §8b-triagen
+# retro-triage.md er også samme runtime-state-klasse — §8b-triagen
 # av retro-loggen akkumulerer beslutninger over tid og ville forsvunnet ved
-# regenerering. decision-log.md (TODO 246) er også samme runtime-state-klasse
+# regenerering. decision-log.md er også samme runtime-state-klasse
 # — nivå-B-beslutningsloggen akkumulerer over tid og ville forsvunnet ved
 # regenerering. Alle fire templatenes egen header dokumenterer denne kontrakten.
 SEED_ONLY = {

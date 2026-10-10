@@ -12,7 +12,7 @@
 Endrer PR-diffen `.claude/agent-memory/` (`gh pr diff <n> --name-only | grep -c '^.claude/agent-memory/'` ≥ 1),
 SKAL ferdig-rapporten ha `memory_check` med grep-kommando og output per ny linje (implementer-charteret
 § Rollehukommelse). Mangler feltet, send implementeren tilbake med SendMessage FØR kode-review.
-En kopi i minnet ga en ekstra runde tre ganger i én release i opphavsprosjektet.
+En kopi i minnet gir fort en ekstra runde.
 
 <!-- mekanisk-kandidat: Minne-gate — gh pr diff --name-only mot .claude/agent-memory/ + memory_check i rapporten (mangler) -->
 
@@ -34,7 +34,7 @@ og nå — samme prompt og samme eskaleringsregel som preflight-proben, før rev
 Før review-dispatch beregner koordinatoren **SELV** hvilke tech-review-agenter diffen burde treffe
 — en uavhengig kilde til «hva burde vært dispatchet», uavhengig av kode-reviewerens egen
 `triggered`-lesning. Uten denne kilden kan gaten under ikke fange den farlige feilmodusen:
-under-dispatch rapportert ærlig som `2/2` (svakheten i den tidligere charter-vakten, TODO 179).
+under-dispatch rapportert ærlig som `2/2` (svakheten i den tidligere charter-vakten).
 
 1. **Pin filsettet til samme commit revieweren skal se** (plan-review V-2 — en løpende `gh pr diff`
    kan drifte mellom utregning og review):
@@ -48,7 +48,7 @@ under-dispatch rapportert ærlig som `2/2` (svakheten i den tidligere charter-va
    --name-only` (merk: denne følger PR-ens nåværende HEAD og kan ha driftet siden steg 1 — bruk
    kun når compare-endepunktet er utilgjengelig).
 3. **Kjør selektoren selv — ikke revieweren.** `python3` er ikke i read-only-rollenes
-   Bash-allowlist (`guard-reviewer-readonly.sh` `@STANDALONE`, TODO 189 flipper armen til `enforce`),
+   Bash-allowlist (`guard-reviewer-readonly.sh` `@STANDALONE`),
    så reduksjonen må kjøres her. Rør filstiene fra steg 2 direkte gjennom et rør — ingen
    mellomfil nødvendig:
    `gh api --paginate "repos/{owner}/{repo}/compare/{{BASE_BRANCH}}...<sha>" --jq '.files[].filename' | python3 tasks/review-lens-select.py --files -`
@@ -113,17 +113,17 @@ og hele repoet, ikke bare kildemappene.
 
 ### Gate (revise-gate på severity, ikke kun på verdict)
 
-**Rekkefølge (TODO 180B):** evaluer denne gaten ETTER severity-gulv-steget i
+**Rekkefølge:** evaluer denne gaten ETTER severity-gulv-steget i
 Fan-in-verifiseringen under — gate-inputen er ALLTID de justerte severity-verdiene fra
 `tasks/review-severity-floor.py`s `findings[]`-output — fra den SISTE kjøringen i runden (se
 «Gulvunntak for ordlyd» under) — ALDRI `code_review.findings[]` slik den
-ankom fra revieweren. Ved en fix-runde inngår i tillegg **Gate F** (TODO 252, V-blokk-re-verifisering,
+ankom fra revieweren. Ved en fix-runde inngår i tillegg **Gate F** (V-blokk-re-verifisering,
 under) i rekkefølgen: fix-rapport → Gate F → (rød ⇒ mekanisk retur, ingen ny review) → kode-review
 r(N+1).
 
 Les `code_review`-rapporten:
 
-- Inneholder rapporten **≥1 BLOKKERENDE eller ≥1 VIKTIG** → **revise-gate**: send funnene tilbake til implementeren via fix-mode-dispatch (se fix-mode-mal under). Når fix-rapporten kommer tilbake: kjør **Gate F** (under) FØR du dispatcher kode-review r(N+1) — rød gate F ⇒ mekanisk retur, ingen ny review. **Hold en eksplisitt teller** («kode-review-runde N», samme mønster som §4). **Nivå B1 (TODO 246/455):** ved HVER utløst revise-gate, også runde 1, kjøres `python3 tasks/measure-cost.py --brake <nr> --pr <PR-nr>` og så `decision-level.py` med `cost_over=<over>`. Ordet etter `over=` limes ordrett inn; `few` er ikke `no`, og `cost_over=no` i eksempelkallene under er bare et eksempel. Fra runde 2 også med `decision_logged=yes` og konvergensdata (se `coordinator-runbook.md` § Konvergensregel). Valget mellom (a) ny fix-runde, (b) merge med carry-forwards, eller (c) stopp er **nivå B1**, også når gate-funnene ikke går ned eller en ny feilklasse dukker opp (eierens vedtak 2026-10-04 18:08). Koordinatoren velger selv (anbefalt handling), logger alle fire pliktene i § Pausepunkter, og fortsetter — mennesket kan vetoe i etterkant. Gir et nytt `fix_round`-forsøk **A0** (innholdsfunn, manglende data, over kostnadstaket eller, fra runde 2, `over=few`: for få sammenlignbare todoer til å måle kostnaden) → ⚠️ eskalér til mennesket, release claim. En LUKKENDE beslutning (`merge_carry`/`stop`) forblir nivå B1 uansett rundetall.
+- Inneholder rapporten **≥1 BLOKKERENDE eller ≥1 VIKTIG** → **revise-gate**: send funnene tilbake til implementeren via fix-mode-dispatch (se fix-mode-mal under). Når fix-rapporten kommer tilbake: kjør **Gate F** (under) FØR du dispatcher kode-review r(N+1) — rød gate F ⇒ mekanisk retur, ingen ny review. **Hold en eksplisitt teller** («kode-review-runde N», samme mønster som §4). **Nivå B1:** ved HVER utløst revise-gate, også runde 1, kjøres `python3 tasks/measure-cost.py --brake <nr> --pr <PR-nr>` og så `decision-level.py` med `cost_over=<over>`. Ordet etter `over=` limes ordrett inn; `few` er ikke `no`, og `cost_over=no` i eksempelkallene under er bare et eksempel. Fra runde 2 også med `decision_logged=yes` og konvergensdata (se `coordinator-runbook.md` § Konvergensregel). Valget mellom (a) ny fix-runde, (b) merge med carry-forwards, eller (c) stopp er **nivå B1**, også når gate-funnene ikke går ned eller en ny feilklasse dukker opp. Koordinatoren velger selv (anbefalt handling), logger alle fire pliktene i § Pausepunkter, og fortsetter — mennesket kan vetoe i etterkant. Gir et nytt `fix_round`-forsøk **A0** (innholdsfunn, manglende data, over kostnadstaket eller, fra runde 2, `over=few`: for få sammenlignbare todoer til å måle kostnaden) → ⚠️ eskalér til mennesket, release claim. En LUKKENDE beslutning (`merge_carry`/`stop`) forblir nivå B1 uansett rundetall.
 
 
 ```bash
@@ -131,7 +131,7 @@ python3 tasks/decision-level.py --event revise_gate_choice --context code_review
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
 ```
 
-- **Rotårsaksanalyse før eskalering (eier 2026-09-26, etter TODO 283A: 7 kode-review-runder; omformet i TODO 455).** Når gate-funnene ikke går ned, en ny feilklasse dukker opp, eller klassifiseringen gir A0 på §5b, dispatches én skrivebeskyttet analyse med dyp modell (`{{PROJECT_NAME}}-planner` med `model: "{{DEEP_MODEL_ALIAS}}"`, uten skriving) som svarer på tre spørsmål: (1) hvilken feilklasse hører funnene fra r1+r2 til, (2) kan omfanget kuttes i stedet for å fikses (skip + telling, avvis formen), (3) er tilnærmingen feil (f.eks. forutsi et biblioteks feil vs. kontrollere resultatet). Svaret er grunnlaget for koordinatorens eget B1-valg (ny fix-runde, merge med carry-forwards eller stopp). Ved A0 blir det `Anbefaling:` i A-spørsmålet til mennesket. En runde der funnene går ned uten ny feilklasse trenger ingen analyse (283A-mønsteret, «hver fix-runde åpnet en ny feilklasse», er `new_class=yes` og gir nå B1, og analysen kjører fortsatt der). **Hvorfor:** hver fix-runde som utvidet semantikken åpnet en ny feilklasse; kuttet i r7 burde kommet ved r3. Fix-runde 3+ går i tillegg alltid med modell-override (se «Modell-eskalering fra fix-runde 3») — sjekk at `model` faktisk står i `Agent`-kallet.
+- **Rotårsaksanalyse før eskalering .** Når gate-funnene ikke går ned, en ny feilklasse dukker opp, eller klassifiseringen gir A0 på §5b, dispatches én skrivebeskyttet analyse med dyp modell (`{{PROJECT_NAME}}-planner` med `model: "{{DEEP_MODEL_ALIAS}}"`, uten skriving) som svarer på tre spørsmål: (1) hvilken feilklasse hører funnene fra r1+r2 til, (2) kan omfanget kuttes i stedet for å fikses (skip + telling, avvis formen), (3) er tilnærmingen feil (f.eks. forutsi et biblioteks feil vs. kontrollere resultatet). Svaret er grunnlaget for koordinatorens eget B1-valg (ny fix-runde, merge med carry-forwards eller stopp). Ved A0 blir det `Anbefaling:` i A-spørsmålet til mennesket. En runde der funnene går ned uten ny feilklasse trenger ingen analyse (283A-mønsteret, «hver fix-runde åpnet en ny feilklasse», er `new_class=yes` og gir nå B1, og analysen kjører fortsatt der). **Hvorfor:** hver fix-runde som utvidet semantikken åpnet en ny feilklasse; kuttet i r7 burde kommet ved r3. Fix-runde 3+ går i tillegg alltid med modell-override (se «Modell-eskalering fra fix-runde 3») — sjekk at `model` faktisk står i `Agent`-kallet.
 - Kun MINDRE eller ingen funn (`verdict = "go"`, revise-gate ikke trigget) → fortsett til §6.
 - Teknisk risiko som dukker opp i rapporten → ⚠️ STOPP, release claim, rapporter (samme som §4-gaten).
 
@@ -140,7 +140,7 @@ python3 tasks/decision-level.py --event revise_gate_choice --context code_review
 
 **NB:** `verdict = "no-go"` trigges kun ved ≥1 BLOKKERENDE (identisk med plan-review). Revise-gaten er strengere — den trigges også ved ≥1 VIKTIG selv om `verdict = "go"`. Koordinatoren leser severity-arrayet direkte, ikke kun `verdict`.
 
-**Fan-in-verifisering (TODO 180A — `observe`-modus, IKKE stoppende):**
+**Fan-in-verifisering (`observe`-modus, IKKE stoppende):**
 
 `fan_in` er PÅKREVD i full modus (jf. `report-schema.md`). **Mangler feltet HELT** → kontraktbrudd,
 behandles som usignert (re-dispatch reviewen) — samme prinsipp som 179s vakt: fravær er utvetydig
@@ -157,13 +157,13 @@ deretter ut tre mengde-sammenligninger:
 - `fan_in.returned == fan_in.dispatched` — brudd = **stille node**
 - `fan_in.dispatched ⊆` navnene under `tech_review_agents` i config — brudd = **ukjent agent**
 
-**I de første N = {{HEALTH_CHECK_INTERVAL}} §5b-kjøringene etter merge av TODO 180A** (N speiler
+**I de første N = {{HEALTH_CHECK_INTERVAL}} §5b-kjøringene etter at selektoren er tatt i bruk** (N speiler
 `release.health_check_merge_interval`): **logg** utfallet av
 sammenligningen, **stopp ikke** ved avvik. Skriv `selector=<navn,navn>` (eller `selector=none` hvis
 ingen agent ble trigget) sammen med utfallet i `run-log.md` felt 11 (den udokumenterte
 fritekstkolonnen — se `report-schema.md`).
 
-**Tellemetode for N (korrigert, TODO 180B):** 180As EGEN merge-rad bærer `selector=none`, skrevet
+**Tellemetode for N (korrigert):** 180As EGEN merge-rad bærer `selector=none`, skrevet
 FØR gaten var i kraft — en naiv opptelling av alle `selector=`-forekomster i hele `run-log.md`
 teller den raden med og gir et falskt for høyt tall. Tell i stedet KUN radene ETTER 180As
 merge-rad:
@@ -178,19 +178,18 @@ avlesning (antall rader inkludert i tellingen), ikke bare stol på selve tallet.
 Les **TALLET** denne kommandoen skriver til stdout — `grep -c` returnerer **exit 1** (ikke exit 0)
 ved null treff, så ikke la kommandoens exit-kode avbryte en gate som leser et lovlig «ennå ingen
 observasjoner»-resultat. Passerer telleren {{HEALTH_CHECK_INTERVAL}}: gaten flippes til `enforce` —
-dette er en navngitt del av **TODO 180B**s carry-forward CF-1, IKKE noe koordinatoren gjør stille
-av seg selv i mellomtiden.
+et eget, eksplisitt vedtak, IKKE noe koordinatoren gjør stille av seg selv i mellomtiden.
 
-**Fan-in-form-kontrakt (TODO 250A + 250B — stoppende for `BINDING_CODES` når vakten er armert):**
+**Fan-in-form-kontrakt (stoppende for `BINDING_CODES` når vakten er armert):**
 
-**Invokasjon.** **Sjekk FØRST session-predikatet i «Kontrakt-vakt (TODO 250B)» under: er det SANT, hopp dit og kjør form B — er det USANT (eller uregistrert), kjør blokka under (form A) uendret** (TODO 250B — avgjørelsen står FØR den ubetingede form A-fenced-blokka under, ikke etter, slik at blokka aldri ser ut til å gjelde ubetinget). Skriv `code_review.fan_in` (med `expected_by_selector` fylt i steget over) til
+**Invokasjon.** **Sjekk FØRST session-predikatet i «Kontrakt-vakt» under: er det SANT, hopp dit og kjør form B — er det USANT (eller uregistrert), kjør blokka under (form A) uendret** (avgjørelsen står FØR den ubetingede form A-fenced-blokka under, ikke etter, slik at blokka aldri ser ut til å gjelde ubetinget). Skriv `code_review.fan_in` (med `expected_by_selector` fylt i steget over) til
 `<scratch>/fan-in.json` — samme mønster som `<scratch>/findings-5b-<nr>-<runde>.json` i steget
-under (`fan-in.json` selv er IKKE navngitt per todo/runde — det ligger utenfor TODO 321s scope) —
+under (`fan-in.json` selv er IKKE navngitt per todo/runde) —
 og kjør (koordinatoren, aldri revieweren; `python3` er ikke i read-only-rollenes Bash-allowlist, M6)
-kommandoen i den fenced blokka under. Etter TODO 250B finnes **to** frosne CLI-former i denne fila,
+kommandoen i den fenced blokka under. Det finnes **to** frosne CLI-former i denne fila,
 og **hver av dem er entydig innenfor sin egen fensede kodeblokk**: **form A (uarmert)** er blokka
-rett under, ORDRETT uendret fra før TODO 250B, med det fakultative hakeparentes-leddet for PR-head-SHA;
-**form B (armert)** står i «Kontrakt-vakt (TODO 250B)»-blokka under og legger til de to
+rett under, med det fakultative hakeparentes-leddet for PR-head-SHA;
+**form B (armert)** står i «Kontrakt-vakt»-blokka under og legger til de to
 strict-flaggene. Begge skal stå som eneste linje i en fenced bash-kodeblokk, starte i kolonne 0 og
 ikke inneholde backticks. Begge ekstraheres og kjøres ORDRETT av planens V17-gate, som kun leser
 INNSIDEN av fensede kodeblokker — ingen prosa i denne fila skal sitere uttrekksmønstrene ordrett.
@@ -201,7 +200,7 @@ python3 tasks/review-fan-in-verify.py --fan-in <scratch>/fan-in.json [--pr-head-
 
 `<scratch>` og `<sha>` er plassholdere for leseren; de substitueres mekanisk og kommandoen kjøres i
 to grener — uten det fakultative leddet, og med hakeparentesene fjernet. Dette er ordrett form A slik
-V17 kjører den mot levende tre. Er session-predikatet i «Kontrakt-vakt (TODO 250B)» usant, brukes
+V17 kjører den mot levende tre. Er session-predikatet i «Kontrakt-vakt» usant, brukes
 DENNE formen (form A) uendret — den er IKKE fjernet, kun supplert.
 
 **Exit-kode-kontrast.** Exit-koden betyr ulike ting i de to formene. **Form A:** exit `0` for
@@ -230,24 +229,23 @@ tredje modus med motsatt kontrakt: den exit'er `1` ved feil — se skriptets doc
 | R14 | live-key-unreadable | logg |
 
 Bindende koder (`stopp`) stopper KUN når koordinatoren faktisk kjører form B (`--strict
---require-attestations`) — session-predikatet i «Kontrakt-vakt (TODO 250B)» avgjør hvilken form som
+--require-attestations`) — session-predikatet i «Kontrakt-vakt» avgjør hvilken form som
 kjøres. `betinget` (R12) er en TREDJE klasse: den kan KUN stoppe når koordinatoren i tillegg ga
 `--live-key` og nøkkelfilas `mode == "ledger"` — se «Liveness-vakt»-seksjonen under.
 
-Seks koder er bindende (R2–R5, R10, R11) når koordinatoren kjører form B. R6–R9 er `logg` og eies av
-**180B CF-1**; R1 er `logg` fordi den måler koordinatorens egen inndata-fil — det tilfellet dekkes
-av den bindende regelen «manglende `fan_in` ⇒ usignert» over. Flippen ble gjort i TODO 250B. R14
+Seks koder er bindende (R2–R5, R10, R11) når koordinatoren kjører form B. R6–R9 er `logg`;
+R1 er `logg` fordi den måler koordinatorens egen inndata-fil — det tilfellet dekkes
+av den bindende regelen «manglende `fan_in` ⇒ usignert» over. R14
 (`live-key-unreadable`) er ALDRI bindende: den måler koordinatorens EGEN nøkkelfil, ikke et felt
 revieweren fylte — nøyaktig samme argument som R1. R12 (`premature-return`) er BETINGET bindende —
-kun i `mode=ledger` — se «Liveness-vakt (TODO 250C)»-seksjonen under for utfallstabellen per
+kun i `mode=ledger` — se «Liveness-vakt»-seksjonen under for utfallstabellen per
 brudd-kode og den målte per-sesjon-fastsettelsen av `live.mode`.
 
 **Tre eksplisitte ikke-endringer:**
 
-- `under-dispatch`, `silent-node` og `unknown-agent` er de samme tre sammenligningene 180A allerede
+- `under-dispatch`, `silent-node` og `unknown-agent` er de samme tre sammenligningene selektor-steget allerede
   kjører i `observe` i avsnittet over. Skriptet mekaniserer loggingen av dem, og ingenting mer.
-  Flippen til `enforce` er og forblir **180B CF-1** — dette er en navngitt del av **TODO 180B**s
-  carry-forward CF-1, IKKE noe koordinatoren gjør stille av seg selv i mellomtiden.
+  Flippen til `enforce` er et eget, eksplisitt vedtak, IKKE noe koordinatoren gjør stille av seg selv i mellomtiden.
 - De to eksisterende BINDENDE runbook-reglene går fortsatt foran skriptet: manglende `fan_in` ⇒
   usignert; ikke-tom `expected_by_selector` fra revieweren ⇒ usignert. For kodene i `BINDING_CODES`
   er skriptets exit 3 derimot BINDENDE — rapporten forkastes som usignert. For R6–R9 er skriptet
@@ -256,7 +254,7 @@ brudd-kode og den målte per-sesjon-fastsettelsen av `live.mode`.
   er `attestations-missing` (R11) ⇒ stoppende. Er predikatet usant, kjøres form A, og manglende
   nøkkel er da `attest=legacy` og ikke et kontraktbrudd.
 
-**Arbeidstre-vakt (TODO 292 — BINDENDE ved `violation`).** Kjør mot samme `<scratch>/fan-in.json`
+**Arbeidstre-vakt (BINDENDE ved `violation`).** Kjør mot samme `<scratch>/fan-in.json`
 (gjelder både form A og form B), ett kall:
 
 ```bash
@@ -267,20 +265,20 @@ Skriv `wtguard=<utskrift>` (uten `strict:`-prefiks) i `run-log.md`, i samme frit
 `attest=`, med samme radregler som `attest=` (se «`attest=<verdi>`» under). `violation` betyr at
 kode-reviewerens arbeidstre ble endret under lens-runden (eller at `worktree_guard` er misdannet),
 og gjør rapporten USIGNERT: samme prosedyre
-som exit 3 i avvisningstabellen under «Kontrakt-vakt (TODO 250B)» — forkast, og dispatch fersk
+som exit 3 i avvisningstabellen under «Kontrakt-vakt» — forkast, og dispatch fersk
 kode-reviewer med bruddkoden `worktree-moved` og begge strengene sitert ordrett i prompten. Teller
 ikke som kode-review-runde, men mot samme tak: maks 2 re-dispatcher per §5b-runde, deretter nivå
 A0; andre `violation` i samme §5b-runde ⇒ nivå A0. `missing` (lens dispatchet, feltet mangler —
-f.eks. et charter fra før TODO 292 i sesjonens agent-snapshot) stopper ingenting. `none` = ingen
+f.eks. et eldre charter i sesjonens agent-snapshot) stopper ingenting. `none` = ingen
 lens dispatchet.
 
-**Severity-gulv (TODO 180B — BINDENDE, håndhevet i kode, IKKE `observe`):**
+**Severity-gulv (BINDENDE, håndhevet i kode, IKKE `observe`):**
 
 I motsetning til fan-in-sammenligningen over (som kun logger i `observe`), er severity-gulvet
 bindende fra denne PR-en av: `rls-migration-reviewer` og `edge-function-reviewer` var
-`funn→BLOKKERENDE` automatisk FØR 180B; etter 180B er det et steg NOEN må ta. Etter at
+`funn→BLOKKERENDE` er ikke automatisk; det er et steg NOEN må ta. Etter at
 `fan_in.expected_by_selector` er fylt over, kjør (`python3` er ikke i read-only-rollenes
-Bash-allowlist, `guard-reviewer-readonly.sh:689`, TODO 189 er fortsatt `open`, så dette kjøres her,
+Bash-allowlist, `guard-reviewer-readonly.sh`, så dette kjøres her,
 av koordinatoren, aldri av revieweren), tre separate kall — de to fetchene gjør både `{{BASE_BRANCH}}` og
 PR-hodet (`<sha>`) lesbare lokalt FØR selve skriptkallet:
 
@@ -315,7 +313,7 @@ exit-koden. En kjøring som exit'er ≠ 0 her behandles derfor som en **USIGNERT
 re-dispatches, akkurat som ved manglende `fan_in` — og du MERGER ALDRI på en `findings[]`-output fra
 en kjøring med exit ≠ 0.
 
-**Gulvunntak for ordlyd (TODO 321 — BINDENDE).** Skriptet godtar
+**Gulvunntak for ordlyd (BINDENDE).** Skriptet godtar
 `"floor_exempt": "comment_doc_wording"` bare når agenten har klassen i `loop.config.yaml` og
 funnets `ref` (`fil:N` eller `fil:N-M`) ved `<sha>` peker på kommentarlinjer eller på en `.md`-fil
 under `docs/`. Godtatte funn står i `exempt[]` og beholder severity; avviste står i
@@ -349,7 +347,7 @@ git diff origin/{{BASE_BRANCH}}...<sha> -- <ref-fil>
 ```
 
 **r≥2:** `<forrige_sha>` er forrige kode-review-rundes verifiserte `evidence.pr_head_sha`, skrevet
-FULLT ut (40 tegn) i den rundens decision-log-entry (TODO 321) — les den derfra, aldri fra
+FULLT ut (40 tegn) i den rundens decision-log-entry — les den derfra, aldri fra
 hukommelse. En kort SHA er lov når den løses opp først: `git rev-parse <kort>`. Finner du ingen
 decision-log-entry med `evidence.pr_head_sha` for forrige runde: avvis unntaket (samme fail-closed
 prinsipp som `ref_unresolvable`).
@@ -367,8 +365,7 @@ utelukkende gjelder ordlyd (hovedkriteriet over).
 **Avvis alltid** når `issue` eller `fix` sier at kode, SQL, en policy, en constraint eller en test
 gjør noe annet enn kommentaren, når rettelsen krever endring utenfor kommentarlinjer eller en
 `.md`-fil under `docs/`, eller når du er i tvil. **Restklasse (ikke løst av denne kontrakten):** en
-rettelse som også krever en kodeendring i en ANNEN fil enn `<ref-fil>` fanges ikke mekanisk her —
-se PR-teksten for TODO 321, punkt (b).
+rettelse som også krever en kodeendring i en ANNEN fil enn `<ref-fil>` fanges ikke mekanisk her.
 
 **Avvisning gjeninnfører gulvet.** Sett `"floor_exempt": null` på akkurat det funnet i
 `<scratch>/findings-5b-<nr>-<runde>.json`, endre ingenting annet, og kjør skriptkommandoen over på
@@ -384,7 +381,7 @@ Skriv sporet i `run-log.md` felt 11, ved siden av `selector=`:
 - `viol=<antall kontraktbrudd>` — antall funn skriptets `violations[]` inneholder, skrevet ved
   siden av `floor=` i SAMME felt. `viol=0` når arrayet er tomt. Skriptets stderr-oppsummeringslinje
   (`[review-severity-floor] hevet: N, pausepunkt: N, kontraktbrudd: N`) er kilden for begge tallene.
-- `floor_exempt=<g>:godtatt,<a>:avvist` (TODO 321), skrevet ved siden av `floor=` i SAMME felt og
+- `floor_exempt=<g>:godtatt,<a>:avvist`, skrevet ved siden av `floor=` i SAMME felt og
   summert over todoens kode-review-runder. Per runde er `<g>` = `unntak: N` fra rundens SISTE
   kjøring og `<a>` = `unntak: N` fra rundens FØRSTE kjøring minus `<g>`. Hadde ingen runde et funn i
   `exempt[]`: skriv `floor_exempt=0`. Skriptets egne avvisninger (`unntak avvist: N`) telles ikke
@@ -393,14 +390,13 @@ Skriv sporet i `run-log.md` felt 11, ved siden av `selector=`:
 - Har skriptets `pausepunkt[]` innhold (typisk funn fra `ios-design-reviewer`, gulv `PAUSEPUNKT`):
   skriv `pausepunkt=<agent>:<antall>` i tillegg, og bær funnet inn i PR-ens manuelle
   verifiseringssjekkliste. PAUSEPUNKT hever og senker ALDRI severity — det er et RUTINGS-gulv, ikke
-  en rang — og skaper INGEN `outcome=paused`-rad (den formatendringen i `run-log.md` eies av
-  TODO 210, ikke av denne kontrakten).
+  en rang — og skaper INGEN `outcome=paused`-rad (den formatendringen i `run-log.md` er ikke en del av denne kontrakten).
 
 **Fravær av `floor=` på en `merged`-rad er et kontraktbrudd** — fravær er utvetydig bevis på at
 steget ble hoppet over, aldri en stilltiende «alt var fint». I dag er `funn→BLOKKERENDE` automatisk;
 etter denne PR-en er det et steg noen må ta, og det er nettopp derfor sporet finnes.
 
-**Fravær av `floor_exempt=` på en rad som har `floor=` og er skrevet etter at TODO 321 er merget, er
+**Fravær av `floor_exempt=` på en rad som har `floor=` er
 også et kontraktbrudd.** Tokenet er selvrapportert som `floor=` (avsnittet under): tilstedeværelse
 beviser ikke at diffene ble lest.
 
@@ -412,10 +408,10 @@ tallet inn i den samme runden som den kjører (eller unnlater å kjøre) skripte
 er fortsatt bevis på at steget ble hoppet over — det holder. Men TILSTEDEVÆRELSE av `floor=` er
 IKKE bevis på at skriptet faktisk ble kjørt korrekt: en rad som skriver `floor=0` kunne i prinsippet
 vært skrevet av en koordinator som aldri kjørte kommandoen. Uavhengig verifisering av at gulvet
-faktisk virker i drift er CF-4 (race-reviewer i live dispatch) / CF-6 (at ALLE observasjoner fra en
-gulvet lens faktisk overlevde synthesizeren), ikke noe denne runbook-linja alene kan bevise.
+faktisk virker i drift (en tech-review-agent i live dispatch, og at ALLE observasjoner fra en
+gulvet lens faktisk overlevde synthesizeren) er ikke noe denne runbook-linja alene kan bevise.
 
-**`auto_decided=<rad-eier>:<antall>` (TODO 246), skrevet ved siden av `selector=`/`floor=`/
+**`auto_decided=<rad-eier>:<antall>`, skrevet ved siden av `selector=`/`floor=`/
 `pipelined_from=` i SAMME frittekst-felt — IKKE en ny kolonne:**
 
 - Tokenet telles aldri for hånd. Kjør `python3 tasks/decision-level.py --auto-decided <rad-eier>`
@@ -430,17 +426,17 @@ gulvet lens faktisk overlevde synthesizeren), ikke noe denne runbook-linja alene
   tokenet er et kontraktbrudd, ikke «tomt betyr null» (samme prinsipp som `floor=` over).
 - `outcome=health`-rader bærer ALDRI `auto_decided=` — avstemmingen ligger i
   `loop-health-check.md` Del D4 i stedet.
-- **Legacy:** `auto_decided=<nr>` UTEN kolon (rader FØR TODO 246) IGNORERES av alle gater.
+- **Legacy:** `auto_decided=<nr>` UTEN kolon (eldre rader) IGNORERES av alle gater.
 
 **Flere rader i samme runde eller for samme todo (§5d, eller pauset og så merget).** En oppføring
 telles på eierens første rad med radtid ≥ oppføringstid (`attribute()` i `tasks/decision-level.py`,
 som Del D4 også bruker). Hver rad bærer derfor valgene for SIN todo fram til sin egen radtid, og
 ingen oppføring telles på to rader. Det forutsetter at radtiden er tatt fra klokka ETTER tellingen.
 
-**`attest=<verdi>` (TODO 250A — `observe`-spor i SAMME frittekst-felt, IKKE en ny kolonne):**
+**`attest=<verdi>` (`observe`-spor i SAMME frittekst-felt, IKKE en ny kolonne):**
 
 - **Verdier:** `ok` | `legacy` | `none` | `<kommaseparerte avvikskoder>` (skript-produsert), hver av
-  dem med prefikset `strict:` når kontrakt-vakten var ARMERT i den runden (TODO 250B, form B) —
+  dem med prefikset `strict:` når kontrakt-vakten var ARMERT i den runden (form B) —
   pluss den koordinator-skrevne `script-error`, som ALDRI prefikses. Prefikset er telemetri: uten
   det kan man i ettertid ikke se om en grønn rad var bevoktet eller ubevoktet. Ingen mellomrom, ingen
   `|` (kolonneseparator).
@@ -453,24 +449,24 @@ ingen oppføring telles på to rader. Det forutsetter at radtiden er tatt fra kl
   **kontraktbrudd** — er fravær av `attest=` IKKE et kontraktbrudd i denne releasen: ingen
   re-dispatch, ingen usignert-behandling. Forskjellen er bevisst: `floor=` og `auto_decided=` sporer
   BINDENDE steg, `attest=` sporer en kjøring som kan være armert (`strict:`-prefiks) eller uarmert
-  (`observe`) — fravær er derfor ikke et kontraktbrudd (CF-250B-1) (TODO 250B — form B gjør vakten
+  (`observe`) — fravær er derfor ikke et kontraktbrudd (form B gjør vakten
   BINDENDE for enkelte rader, så «sporer en `observe`-logg» er ikke sant for alle rader). Flippen av
-  `attest=`-FRAVÆR til kontraktbrudd ble VURDERT og forkastet i TODO 250B: tilstedeværelse av
+  `attest=`-FRAVÆR til kontraktbrudd er VURDERT og forkastet: tilstedeværelse av
   `attest=` er selvrapportert og beviser ikke at skriptet kjørte, så fravær som brudd ville vært
-  bokføring uten bevisverdi. Spørsmålet er rutet til CF-250B-1 (TODO 210s run-log-format-runde).
-  Opphavssignalet setningen tidligere refererte til er nå MÅLT (2026-09-07, ÉN harness) — se
-  «Liveness-vakt (TODO 250C)» under for `live.mode`s per-sesjon-fastsettelse og den målte
+  bokføring uten bevisverdi.
+  Se
+  «Liveness-vakt» under for `live.mode`s per-sesjon-fastsettelse og den målte
   normaltilstanden.
 - **Som for `floor=`:** TILSTEDEVÆRELSE er ikke bevis for at skriptet faktisk ble kjørt.
 - Presedens-formulering: **samme felt som `selector=`/`floor=`/`auto_decided=`** — ALDRI referert ved
-  feltnummer (nummeret er omstridt og eies av TODO 210, CF-246-1/CF-246-2).
+  feltnummer (nummeret er ikke fastsatt).
 
-**`vblock=<ok|stale|missing|legacy|stuck>` (TODO 252 — gate F, samme frittekst-felt):** semantikken
+**`vblock=<ok|stale|missing|legacy|stuck>` (gate F, samme frittekst-felt):** semantikken
 står i Gate F-seksjonen under («Telemetri»). Samme fraværs-klasse som `attest=`/`pipelined_from=` —
 fravær er IKKE et kontraktbrudd i denne releasen.
 
 **`live=<verdi>` — samme frittekst-felt som `selector=`/`floor=`/`auto_decided=`/`attest=`/
-`vblock=`, ALDRI referert ved feltnummer (TODO 210, samme presedens som `attest=` over). Gyldige
+`vblock=`, ALDRI referert ved feltnummer (samme presedens som `attest=` over). Gyldige
 tokener — UTEN semantikk her, for å unngå to kilder til samme mapping: semantikken og den ENESTE
 bindende mappingen fra maskinlest tilstand til token står i «Liveness-vakt»-seksjonen pkt. 3
 under.**
@@ -488,7 +484,7 @@ under.**
 kontraktbrudd i denne releasen — samme klasse som `attest=`/`vblock=`, ikke som
 `floor=`/`auto_decided=`.
 
-### Kontrakt-vakt (TODO 250B)
+### Kontrakt-vakt
 
 `--strict` OG `--require-attestations` gis av SAMME session-predikat — én bryter, ikke to, slik at
 en sesjon aldri kan få en delvis armert vakt.
@@ -498,13 +494,13 @@ en sesjon aldri kan få en delvis armert vakt.
 FRYST for hele sesjonen; re-måles ALDRI senere):
 
 ```bash
-git show origin/{{BASE_BRANCH}}:.claude/agents/{{PROJECT_NAME}}-code-reviewer.md | grep -c -F 'ATTESTASJONSPÅBUD (TODO 250B)'
+git show origin/{{BASE_BRANCH}}:.claude/agents/{{PROJECT_NAME}}-code-reviewer.md | grep -c -F 'ATTESTASJONSPÅBUD'
 ```
 ```bash
 git log -1 --format=%ct origin/{{BASE_BRANCH}} -- .claude/agents/{{PROJECT_NAME}}-code-reviewer.md
 ```
 ```bash
-grep -c -F 'ATTESTASJONSPÅBUD (TODO 250B)' .claude/agents/{{PROJECT_NAME}}-code-reviewer.md
+grep -c -F 'ATTESTASJONSPÅBUD' .claude/agents/{{PROJECT_NAME}}-code-reviewer.md
 ```
 
 - (a) tallet fra første kommando er `≥ 1` — påbudet er faktisk merget til `{{BASE_BRANCH}}`. Les TALLET, ikke
@@ -529,14 +525,13 @@ ikke ble målt teller aldri som oppfylt.
 python3 tasks/review-fan-in-verify.py --fan-in <scratch>/fan-in.json --pr-head-sha <sha> --strict --require-attestations
 ```
 
-Kjør deretter «Arbeidstre-vakt (TODO 292)» (over).
+Kjør deretter «Arbeidstre-vakt» (over).
 
 Er predikatet usant, brukes **form A** (den som allerede står i «Invokasjon»-avsnittet over)
 uendret. De to formene skilles LITERALT — se «Invokasjon» og planens V17-gate.
 
 **Ærlig merking.** Alle kodene i `BINDING_CODES` er FORM-sjekker på felter revieweren selv fylte. De
-beviser at kontrakten er overholdt, aldri at en lens faktisk kjørte. R12 (`premature-return`,
-TODO 250C) dekker DELER av opphavsspørsmålet — se «Liveness-vakt»-seksjonen under for hva den måler
+beviser at kontrakten er overholdt, aldri at en lens faktisk kjørte. R12 (`premature-return`) dekker DELER av opphavsspørsmålet — se «Liveness-vakt»-seksjonen under for hva den måler
 og hva den IKKE måler. `input-unreadable` (R1) er IKKE i `BINDING_CODES`. Den måler `--fan-in`-fila, som du selv
 skrev — ikke et felt revieweren fylte. Er fila uleselig: ekstrahér `fan_in` på nytt ÉN gang. Er den
 fortsatt uleselig, gjelder den BINDENDE runbook-regelen «manglende `fan_in` ⇒ usignert» (over) —
@@ -549,7 +544,7 @@ fyrer.
 er en KJENT og AKSEPTERT utvei i denne releasen: `null` er per `report-schema.md` lovlig og betyr
 «lensen oppga ingen SHA», og koordinatoren har i denne PR-en ingen måte å skille de to tilfellene på.
 Å gjøre en ikke-normaliserbar verdi stoppende ville bare lært revieweren å skrive `null` i stedet.
-Lukking krever et opphavs-signal og eies av CF-250B-6. Les derfor `signals.skipped[]` — ikke bare
+Lukking krever et opphavs-signal, som ikke finnes ennå. Les derfor `signals.skipped[]` — ikke bare
 `violations[]`.
 
 **Avvisnings-prosedyren — ingen ventetilstand noe sted.** Alt evalueres i koordinatorens egen tur i
@@ -565,19 +560,19 @@ det rapporten ankommer.
 
 **Av-armings-stien.** Mistenker du at vakten avviser ÆRLIGE rapporter, kan du foreslå å
 **av-arme den for resten av sesjonen** — men av-arming er i dag et **nivå A0**-utfall i
-`decision-level.py`, ikke et nivå B-valg (TODO 250B — `python3 tasks/decision-level.py
+`decision-level.py`, ikke et nivå B-valg (`python3 tasks/decision-level.py
 --event contract_guard_disarm --context decision_logged=yes` gir `{"level":"A","rule":"A0"}`, exit
 `1`, fordi ingen B-regel matcher hendelsen ⇒ fail-closed). ⚠️ Dette er nivå A0 — **release claim og
 eskalér til mennesket** før du av-armer. Får du go i en senere sesjon: kjør form A i alle gjenstående §5b-runder (`attest=` uten
 `strict:`-prefiks, som da også er telemetrien som viser at vakten var av), og skriv én linje i
-`decision-log.md` med grunnen og bruddkoden som utløste det. CF-250B-9 eier å innføre en dedikert
-B-regel for denne stien; inntil den finnes, er av-arming en A-hendelse. Permanent av-arming gjøres
+`decision-log.md` med grunnen og bruddkoden som utløste det. Det finnes ingen dedikert
+B-regel for denne stien; derfor er av-arming en A-hendelse. Permanent av-arming gjøres
 ved å fjerne kanari-strengen
-`ATTESTASJONSPÅBUD (TODO 250B)` fra kode-reviewer-charteret i en EGEN PR (da blir ledd (a) og (c)
+`ATTESTASJONSPÅBUD` fra kode-reviewer-charteret i en EGEN PR (da blir ledd (a) og (c)
 usanne av seg selv, og alle framtidige sesjoner kjører form A) — aldri ved å redigere skriptet eller
 runbooken midt i en runde.
 
-### Liveness-vakt (TODO 250C)
+### Liveness-vakt
 
 Worktree-semantikken er harness- OG rolleavhengig. `live.mode` er derfor en **per-sesjon**-verdi
 koordinatoren fastsetter på nytt hver sesjon, ALDRI en konstant i koden.
@@ -607,7 +602,7 @@ EGNE `git worktree list`-snapshots og EGNE task-notifikasjoner — ALDRI avledet
 |---|---|
 | `signals.live == "none"` (ingen `--live-key` gitt denne runden) | `live=none` |
 | `signals.live == "unavailable"` OG `R14` (`live-key-unreadable`) i `violations[]` | `live=unavailable:key-unreadable` — kilden er `violations[]`, ALDRI en gjetning |
-| `signals.live == "unavailable"`, INGEN `R14`-brudd, OG denne sesjonens probe (pkt. 1) var GYLDIG men ga ingen ekte signal | `live=unavailable:no-signal` — den målte tilstanden i denne harnessen (2026-09-07) |
+| `signals.live == "unavailable"`, INGEN `R14`-brudd, OG denne sesjonens probe (pkt. 1) var GYLDIG men ga ingen ekte signal | `live=unavailable:no-signal` — den målte tilstanden i denne harnessen |
 | `signals.live == "unavailable"`, INGEN `R14`-brudd, OG denne sesjonens probe var UGYLDIG (`dispatched == []`) | `live=unavailable:probe-failed` |
 | `signals.live == "ledger"` OG koordinatorens pkt. 1-fastsettelse var OPPFYLT denne runden | `live=ledger` |
 | `signals.live == "ledger"` MEN vakten senere viste seg å avvise en ÆRLIG rapport (pkt. 6, auto-demotering) | `live=ledger:unsafe` |
@@ -628,7 +623,7 @@ kildeangivelse er tvetydig på tvers av disse tre.
 
 **4. Utfallstabellen per brudd-kode — ingen ventetilstand noe sted.** Alt evalueres i koordinatorens
 egen tur i det rapporten ankommer. Re-dispatch-budsjettet i denne raden er DET SAMME, FELLES
-budsjettet som «Kontrakt-vakt (TODO 250B)»s avvisnings-prosedyre bruker — maks **2** re-dispatcher
+budsjettet som «Kontrakt-vakt»s avvisnings-prosedyre bruker — maks **2** re-dispatcher
 totalt per §5b-runde, på tvers av BEGGE tabellene, ikke 2 hver:
 
 | Utfall | Handling | Teller | Eskalering |
@@ -652,7 +647,7 @@ på raden, ikke skriv nøkkelfila på nytt, og la mennesket avgjøre om vakten s
 uoppnåelig i dette prosjektet i dag (R12 fyrer kun i `mode=ledger`, som er målt uoppnåelig, pkt. 7) —
 den står her fordi fila er en TEMPLATE og shippes til prosjekter der `mode=ledger` ER oppnåelig.
 
-**7. Den målte tilstanden, datert.** Målingen 2026-09-07 i DETTE prosjektet ga `live.mode =
+**7. Den målte tilstanden.** En måling i én harness ga `live.mode =
 unavailable` (`live=unavailable:no-signal`) — worktree-signalet er målt DØDT, ikke bare umålt: en
 nestet lens arver reviewerens worktree i stedet for å få sitt eget. `isolation: worktree` på
 lens-charterne er det eneste kjente inngrepet som kan gjøre `mode=worktree` oppnåelig. Denne
@@ -664,7 +659,7 @@ observasjonen er HARNESS-BETINGET, ikke universell — fila er en template.
 fix-runde-commit MÅ inneholde `fix-runde <N>`. Grensen mellom rundene finnes ikke lagret noe annet
 sted: `{{BASE_BRANCH}}` squash-merger (målt 58 av 60 siste commits har én forelder), så
 `gh api repos/{owner}/{repo}/pulls/<n>/commits` er eneste overlevende kilde — og den er kun nyttig
-hvis emnelinja bærer rundenummeret. Målt 2026-09-10: konvensjonen fulgtes uskrevet i 5 av 5 PR-er
+hvis emnelinja bærer rundenummeret. Målt: konvensjonen fulgtes uskrevet i 5 av 5 PR-er
 med flere commits, men med hull der runder manglet nummer (196A: 4 av 5 funnet, 236: 1 av 2).
 En koordinator-utført runde har ingen implementer å pålegge dette — koordinatoren skriver den selv.
 
@@ -704,7 +699,7 @@ git fetch origin <branch>
 git show origin/<branch>:tasks/plans/todo-<nr>-<slug>.md > <scratch>/plan-<N>.md
 ```
 Feiler `git show` (fila finnes ikke på branchen) ⇒ `vblock=missing`, mekanisk retur.
-**Ett kall (2026-09-27):** `tasks/gate-f.sh <scratch>/plan-<N>.md <N> <F3a_ref>` kjører F0–F4 under ordrett og gir GRØNN/RØD med årsak (test: `bash tasks/test-gate-f.sh`). Kommandoene under er definisjonen; F5 er fortsatt manuell.
+**Ett kall:** `tasks/gate-f.sh <scratch>/plan-<N>.md <N> <F3a_ref>` kjører F0–F4 under ordrett og gir GRØNN/RØD med årsak (test: `bash tasks/test-gate-f.sh`). Kommandoene under er definisjonen; F5 er fortsatt manuell.
 
 **ALLE kommandoene under leser `<scratch>/plan-<N>.md` — også F3a-gulvet.** Bland aldri dev-kopien
 og branch-snapshotet. Snapshotet skrives til `<scratch>`, ALDRI til en repo-relativ fil.
@@ -754,7 +749,7 @@ planfila den dispatchet, og bærer tallet i kontekst sammen med `<N>`-telleren. 
 
 - `F3a ≠ F3a_ref` ⇒ **RØD** (`vblock=stale`). Implementerens carve-out dekker KUN fix-runde-seksjoner
   — F3a låser ANTALLET V-kriterier, ikke innholdet i § 6. En innholdsendring som bevarer antallet
-  oppdages IKKE av gate F (innholds-hash er en åpen oppfølging, se CF-252-12).
+  oppdages IKKE av gate F (innholds-hash finnes ikke).
 - `F3a_ref = 0` ⇒ **`vblock=legacy`**: planen er skrevet før dette formatkravet. Gulvet (`F3b ≥ F3a`)
   er da IKKE bindende, men **F0, F1, F2b, F2c ≥ 2 × F3b, F3b ≥ 1, fences ≥ 2 × F3b, F4 og F5 (inkl.
   F5:none-regelen under) er fortsatt bindende**. Verken rød eller grønn — samme overgangsklasse som

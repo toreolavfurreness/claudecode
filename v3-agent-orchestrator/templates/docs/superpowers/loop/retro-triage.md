@@ -4,8 +4,7 @@
   MERK: Loggen nederst er append-only data som koordinatoren skriver under
   kjøring — /setup SEEDER denne filen kun ved første generering (finnes den
   ikke fra før). Ved re-kjøring bevares den uendret (samme seed-only-vern som
-  run-log.md og retro-log.md, lesson 2026-06-30 — run-log ble klobbet før den
-  beskyttelsen fantes). Ved første generering er den tom (kun header +
+  run-log.md og retro-log.md). Ved første generering er den tom (kun header +
   format-spec).
 -->
 
@@ -18,7 +17,7 @@
 **Formål:** `retro-log.md` samler observasjoner (§8), men ingenting leste dem tilbake inn i
 køen — forslag ble skrevet, men aldri drenert. Denne fila er beslutnings-loggen som lukker den
 sløyfen: hver `**Forbedringsforslag:**`-linje i `retro-log.md` klassifiseres nøyaktig én gang
-(opphav: TODO 174).
+.
 
 `retro-log.md` forblir uendret og rent append-only — den er *observasjons*-loggen. Denne fila
 er *beslutnings*-loggen. `retro-log.md` og dens template røres IKKE av §8b.
@@ -89,7 +88,7 @@ detaljer — ingen vertshale finnes ved Trigger 2).
 ## Eksempel-rad
 
 ```
-2026-07-12T20:15 | promoted | TODO 200 | Todo opprettet for å annotere presedens-referanser i run-log direkte.
+2026-07-12T20:15 | promoted | TODO 12 | Todo opprettet for å annotere presedens-referanser i run-log direkte.
 ```
 
 ---

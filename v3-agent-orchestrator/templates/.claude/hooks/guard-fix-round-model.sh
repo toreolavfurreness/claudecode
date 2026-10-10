@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # {{PROJECT_NAME}} — PreToolUse-hook (Agent), generert av /setup: en implementer-dispatch MÅ bære
 # eksplisitt `model` i Agent-kallet. Charterets `model:`-frontmatter leses ved sesjonsstart, så en
-# sesjon som startet før en modellendring kjører den gamle modellen i stillhet — målt i
-# opphavsprosjektet: implementeren kjørte en rimeligere modell fra et utdatert sesjons-snapshot i en hel
-# release. Fix-runde 1–2: `models.implementer`-klassen eller dypere ({{IMPLEMENTER_DISPATCH_ALLOWED}}).
+# sesjon som startet før en modellendring kjører den gamle modellen i stillhet.
+# Fix-runde 1–2: `models.implementer`-klassen eller dypere ({{IMPLEMENTER_DISPATCH_ALLOWED}}).
 # Fix-runde 3+: prosjektets dype modell eller dypere ({{DEEP_DISPATCH_ALLOWED}}) — runbook §5b
 # «Modell-eskalering fra fix-runde 3». Exit 2 = blokkert. Trenger /usr/bin/jq (fail-open uten).
 set -euo pipefail

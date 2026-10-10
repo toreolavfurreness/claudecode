@@ -3,11 +3,11 @@
 # Endre loop.config.yaml og kjør /setup på nytt.
 """review-severity-floor.py — håndhever severity_floor per tech-review-agent
 i kode, som et MEKANISK GULV på synthesizerens (kode-reviewerens) egne
-severity-vurderinger (TODO 180B).
+severity-vurderinger.
 
 Leser IKKE loop.config.yaml. SEVERITY_FLOORS og FLOOR_EXEMPTIONS under er
 substituert inn av /setup på SETUP-TID, ikke lest ved kjøring — samme
-kontrakt som tasks/review-lens-select.py (TODO 180A) og resten av kit-et
+kontrakt som tasks/review-lens-select.py og resten av kit-et
 (loop.config.yaml:2-4: "Charterne leser ALDRI denne ved runtime"). Endrer du
 et gulv eller et gulvunntak: rediger loop.config.yaml og kjør /setup på nytt,
 IKKE denne fila for hånd.
@@ -28,7 +28,7 @@ run-log.md felt 11 (`pausepunkt=<agent>:<antall>`).
 Et gulv på `null` betyr «intet gulv» — funnet er fullt underlagt
 synthesizerens skjønn og passerer uendret.
 
-Gulvunntak (TODO 321). Et funn kan bære `"floor_exempt": "comment_doc_wording"`
+Gulvunntak. Et funn kan bære `"floor_exempt": "comment_doc_wording"`
 (satt av synthesizeren, se report-schema.md og code-reviewer-charteret). Dette
 skriptet avgjør mekanisk, første treff vinner:
   - ugyldig markørverdi (ikke i VALID_EXEMPT_CLASSES) → `violations[]` (exit 1,
@@ -100,7 +100,7 @@ VALID_AGENTS = set(SEVERITY_FLOORS.keys()) | {SYNTHESIZER}
 # PAUSEPUNKT og None (intet gulv) håndteres separat, IKKE via denne ordningen.
 SEVERITY_ORDER = {"MINDRE": 0, "VIKTIG": 1, "BLOKKERENDE": 2}
 
-# --- Gulvunntak (TODO 321) -------------------------------------------------
+# --- Gulvunntak -------------------------------------------------
 VALID_EXEMPT_CLASSES = ("comment_doc_wording",)
 REF_RE = re.compile(r"(?P<path>[^\s:]+):(?P<start>[1-9][0-9]*)(?:-(?P<end>[1-9][0-9]*))?")
 REV_RE = re.compile(r"[0-9a-f]{40}")
@@ -166,7 +166,7 @@ def check_ref(repo, rev, ref):
     """None = godtatt; ellers "ref_unparseable" | "ref_unresolvable" | "ref_not_comment_or_docs".
     docs/-unntaket er avgrenset til `.md`-filer under docs/ (ikke f.eks. PDF-er
     eller bilder) — «ordlyd i en .md-fil under docs/» leser vi som tekstlig
-    dokumentasjon, TODO 321 r1 plan-review MINDRE."""
+    dokumentasjon."""
     if not isinstance(ref, str):
         return "ref_unparseable"
     m = REF_RE.fullmatch(ref)

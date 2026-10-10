@@ -21,11 +21,10 @@ Exit 2 = fila kunne ikke leses, eller argumentene var ugyldige.
 # ────────────────────────────────────────────────────────────────────────────────
 # MAL-NOTAT — LES FØR BRUK I ET NYTT PROSJEKT
 #
-# Regelsettet under er IKKE plattformagnostisk. Det er skrevet ut av opphavsprosjektets eget
-# lesson-korpus, og bærer prosjektspesifikke antakelser:
+# Regelsettet under er IKKE plattformagnostisk. Det er skrevet ut av ett konkret
+# lesson-korpus, og bærer stack-spesifikke antakelser:
 #   • R8 siterer React Natives `setUpGlobals.js:18` — usant i et prosjekt uten RN.
 #   • R1/R2/R3/R6 hardkoder `vitest` og `playwright` som testløpere.
-#   • `origin`-feltet peker på TODO-numre som ikke finnes i ditt prosjekt.
 #
 # Kun R7 og R10 er plattformagnostiske. Behandle resten som EKSEMPLER på formen en
 # regel skal ha, og skriv dem om mot dine egne lessons før du stoler på dem.
@@ -57,7 +56,7 @@ RULES = []
 # på rad leverte uten Steg-seksjon, og hver gang kostet det en full review-runde.
 #
 # **Utover R0 er INGEN regel HARD, og det er en målt konklusjon, ikke forsiktighet.**
-# Kode-review av PR #852 (2026-09-17) viste to ting over 259 arkiverte planfiler:
+# En måling over 259 arkiverte planfiler viste to ting:
 #   1. Mønsteret til de to kandidatene forekom ÉN gang hver i hele korpuset. Med base
 #      rate 1 kan presisjon ikke måles, og `exit 1` har aldri vært oppnåelig for en
 #      reell plan — en gate som ikke kan bli rød av riktig grunn.
@@ -65,8 +64,7 @@ RULES = []
 #      korrekt sier at Playwright gir `Error: expect(...)` og ikke `AssertionError`
 #      ga exit 1). Altså rød av feil grunn. Begge halvdelene av samme feilklasse i
 #      én regel.
-# Unntaket er lagt inn (se R6), men forfremmelse tilbake til HARD hører til TODO 379
-# og krever at regelen faktisk påkalles et sted OG at base raten gjør presisjon
+# Unntaket er lagt inn (se R6), men forfremmelse tilbake til HARD krever at regelen faktisk påkalles et sted OG at base raten gjør presisjon
 # målbar. Til da er dette et RAPPORTERINGSVERKTØY, ikke en gate.
 HARD, SOFT = 'HARD', 'SOFT'
 
@@ -80,15 +78,15 @@ def rule(rid, title, origin, level=HARD):
 
 # Forklarende prosa nevner de gale formene for å advare mot dem. En vakt som
 # ikke skiller en FEIL fra en ADVARSEL om feilen er falsk-rød — nøyaktig
-# klassen denne linteren finnes for (TODO 306, Hermes-grepet som rødnet på
+# klassen denne linteren finnes for (Hermes-grepet som rødnet på
 # filens egne kommentarer). Linjer som bærer en av disse markørene er
 # forklaring, ikke instruks, og nøytraliseres før reglene kjører.
 # `re.I` er BEVISST fjernet. Markørene er emfase-former forfatteren skriver med vilje
 # i store bokstaver; med `re.I` ble `ALDRI` til `aldri` — et helt ordinært norsk ord som
 # nullet 1965 linjer over arkivet, og `er feil` traff substrengen i «returnerer feil».
-# Målt i kode-review av PR #852: en linje med et ekte R8-treff ble usynlig bare ved at
+# Målt: en linje med et ekte R8-treff ble usynlig bare ved at
 # ordet `ikke` byttes til `aldri`, uten at noe i outputen sa fra. Et filter som kan skjule
-# et funn i stillhet er selv en vakt som ikke kan bli rød. (2026-09-17.)
+# et funn i stillhet er selv en vakt som ikke kan bli rød.
 # Splittet i to, fordi begrunnelsen ikke er den samme for alle markørene:
 #   VERSAL — emfase forfatteren skriver med vilje i store bokstaver. Case-SENSITIV,
 #            ellers blir `ALDRI` til `aldri`, et ordinært norsk ord som nullet 1965
@@ -97,7 +95,7 @@ def rule(rid, title, origin, level=HARD):
 #            arkivet skrives «Forventet rød» med stor F 6 ganger og liten f 5 ganger,
 #            altså myntkast. Én felles case-sensitiv regel gjorde R6 falsk-rød på en
 #            KORREKT mutant-rad bare fordi forfatteren valgte liten forbokstav
-#            (kode-review PR #852 runde 2, probe E: base exit 0 → head exit 1 på
+#            (probe E: base exit 0 → head exit 1 på
 #            samme rad). Ordgrensen i `\b(?:var|er) feil\b` bærer fortsatt fiksen mot
 #            «returnerer feil», uavhengig av flagget.
 EXPLANATORY = re.compile(
@@ -164,7 +162,7 @@ STEG_HEAD = re.compile(r'^#{1,4} .*\bsteg\b', re.I)   # «## Steg», «## §8 St
 def r0(_text, _v, _m):
     # Leser RÅ tekst: strippingen av forklarende linjer skal aldri kunne skjule en steg-linje.
     # Et steg er en avkrysningsboks, et nummerert punkt, en tabellrad med nummer i første celle
-    # eller en `### Steg N`-overskrift. Målt mot 319 planer i opphavsprosjektet: et krav om bokser
+    # eller en `### Steg N`-overskrift. Målt mot 319 planer: et krav om bokser
     # alene ga 41 røde, og de fleste var reviewede og mergede planer med stegene i liste eller tabell.
     # Med dagens regel er 17 røde: 15 er eldre enn malen, ett er et målenotat, og én av 223 nyere
     # planer har stegene under «Rekkefølge». Den siste er en ekte avvisning: malen krever `## Steg`.
@@ -184,7 +182,7 @@ def r0(_text, _v, _m):
                 'Send planen tilbake til planneren før review')]
 
 
-@rule('R1', '-t-filter i testkommando', 'TODO 306', SOFT)
+@rule('R1', '-t-filter i testkommando', '', SOFT)
 def r1(text, _v, _m):
     hits = []
     for i, line in enumerate(text.splitlines(), 1):
@@ -194,7 +192,7 @@ def r1(text, _v, _m):
     return hits
 
 
-@rule('R2', 'flere testfiler navngitt uten Test Files-sitat', 'TODO 375', SOFT)
+@rule('R2', 'flere testfiler navngitt uten Test Files-sitat', '', SOFT)
 def r2(text, v, _m):
     hits = []
     for ln, row in v:
@@ -210,7 +208,7 @@ def r2(text, v, _m):
     return hits
 
 
-@rule('R3', 'playwright uten --list-krav', 'TODO 377', SOFT)
+@rule('R3', 'playwright uten --list-krav', '', SOFT)
 def r3(text, v, _m):
     hits = []
     for ln, row in v:
@@ -221,7 +219,7 @@ def r3(text, v, _m):
     return hits
 
 
-@rule('R4', 'PCRE-klasse i sed/grep (BSD-inkompatibel)', 'TODO 375', SOFT)
+@rule('R4', 'PCRE-klasse i sed/grep (BSD-inkompatibel)', '', SOFT)
 def r4(text, _v, _m):
     hits = []
     for i, line in enumerate(text.splitlines(), 1):
@@ -231,7 +229,7 @@ def r4(text, _v, _m):
     return hits
 
 
-@rule('R5', 'mutant uten forventet feiltekst', 'TODO 306', SOFT)
+@rule('R5', 'mutant uten forventet feiltekst', '', SOFT)
 def r5(text, _v, m):
     hits = []
     for ln, row in m:
@@ -241,7 +239,7 @@ def r5(text, _v, m):
     return hits
 
 
-@rule('R6', 'Playwright-mutant som krever AssertionError', 'TODO 377', SOFT)
+@rule('R6', 'Playwright-mutant som krever AssertionError', '', SOFT)
 def r6(text, _v, m):
     hits = []
     why = ('Playwright skriver ALDRI strengen `AssertionError` — den skriver '
@@ -252,7 +250,7 @@ def r6(text, _v, m):
         # sier at Playwright gir `Error: expect(...)` og IKKE `AssertionError` nevner
         # strengen, men stiller ikke det gale kravet — den sier det riktige. Uten
         # unntaket er regelen falsk-rød på nøyaktig den formen den ber om, altså den
-        # feilklassen den finnes for. Motprøvd i kode-review PR #852 runde 2 (probe F).
+        # feilklassen den finnes for. Motprøvd (probe F).
         if ('playwright' in row.lower() and 'AssertionError' in row
                 and 'expect(' not in row and 'Error:' not in row):
             hits.append((ln, why))
@@ -260,7 +258,7 @@ def r6(text, _v, m):
     # Et kollektivt krav i SEKSJONSOVERSKRIFTEN er samme feil, bare flyttet opp én
     # linje: «## 5 Mutasjonstester (4) — hver skal gi `AssertionError`» over en tabell
     # som inneholder en Playwright-mutant påstår noe usant om den mutanten, selv om
-    # hver enkelt rad er riktig. Først sett på todo-377-planen 2026-09-17, av denne
+    # hver enkelt rad er riktig. Først sett av denne
     # linteren, etter at R6 selv var grønn på radene.
     head_ln = head = None
     for i, line in enumerate(RAW.splitlines(), 1):
@@ -282,7 +280,7 @@ def r6(text, _v, m):
     return hits
 
 
-@rule('R7', 'V-rad uten målt-rød-bevis', 'TODO 306', SOFT)
+@rule('R7', 'V-rad uten målt-rød-bevis', '', SOFT)
 def r7(text, v, _m):
     hits = []
     for ln, row in v:
@@ -301,7 +299,7 @@ def r7(text, v, _m):
     return hits
 
 
-@rule('R8', 'typeof window brukt som plattformsjekk', 'TODO 377', SOFT)
+@rule('R8', 'typeof window brukt som plattformsjekk', '', SOFT)
 def r8(text, _v, _m):
     hits = []
     for i, line in enumerate(text.splitlines(), 1):
@@ -313,7 +311,7 @@ def r8(text, _v, _m):
     return hits
 
 
-@rule('R9', 'mockReturnValueOnce brukt som tidsbevis', 'TODO 375', SOFT)
+@rule('R9', 'mockReturnValueOnce brukt som tidsbevis', '', SOFT)
 def r9(text, _v, _m):
     lines = text.splitlines()
     hits = []
@@ -328,7 +326,7 @@ def r9(text, _v, _m):
     return hits
 
 
-@rule('R10', 'denylist brukt som import-syklus-garanti', 'TODO 375', SOFT)
+@rule('R10', 'denylist brukt som import-syklus-garanti', '', SOFT)
 def r10(text, _v, _m):
     hits = []
     for i, line in enumerate(text.splitlines(), 1):
@@ -468,7 +466,7 @@ def main():
     if hard:
         print(f'\n{len(hard)} BLOKKERENDE:\n')
         for f in hard:
-            print(f"  {f['rule']} linje {f['line']} — {f['title']}  (først sett: {f['origin']})")
+            print(f"  {f['rule']} linje {f['line']} — {f['title']}")
             print(f"      {f['detail']}\n")
     if soft:
         print(f'{len(soft)} til vurdering (blokkerer ikke):')

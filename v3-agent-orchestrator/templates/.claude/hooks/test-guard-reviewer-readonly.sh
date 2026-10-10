@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # {{PROJECT_NAME}} — regresjonsharness for .claude/hooks/guard-reviewer-readonly.sh
-# (TODO 187).
 #
 # Kjøres: bash .claude/hooks/test-guard-reviewer-readonly.sh [sti-til-hook]
 # Standard testmål: guard-reviewer-readonly.sh i samme katalog som denne fila.
@@ -9,7 +8,7 @@
 # lim begge kjøringer ordrett i PR-beskrivelsen.
 #
 # Fasit = hookens EGEN exit-kode (2 = BLOKKERT, 0 = SLIPPER) — ikke grep i eget
-# skall (lesson 2026-08-31). TODO 187 FIX-MODE RUNDE 7 fjernet ALL
+# skall. Hooken har ingen
 # charter-tools:/disallowedTools:-tolkning fra hooken (strukturendring, ikke
 # en lapp — se guard-reviewer-readonly.sh sin toppkommentar) — hooken leser nå
 # KUN .claude/hooks/reviewer-readonly.contract for klassifisering, Agent-
@@ -114,7 +113,7 @@
 #                  .claude/agents/<rolle>.md for HVER rolle i den EKTE
 #                  kontraktfila fortsatt har en disallowedTools:-linje som
 #                  lister minst Write og Edit — det ENESTE gjenværende
-#                  runtime-håndhevede filteret (TODO 173) siden hooken selv
+#                  runtime-håndhevede filteret siden hooken selv
 #                  ikke lenger leser charterfilene i det hele tatt.
 #   K1–K17  (17) — NYE i runde 7: kontrakt-mekanikk med syntetiske roller —
 #                  manglende/tom/søppel/delvis-uparsbar kontraktfil (K1–K7,
@@ -177,9 +176,9 @@ printf '{{PROJECT_NAME}}-code-reviewer\trls-migration-reviewer\t-\nbroken-role-m
 mkdir -p "$COMMENTFIXDIR/.claude/hooks" "$COMMENTFIXDIR/tasks"
 printf 'some-role#with-hash\t-\t-\n' > "$COMMENTFIXDIR/.claude/hooks/reviewer-readonly.contract"
 
-# ── Kontraktfil (TODO 187 FIX-MODE RUNDE 7) — hookens ENESTE
+# ── Kontraktfil — hookens ENESTE
 # beslutningsinput. Speiler den EKTE .claude/hooks/reviewer-readonly.contract
-# (seks read-only roller — TODO 180B la til race-reviewer), PLUSS fire rene
+# (seks read-only roller), PLUSS fire rene
 # test-roller (no-tools-agent, readonly-no-agents, readonly-with-agents,
 # greedy-role) som beviser at mekanismen er generisk — ikke hardkodet mot de
 # seks ekte navnene. Charter-filer (.claude/agents/*.md) LESES IKKE LENGER av
@@ -190,7 +189,7 @@ printf 'some-role#with-hash\t-\t-\n' > "$COMMENTFIXDIR/.claude/hooks/reviewer-re
 # de tre gamle navnene (rls-migration-reviewer,edge-function-reviewer,
 # ios-design-reviewer) — A2-A4 prober disse tre spesifikt. race-reviewer
 # dekkes IKKE herfra, men av D2 mot DFIXDIR (cp -R av den EKTE kontrakten,
-# se over), som er den ekte kontrakten TODO 180B faktisk endret.
+# se over), som er den ekte kontrakten.
 cat > "$FIXDIR/.claude/hooks/reviewer-readonly.contract" <<'CONTRACTEOF'
 {{PROJECT_NAME}}-reviewer	-	-
 {{PROJECT_NAME}}-code-reviewer	rls-migration-reviewer,edge-function-reviewer,ios-design-reviewer	-
@@ -483,7 +482,7 @@ get_b_desc() {
     B4) echo "git checkout --" ;;
     B5) echo "git apply" ;;
     B6) echo "rm -rf" ;;
-    B7) echo "python3 heredoc (observert TODO 173 PR2-omgaaelse)" ;;
+    B7) echo "python3 heredoc" ;;
     B8) echo "git commit" ;;
     B9) echo "git push origin dev" ;;
     B10) echo "gh pr comment" ;;
@@ -503,7 +502,7 @@ get_b_desc() {
     B24) echo "tail" ;;
     B25) echo "pipe til head" ;;
     B26) echo "stderr til /dev/null" ;;
-    B27) echo "TODO 181-invarianten" ;;
+    B27) echo "probe-invarianten" ;;
     B28) echo "kjor harnessen selv" ;;
     B31) echo "escapet alternasjon i dobbeltfnutt (BLOKKERENDE 1)" ;;
     B32) echo "parenteser+alternasjon i enkeltfnutt (BLOKKERENDE 1)" ;;
@@ -879,7 +878,7 @@ run_x() {
       # list_contains() (arm 3), UAVHENGIG av Linux/macOS-forskjellen i
       # MAX_ARG_STRLEN. 1.5 MB er BEKREFTET å feile exec (E2BIG, exit=126)
       # for en grep-basert argv-kommando selv på denne macOS-maskinens
-      # TOTALE ARG_MAX — se opphavsprosjektets docs/workflow.md (ikke med i kit-et). Denne caseen blir dermed rød
+      # TOTALE ARG_MAX. Denne caseen blir dermed rød
       # på BEGGE plattformer, ikke bare i Linux CI, hvis list_contains()
       # noensinne reintroduserer en grep-basert (argv-vei) implementasjon.
       # Payloaden bygges selv via STDIN (`jq -Rs`), ikke `--arg` (samme
@@ -907,7 +906,7 @@ discover_real_agents() {
 get_d_desc() {
   case "$1" in
     D1) echo "datadrevet (uendret siden runde 6, na drevet av den EKTE kontraktfila): settet av EKTE charter som IKKE er read-only er noyaktig {{{PROJECT_NAME}}-implementer, {{PROJECT_NAME}}-planner} - probet ved a sporre HOOKEN SELV (tool_name=Write)" ;;
-    D2) echo "NY datadrevet (TODO 180B VIKTIG 6): code-reviewer sin effektive Agent-allowlist leses fra den EKTE kontraktfila (samme uttrekk som D4) i stedet for en hardkodet tre-navns-liste - checked=0 (tom, mangler, eller '-') gir ERROR, samme prinsipp som D5" ;;
+    D2) echo "NY datadrevet: code-reviewer sin effektive Agent-allowlist leses fra den EKTE kontraktfila (samme uttrekk som D4) i stedet for en hardkodet tre-navns-liste - checked=0 (tom, mangler, eller '-') gir ERROR, samme prinsipp som D5" ;;
     D3) echo "datadrevet (uendret siden runde 6): for HVERT ekte charter Write-proben klassifiserer read-only via kontrakten, blokkeres OGSA hele WRITE_DENYLIST_EXACT (MultiEdit/NotebookEdit/SlashCommand/Skill/mcp__*)" ;;
     D4) echo "NY runde 7 (konfig-drift): code-reviewerens Agent-liste i den EKTE kontraktfila stemmer eksakt med tech_review_agents-navnene i v3-agent-orchestrator/loop.config.yaml" ;;
     D5) echo "NY runde 8 (VIKTIG 4): for HVER rolle i den EKTE kontraktfila har .claude/agents/<rolle>.md en disallowedTools:-linje som lister minst Write og Edit - ren fil-mot-fil-assersjon, ikke en hook-probe" ;;
@@ -943,7 +942,7 @@ run_d() {
       [ "$ok" = "1" ] && echo PASS || echo "ERROR"
       ;;
     D2)
-      # Datadrevet (TODO 180B VIKTIG 6, koordinator-fix): code-reviewerens
+      # Datadrevet (koordinator-fix): code-reviewerens
       # effektive Agent-allowlist leses fra den EKTE kontraktfila (samme
       # awk-uttrekk som D4 bruker) i stedet for en hardkodet tre-navns-liste
       # — et nytt tech-review-navn i kontrakten (f.eks. race-reviewer) blir
@@ -1000,7 +999,7 @@ run_d() {
       [ "$ok" = "1" ] && echo PASS || echo "ERROR"
       ;;
     D4)
-      # NY (TODO 187 FIX-MODE RUNDE 7) — konfig-drift, leser filene direkte
+      # NY — konfig-drift, leser filene direkte
       # (ingen hook-probing nødvendig): code-reviewerens Agent-felt i den
       # EKTE kontraktfila skal stemme eksakt (som mengde) med navnene under
       # tech_review_agents: i v3-agent-orchestrator/loop.config.yaml. Et nytt
@@ -1023,7 +1022,7 @@ run_d() {
       ;;
     D5)
       # NY (VIKTIG 4, koordinator-fix runde 8) — `disallowedTools` er nå det
-      # ENESTE runtime-håndhevede filteret igjen (TODO 173): hooken slettet
+      # ENESTE runtime-håndhevede filteret igjen: hooken slettet
       # ALL tools:/disallowedTools:-tolkning i runde 7 (se toppkommentaren),
       # så INGENTING i hookens beslutningssti lenger leser charterfilene.
       # Uten denne caseen kan `disallowedTools: Write, Edit` fjernes fra et
@@ -1072,7 +1071,7 @@ run_d() {
   esac
 }
 
-# ── K: kontrakt-mekanikk (TODO 187 FIX-MODE RUNDE 7) — beviser egenskapene
+# ── K: kontrakt-mekanikk — beviser egenskapene
 # den nye kontraktfila MÅ ha, uavhengig av de fem ekte rollenavnene (bruker
 # egne syntetiske roller i FIXDIRs kontrakt, se fixture-oppsettet over):
 #   K1–K2   kontraktfil mangler helt -> BLOCK for subagent, PASS for hovedtråd
@@ -1248,7 +1247,7 @@ run_k() {
       exitcode_to_dom "$code"
       ;;
     K18)
-      # BLOKKERENDE fix-runde (PR #738 kode-review): {{PROJECT_NAME}}-scout er nå en
+      # {{PROJECT_NAME}}-scout er nå en
       # linje i den EKTE kontrakten (reviewer-readonly.contract) — kjøres mot
       # DFIXDIR (kopi av den EKTE kontrakten + de EKTE charterne), samme rigg
       # som K14/K15 bruker for å bevise det NEGATIVE (planner/implementer er
@@ -1274,7 +1273,7 @@ run_k() {
 # ── M: meta-assertion — hvert SESSION_SAFE-verktøy i den EKTE hooken MÅ ha en
 # tilhørende C-case. En selv-assersjon av case-ANTALL (som over) fanger et
 # DROPPET case, men ikke et NYTT SESSION_SAFE-verktøy som aldri fikk et case i
-# utgangspunktet (VIKTIG 2, koordinator-fix-runde TODO 187) — derfor leses
+# utgangspunktet (VIKTIG 2) — derfor leses
 # SESSION_SAFE ut av selve hook-fila her, i stedet for å hardkodes på nytt.
 get_m_desc() {
   case "$1" in
@@ -1438,8 +1437,8 @@ for id in $A_IDS; do
   printf '%-4s %-7s %-14s %-6s %s\n' "$id" "$expected" "$actual" "$dom" "$desc"
 done
 
-# A17c/A32c er FULLVERDIGE skårede caser (CI-gatens tellerhull, TODO 187
-# FIX-MODE RUNDE 7): tidligere printet disse "AVVIK" UTEN å røre $total/$ok,
+# A17c/A32c er FULLVERDIGE skårede caser (CI-gatens tellerhull):
+# tidligere printet disse "AVVIK" UTEN å røre $total/$ok,
 # så sluttsjekken (`[ "$ok" -ne "$total" ]`) aldri så dem — en fremtidig
 # regresjon her ville gitt "AVVIK"-tekst i output OG exit=0 samtidig, fordi
 # harnessens EGEN "Scorede caser"-linje ikke inkluderte dem. total++ ALLTID,
@@ -1489,8 +1488,8 @@ for id in $B_IDS; do
   printf '%-4s %-7s %-14s %-6s %s\n' "$id" "$expected" "$actual" "$dom" "$desc"
 
   if [ "$id" = "B74" ]; then
-    # Fullverdig skåret case (CI-gatens tellerhull, TODO 187 FIX-MODE RUNDE
-    # 7) — se A17c/A32c-kommentaren over for begrunnelsen.
+    # Fullverdig skåret case (CI-gatens tellerhull)
+    # — se A17c/A32c-kommentaren over for begrunnelsen.
     total=$((total + 1))
     if gate_log_new_contains "$from" "WOULD-BLOCK"; then
       ok=$((ok + 1))
@@ -1576,7 +1575,7 @@ done
 printf -- '----------------------------------------------------------------------------------------------------\n'
 echo "Scorede caser: $total  |  OK: $ok  |  AVVIK: $((total - ok))"
 
-# Sluttassersjon 2 (CI-gatens tellerhull, punkt 3, TODO 187 FIX-MODE RUNDE 7):
+# Sluttassersjon 2 (CI-gatens tellerhull, punkt 3):
 # $total (den RUNTIME-inkrementerte telleren, inkludert A17c/A32c/B74b som
 # ligger UTENFOR A_IDS/B_IDS-listene) må stemme med et hardkodet forventet
 # antall. Uten denne ville et fremtidig case som ved en feil ALDRI kjører

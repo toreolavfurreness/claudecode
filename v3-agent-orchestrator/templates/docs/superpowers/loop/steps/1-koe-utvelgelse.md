@@ -31,7 +31,7 @@ def fm(p):
             if mm:   # innholdet i "…", ellers alt før en ` #`-kommentar (samme regel som release.py)
                 v = mm.group(2).strip(); q = re.match(r'"([^"]*)"', v)
                 d[mm.group(1)] = q.group(1) if q else re.sub(r'\s+#.*$', '', v)
-    body = t[m.end():] if m else t    # kun kroppen — IKKE frontmatteren (TODO 174: et fritekstfelt
+    body = t[m.end():] if m else t    # kun kroppen — IKKE frontmatteren (et fritekstfelt
                                        # som `observed:`/`saves:` med ordet «brainstorm» i prosa
                                        # skal ikke stille sende en todo ut av køen)
     d['_brainstorm'] = bool(re.search(r'krever[^.\n]*brainstorm|brainstorm\s+f.?r\s+plan|spec\s+f.?r\s+plan', body, re.I))
@@ -84,10 +84,10 @@ Velg øverste rad med `elig=YES`. **Ingen kvalifisert** → se på DOM-linja fra
 - `PÅGÅR` → det finnes åpne todoer i scope, men ingen er kvalifisert (deps, brainstorm, claimet).
   Pausepunkt «release»: list dem med grunn. Ikke hent arbeid utenfor scope uten menneskets ord.
 - `INGEN AKTIV RELEASE` → §7 (grooming), som før. **Kø-sammensetning-linjen er ren
-rapportering** (TODO 174, Del C′) — den påvirker ALDRI valget over. Se «Du styrer køen
+rapportering** (Del C′) — den påvirker ALDRI valget over. Se «Du styrer køen
 (rattet)» i `orchestration-loop.md` for hvordan mennesket bruker den (`priority: prioritert`
 på en `loop`-tagget todo hvis loop-forbedringer sulter).
 
-**TODO 246 — nivå B3:** dette valget (og et bevisst HOPP forbi øverste `elig=YES`-rad, innenfor
+**Nivå B3:** dette valget (og et bevisst HOPP forbi øverste `elig=YES`-rad, innenfor
 mennesket-godkjent rekkefølge) er nivå B3 i `decision-level.py`. Logg kun ved et FAKTISK hopp/valg
 utenom triviell «øverste rad vant» — se § Pausepunkter for de fire logg-pliktene.

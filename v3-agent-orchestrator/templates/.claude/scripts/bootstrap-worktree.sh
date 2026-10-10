@@ -12,7 +12,7 @@
 # Alle verdier kommer fra worktree_bootstrap i loop.config.yaml, substituert av /setup.
 # Mangler seksjonen, er både installasjon og env-kopi tomme — skriptet er da en trygg no-op.
 #
-# Bakgrunn (kildeprosjektet): avhengighets- og env-friksjon i agent-worktrees ble
+# Bakgrunn: avhengighets- og env-friksjon i agent-worktrees ble
 # re-diagnostisert runde etter runde før oppskriften ble en lesson. Dette skriptet gjør
 # lessonen kjørbar.
 

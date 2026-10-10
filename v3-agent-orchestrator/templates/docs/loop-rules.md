@@ -87,7 +87,7 @@ feil · noe tok vesentlig lengre tid enn forventet pga. en fallgruve · menneske
 ---
 tags: [rls, security-definer]
 scope: project
-kilder: [TODO-41, BUG-029]
+kilder: [TODO-12, BUG-003]
 ---
 
 # Kort tittel

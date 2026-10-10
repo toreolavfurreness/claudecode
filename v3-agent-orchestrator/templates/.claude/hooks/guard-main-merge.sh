@@ -75,7 +75,7 @@ if echo "$FIRST" | grep -qE '^gh\s+pr\s+merge\b'; then
   fi
 fi
 
-# ── 3b. gh api --method PUT .../pulls/<pr>/merge — REST-merge (TODO 172 D) ───
+# ── 3b. gh api --method PUT .../pulls/<pr>/merge — REST-merge ───
 # Deteksjon = konjunksjon av tre ledd (alle på $FIRST):
 #   (1) kommando: gh api
 #   (2) metode = PUT, alle gyldige flaggformer, siterte og usiterte

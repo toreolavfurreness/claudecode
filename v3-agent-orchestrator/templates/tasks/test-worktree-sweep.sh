@@ -7,19 +7,16 @@
 # dekker den raske veien i sweepen (--ignored-only-kallet nøytralisert). Se planens
 # fix-runde 3-seksjon for begge begrunnelsene.
 #
-# M9/M10 (env-delmengde) ble lagt til i tasks/test-worktree-landed.sh (oppfølging 1, TODO 380),
+# M9/M10 (env-delmengde) ble lagt til i tasks/test-worktree-landed.sh (oppfølging 1),
 # ikke i DENNE fila — M-nummereringen er delt på tvers av de to harnessene. M11 (under, V3(c))
 # er oppfølging 2: OID-ancestry-grenen i vakt 5 ga falskt treff når wt_head allerede var
 # forgjenger til {{BASE_BRANCH}}, siden `git merge-base --is-ancestor` da er sann for ENHVER åpen PR laget
 # fra {{BASE_BRANCH}}.
-# Se tasks/plans/todo-380-loopen-rydder-aldri-worktrees.md (arkivert:
-# tasks/plans/archive/todo-380-loopen-rydder-aldri-worktrees.md).
-#
-# N-blokken (TODO 401) dekker navngitt kjøring (agent-<id> …): aldersvakten hoppes over kun for
+# N-blokken dekker navngitt kjøring (agent-<id> …): aldersvakten hoppes over kun for
 # navngitte trær, lås/åpen-PR-vaktene gjelder uendret, et navn uten tre gir «IKKE FUNNET», og
 # oppsummeringslinja bruker wtsweep_named=/wtsweep_named_dry= — aldri wtsweep=. D-seksjonen
 # beviser at docker aldri blokkerer sweepen (global stub, ingen ekte docker-CLI kalles noe sted i
-# denne fila). Se tasks/plans/todo-401-sweep-rydder-egne-worktrees-ved-arkivering.md.
+# denne fila).
 #
 # Sjekket inn (fix-runde 1, R5) etter at et scratchpad-only harness i en tidligere runde
 # hadde en NÆRLIGGENDE feil: worktree-sweep.sh finner sitt eget REPO_ROOT via
@@ -42,7 +39,7 @@ FAKEBIN="$SANDBOX_ROOT/.fakebin"
 mkdir -p "$FAKEBIN"
 trap 'rm -rf "$SANDBOX_ROOT"' EXIT
 
-# TODO 401: global docker-stub. Ingen kjøring i denne harnessen skal noensinne kalle den ekte
+# global docker-stub. Ingen kjøring i denne harnessen skal noensinne kalle den ekte
 # docker-CLI-en (M4 målte en ~50 min heng mot en hengende daemon) — stubben skriver en markør
 # (D0/D1 under) i stedet for å berøre disk.
 DOCKER_MARK="$SANDBOX_ROOT/docker-called.log"
@@ -208,7 +205,7 @@ else
   fail "V3(b): case-b ikke BEHOLDT via OID-ancestry"
 fi
 
-# (c) wt_head er ALLEREDE forgjenger til {{BASE_BRANCH}} (oppfølging 2, TODO 380 — målt: et 380-planlegger-
+# (c) wt_head er ALLEREDE forgjenger til {{BASE_BRANCH}} (målt: et planlegger-
 # tre hvis HEAD var en vanlig {{BASE_BRANCH}}-commit ble BEHOLDT for alltid fordi `git merge-base
 # --is-ancestor "$wt_head" "$proid"` er sann for ENHVER åpen PR laget fra {{BASE_BRANCH}}). case-c sin branch
 # har INGEN nye commits oppå {{BASE_BRANCH}} — HEAD ER {{BASE_BRANCH}} sin HEAD. Den åpne PR-en (stub) er et ANNET navn
@@ -289,7 +286,7 @@ else
   fail "M6(b): case-b flippet ikke"
 fi
 
-echo "############ M11 — {{BASE_BRANCH}}-ancestry-unntaket fjernes (oppfølging 2, TODO 380) ############"
+echo "############ M11 — {{BASE_BRANCH}}-ancestry-unntaket fjernes (oppfølging 2) ############"
 # Gjeninnfører den ekte feilen: OID-sjekken kjøres mot ENHVER åpen PR uansett om wt_head
 # allerede er forgjenger til {{BASE_BRANCH}}. Skal ramme KUN V3(c) (flipper til det gamle falske treffet),
 # V3(b) skal forbli UENDRET (case-b sin HEAD er IKKE en forgjenger til {{BASE_BRANCH}}, så unntaket
@@ -769,7 +766,7 @@ else
   fail "M5: klassifikator-kallsted-fjerning flippet ikke V6(landed)"
 fi
 
-echo "############ N — navngitt kjøring (TODO 401) ############"
+echo "############ N — navngitt kjøring ############"
 new_harness WN
 git -C "$WN" checkout -q -b feat/n3 {{BASE_BRANCH}}
 echo n3 > "$WN/n3.txt"
@@ -902,7 +899,7 @@ else
   fail "N5-sti-avvist: en sti som argument ble ikke avvist høylytt (rc=$rc)"
 fi
 
-echo "--- N5b (fix-runde 1, VIKTIG, PR #980 kode-review r1): 'agent-*' og et navn med internt mellomrom avvises ---"
+echo "--- N5b (VIKTIG): 'agent-*' og et navn med internt mellomrom avvises ---"
 out=$(run_wn --dry-run 'agent-*')
 rc_wild=$?
 out2=$(run_wn --dry-run 'agent-n1 agent-other')
@@ -914,7 +911,7 @@ else
   fail "N5b: 'agent-*' (rc=$rc_wild) eller 'agent-n1 agent-other' (rc=$rc_space) ble ikke avvist høylytt"
 fi
 
-echo "--- N-gate-navngitt (fix-runde 1, MINDRE, PR #980 kode-review r1): --gate + navn avvises ---"
+echo "--- N-gate-navngitt (MINDRE): --gate + navn avvises ---"
 out=$(run_wn --gate agent-n2)
 rc=$?
 if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF "UKJENT FLAGG:" \
@@ -924,7 +921,7 @@ else
   fail "N-gate-navngitt: --gate kombinert med et navn ble ikke avvist høylytt (rc=$rc)"
 fi
 
-echo "############ D — docker kan ikke blokkere sweepen (TODO 401) ############"
+echo "############ D — docker kan ikke blokkere sweepen ############"
 if [ ! -e "$DOCKER_MARK" ]; then
   echo "D1=PASS (ingen sweep-kjøring i harnessen har kalt docker)"
 else
