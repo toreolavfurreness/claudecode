@@ -203,6 +203,11 @@ def _self_test():
     check("epic-feltet vinner over CLUSTERS, REST_EPICS sist",
           -1 < html.find('class="epic-t">grunnmur<') < html.find('class="epic-t">Klynge A<'))
 
+    # 9. En release med todoer, men uten release-fil, har ingen bane: generatoren stopper.
+    rc, md, err, html, title = run({**base, "tasks/todos/todo-5.md": todo("5", title='"Femte"', release='"9.9.0"')},
+                                   "--html", "q.html")
+    check("release uten bane stopper generatoren", rc != 0 and "release uten bane" in err and "v9.9" in err)
+
     print("SELF-TEST " + ("GRØNN" if not fails else f"RØD ({len(fails)} feil)"))
     return 0 if not fails else 1
 
@@ -1412,3 +1417,9 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
 
     a("</main>")
     open(hpath, "w", encoding="utf-8").write("\n".join(h) + "\n")
+    # Vakt: en release som har todoer, skal ha en bane på siden. Uten vakten ser siden ferdig ut
+    # mens en hel release mangler. Flere aktive releaser har egen advarsel på siden og stopper ikke her.
+    _uten = [] if len(_ACTIVE) > 1 else [k for k, v in lanes.items() if v and k != "ingen"
+             and f">{k}" not in "\n".join(h).split("Release-versjoner", 1)[1].split("<h2>Nivå B", 1)[0]]
+    if _uten:
+        sys.exit(f"queue-status: release uten bane på siden: {_uten}")
