@@ -2,7 +2,7 @@
 
 Inngangsstier:
 
-- **Prosjektet kjører v3.4** → [Fra v3.4 til v3.5](#fra-v34-til-v35): køsiden er felles. Les
+- **Prosjektet kjører v3.4 eller v3.5** → [Fra v3.5 til v3.6](#fra-v35-til-v36): køsiden er felles. Les
   seksjonen FØR `/setup`, siden `/setup` overskriver en prosjektspesifikk `tasks/queue-status.py`.
 - **Prosjektet kjører v3.3** → kjør `/setup` på nytt. Releaser er valgfrie: uten en fil i
   `tasks/releases/` med `status: active` er køutvalget som før. Vil du ta dem i bruk, følg
@@ -25,7 +25,7 @@ Inngangsstier:
 
 ---
 
-## Fra v3.4 til v3.5
+## Fra v3.5 til v3.6
 
 Køsiden er lik i alle prosjekter. `tasks/queue-status.py` er kit-eid (markdown, `--html`, mermaid,
 epics, release-baner, filtre) og leser releaser, mål, `done_when`, epics og fremdrift fra
@@ -40,7 +40,7 @@ Nytt i kit-et:
 - `docs/superpowers/loop/artifacts.md` er nå seed-only (URL-ene er prosjektets) og har en felles
   Køsiden-rad med samme generator og vakter for alle.
 - `tasks/kit-drift.py`: melder `AVVIK` når `tasks/queue-status.py` eller generator- eller vakt-kolonnen
-  i Køsiden-raden avviker fra malen. Helsesjekken kjører den (A5e). Et avvik melder bare fra og gjør
+  i Køsiden-raden avviker fra malen. Helsesjekken kjører den (A5f). Et avvik melder bare fra og gjør
   ikke helsesjekken rød.
 - Release-filer kan ha `shipped: "ÅÅÅÅ-MM-DD"`. Da får en levert release en egen bane på køsiden uten config.
 
@@ -170,8 +170,8 @@ For hver `AVVIK`: er det prosjektets egen forbedring, ta den inn i
 `v3-agent-orchestrator/templates/` (tokenisert) før du går videre — ellers forsvinner den i steg 3.
 Er prosjektets versjon bevisst prosjektspesifikk og rikere (f.eks. modellforsøk-seksjonene i
 `measure_cost_html.py`), gjenopprett den etter steg 3 med `git checkout HEAD -- <fil>`. Merk at neste
-`/setup` overskriver den igjen. Unntak: `tasks/queue-status.py` er felles fra v3.5. Det prosjektspesifikke
-flyttes til `tasks/queue-config.py` (se [Fra v3.4 til v3.5](#fra-v34-til-v35)).
+`/setup` overskriver den igjen. Unntak: `tasks/queue-status.py` er felles fra v3.6. Det prosjektspesifikke
+flyttes til `tasks/queue-config.py` (se [Fra v3.5 til v3.6](#fra-v35-til-v36)).
 
 ### 3. Kjør `/setup`
 

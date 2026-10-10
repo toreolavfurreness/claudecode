@@ -492,12 +492,38 @@ if REL or len(_ACTIVE) > 1:
 for _linje in release_oversikt(list(todos.values())):
     w(_linje)
 
+# Fasen til en claimet todo. Koordinatoren setter `phase` i frontmatter ved hvert steg. Første ord
+# er nøkkelen, resten er fritekst (runde, PR): `phase: kode-review r2 PR 1112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`.
+PHASES = {
+    "plan": "planlegges",
+    "plan-review": "plan til review",
+    "plan-revisjon": "plan revideres",
+    "implementering": "implementeres",
+    "kode-review": "kode-review",
+    "fix": "fix-runde",
+    "merge-klar": "venter CI / merge",
+    "venter-eier": "venter på deg",
+}
+
+
+def phase_label(d):
+    key, _, rest = (d.get("phase") or "").strip().strip("\"'").partition(" ")
+    if key in ("", "null"):
+        return "fase ikke satt"
+    return (PHASES.get(key, "ukjent fase: " + key) + " " + rest).strip()
+
+
+assert phase_label({"phase": "kode-review r2 PR 1112"}) == "kode-review r2 PR 1112"
+assert phase_label({"phase": "fix 1"}) == "fix-runde 1"
+assert phase_label({}) == "fase ikke satt"
+assert phase_label({"phase": "tull"}) == "ukjent fase: tull"
+
 w("## I arbeid nå")
 w("")
 if not in_progress:
     w("- (ingenting claimet)")
 for d in in_progress:
-    w(f"- **TODO {d['nr']}** — {short_title(d)} — `in_progress`, claimet av `{d.get('claimed_by')}`"
+    w(f"- **TODO {d['nr']}** — {short_title(d)} — `in_progress` ({phase_label(d)}), claimet av `{d.get('claimed_by')}`"
       f"{', plan `' + d['plan'] + '`' if d.get('plan') not in (None, '', 'null') else ''}")
     if NOTES.get(d['nr']):
         w(f"  - {NOTES[d['nr']]}")
@@ -706,6 +732,10 @@ if "--html" in sys.argv:
                  "ingen": ("st-utsatt", "ingen plan")}
 
     def plan_html(d):
+        # En claimet todo viser fasen (frontmatter `phase`), ikke plan-status: `plan_state` kjenner
+        # bare `reviewed`, så en todo i arbeid sto alltid som «plan til godkjenning».
+        if state_of(d) == "arbeid":
+            return f'<span class="pill st-arbeid" title="fase">{_h.escape(phase_label(d))}</span>'
         cls, label = PLAN_PILL[plan_state(d)]
         return f'<span class="pill {cls}" title="plan-status">{label}</span>'
 
@@ -975,9 +1005,9 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
     n_klar = sum(1 for d in nx2 if state_of(d) == "klar")
     n_venter = sum(1 for d in nx2 if state_of(d) == "venter")
     n_arbeid = sum(1 for d in nx2 if state_of(d) == "arbeid")
-    n_plan = sum(1 for d in nx2 if plan_state(d) == "godkjent")
-    n_utkast = sum(1 for d in nx2 if plan_state(d) == "utkast")
-    n_uplan = sum(1 for d in nx2 if plan_state(d) == "ingen")
+    n_plan = sum(1 for d in nx2 if state_of(d) != "arbeid" and plan_state(d) == "godkjent")
+    n_utkast = sum(1 for d in nx2 if state_of(d) != "arbeid" and plan_state(d) == "utkast")
+    n_uplan = sum(1 for d in nx2 if state_of(d) != "arbeid" and plan_state(d) == "ingen")
     a('<article class="lane lane-now">')
     if NOW:
         a(f'<div class="lane-head"><span class="lane-tag r-now">{NOW}</span>'
@@ -1095,6 +1125,29 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
         a("</article>")
     a("</section>")
 
+    # ===================== 1b. NIVÅ B SISTE 24 T (under releasene) (veto, TODO 455) =====================
+    a("<section>")
+    a("<h2>Nivå B siste 24 t — veto før neste release</h2>")
+    _rb = subprocess.run([sys.executable, "tasks/decision-level.py", "--recent-b", "--hours", "24"],
+                         capture_output=True, text=True)
+    a('<div class="flags">')
+    if _rb.returncode != 0:
+        # Vakten skal synes — aldri en stille tom liste.
+        a(f'<div class="flag"><b>Kunne ikke lese decision-log: {_h.escape(_rb.stderr.strip())}</b></div>')
+    else:
+        _rbj = _json.loads(_rb.stdout)
+        _bs = _rbj["entries"]
+        if _rbj["unparsed"]:
+            a(f'<div class="flag"><b>{_rbj["unparsed"]} decision-log-overskrift(er) siste 24 t følger ikke '
+              f'«### YYYY-MM-DD HH:MM — …» og vises ikke her</b></div>')
+        if not _bs:
+            a('<p class="sub">Ingen nivå B-beslutninger siste 24 t.</p>')
+        for e in _bs:
+            a(f'<div class="flag"><b>{_h.escape(e["ts"])} — {_h.escape(e["header"])}</b>'
+              f'<p>Reversibel til: {_h.escape(e["reversibel"])}</p></div>')
+    a("</div>")
+    a("</section>")
+
     # ============================ 2. EPICS ============================
     a("<section>")
     a('<p class="eyebrow">Epics</p>')
@@ -1170,6 +1223,8 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
         ep = cluster_of(d["nr"], d.get("tags", ""))
         note = NOTES.get(d["nr"])
         badges = [effort_html(d), state_pill(d)]
+        if st == "arbeid":
+            badges.append(plan_html(d))
         if r != "ingen":
             badges.append(f'<span class="pill relp {slug(r)}">{r}</span>')
         if is_pause(d):

@@ -186,7 +186,36 @@ med én linje til eieren i neste statusrapport, med kjøringens URL
 (`gh run list --workflow <wf> --branch {{PROD_BRANCH}} --event schedule --limit 1 --json url --jq '.[0].url'`).
 Flere vakter: verste utfall vinner (`infra-feil`/`red` > `report-red` > `n/a`/`green`).
 
-### A5e — Kit-drift
+### A5e — Kostnadskalibrering
+
+Sammenligner `measure-cost.py` sin egen sum med harnessens kostnadstall per avsluttet økt. Steget gjør
+aldri helsesjekken rød.
+
+```bash
+python3 tasks/measure-cost.py --calibrate; echo "exit=$?"
+```
+
+`final` er andelen underagent-meldinger som har endelig usage. Exit 2 (ingen økt målt) →
+**ADVARSEL**. Annen exit ≠ 0 uten en `over=yes`-linje (traceback, eller ingen sesjonskataloger) →
+**ADVARSEL** med stderr ordrett. Per linje:
+- `over=yes` uten `KJENT HULL` → **ADVARSEL**.
+- `KJENT HULL` → meld som «KJENT HULL», ikke som ADVARSEL: fra Claude Code 2.1.281 mangler
+  underagent-transkriptene endelig usage, så egen sum er for lav. `KJENT HULL` har ingen nedre grense
+  og skjuler enhver undermåling i økta: prisfeil, avkortet hovedfil, manglende underagent-filer (når
+  minst én underagent-melding er igjen) og avvik som stammer fra hovedfila.
+- En linje med `final` under 50 % etterprøver ikke prisene, uansett `over=`. Har ingen linje `final` på
+  50 % eller mer, meld steget som «ikke en prismåling denne runden». Prisene kan da bare etterprøves
+  slik (`<fil>` i scratchpad):
+
+```bash
+curl -sL https://platform.claude.com/docs/en/about-claude/pricing.md -o <fil>
+python3 tasks/measure-cost.py --prices-check <fil>
+```
+
+ADVARSEL, KJENT HULL og «ikke en prismåling denne runden» endrer ikke A6. Koordinatoren tar med én linje
+per utfall til eieren i neste statusrapport, med calibrate-linja ordrett.
+
+### A5f — Kit-drift
 
 ```bash
 python3 tasks/kit-drift.py
@@ -335,24 +364,45 @@ Del D's format.
 python3 tasks/decision-level.py --self-test
 ```
 
-Krav: exit 0 **og** `30/30` i stderr-oppsummeringen. Ikke-grønn ⇒ **RØD** (regelmotoren selv er i
+Krav: exit 0 **og** `52/52` **og** `logg-parser: PASS` **og** `avstemming: PASS` i stderr-oppsummeringen. Ikke-grønn ⇒ **RØD** (regelmotoren selv er i
 utakt med sine egne fixtures — ALDRI stol på klassifiseringer denne runden).
 
 ### D1b — Regelmotor ekte-kall-sjekk (runbookens DOKUMENTERTE `--context`-kall virker, ikke bare `--self-test`)
 
 `--self-test`/`--dump-rules` bevisste at fixturene og tabellen stemmer, men fanger IKKE en
 regresjon i selve `--event`-kalleformen runbooken instruerer koordinatoren om å skrive (kode-review
-r1, BLOKKERENDE-funn: komma-sammenslått `--context` ga A0 på begge dokumenterte kall). Kjør de to
+r1, BLOKKERENDE-funn: komma-sammenslått `--context` ga A0 på begge dokumenterte kall). Kjør
 kalleformene ordrett slik de står i runbook-stegfilene `docs/superpowers/loop/steps/4-dispatch-reviewer.md` (avsnittet «Ved `technical_risk.flagged`») og `docs/superpowers/loop/steps/5b-kode-review.md` (revise-gate-punktet under «Gate») mot LEVENDE tre:
 
 ```bash
 python3 tasks/decision-level.py --event technical_risk --context source=planner --context kind=docs_selfmod --context executable_gate=yes
-python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=2 --context blocking_now=2 --context new_class=no --context content=no --context cost_over=no
+python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=2 --context new_class=no --context content=no --context cost_over=no
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=yes --context cost_over=no
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=1 --context action=fix_round --context cost_over=yes
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=few
+python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=few
 ```
 
-Krav: begge exit 0 **og** `"level": "B"` (hhv. `"rule": "B5"` og `"rule": "B1"`) i JSON-outputen.
-Enten kall som gir `"level": "A"`/`"rule": "A0"` ⇒ **RØD** — nivå B er da inert i drift uansett hva
-D1/D2 sier, samme feilklasse som ble reprodusert og rettet i kode-review r1.
+Krav, i rekkefølge (TODO 455/472/483):
+
+1. exit 0 og `"rule": "B5"`. Den dokumenterte kalleformen virker.
+2. exit 0 og `"rule": "B1"`. En fix-runde der funnene går ned, er nivå B.
+3. exit 0 og `"rule": "B1"`. Gate-funnene går ikke ned (2→2) i §5b: nivå B etter eierens vedtak
+   2026-10-04 18:08. Gir det A0, er flyttingen borte.
+4. exit 1, `"rule": "A0"` og `no_convergence: blocking` i `violations`. Samme tall i §4: planrevisjon
+   er ikke flyttet. Gir det B7, er vakten for §4 borte.
+5. exit 1, `"rule": "A0"` og `content='yes'` i `violations`. Innholdsfunn er nivå A også i §5b.
+6. exit 1, `"rule": "A0"` og `cost_brake` i `violations`. Kostnadsbremsen gjelder fra runde 1.
+7. exit 1, `"rule": "A0"` og `cost_over='few'` i `violations`. For få sammenlignbare todoer stopper
+   §5b fra runde 2 (TODO 483).
+8. exit 0 og `"rule": "B7"`. Samme verdi i §4 stopper ikke. Gir det A0, er sperren blitt bredere
+   enn vedtaket.
+
+Ett avvik ⇒ **RØD**. Gir kall 1–3 og 8 `"level": "A"`, er nivå B inert i drift uansett hva D1/D2 sier
+(samme feilklasse som ble reprodusert og rettet i kode-review r1 av TODO 246). Gir kall 4–7 nivå B,
+bestemmer koordinatoren selv noe eieren skal spørres om.
 
 ### D2 — Regel-paritet (skript ↔ runbook-prosa)
 
@@ -390,25 +440,11 @@ manuelt av mennesket som forventet engangs-støy.
 ### D4 — Nivå-B-oppsummering + avstemming (mot run-loggen)
 
 ```bash
-# 1. Tidsstempel for siste helsesjekk
-awk -F' \| ' '/\| health \|/ {ts=$1} END {print ts}' docs/superpowers/loop/run-log.md
+# Avstemming: hver run-log-rad siden siste helsesjekk mot oppføringene som hører til raden.
+python3 tasks/decision-level.py --reconcile
 
-# 2. Antall [B*]-entries i decision-log ETTER FORMAT-V2-markøren og etter det tidspunktet
-awk -v since="<TS fra steg 1, mellomrom i stedet for T>" '/FORMAT-V2/ { m=1; next } m && /^### 20[0-9][0-9]-/ { h=substr($0,5); if (substr(h,1,16) >= since && h ~ /\[B[0-9]+\]/) n++ } END { print n+0 }' docs/superpowers/loop/decision-log.md
-
-# 3. Sum av auto_decided= + rader som mangler tokenet — ANKER-SCOPET på TODO 246s EGEN
-#    merge-rad (180B-mønsteret, runbook-templaten 545-548), IKKE på siste helserad. 246 er
-#    hardkodet (ikke en `<todo_nr>`-plassholder) fordi 246 er merge-raden der auto_decided-
-#    kontrakten trådte i kraft — en helsesjekk er ikke scopet til «denne todoen», så en
-#    plassholder her ville anker på feil rad (VIKTIG-funn, kode-review r1). ANKERRADEN
-#    INKLUDERES i vinduet (ingen `next` etter `f=1`) — ekskludert next-form (180B-mønsteret for
-#    selector=-tellingen over) rørte kun 180As FØR-kontrakt-rad; 246s egen rad bærer derimot
-#    selve auto_decided-kontraktens FØRSTE gyldige token, så den skal telles med, ellers er
-#    steg 2/3-vinduene forskjøvet med 246s egen runde (BLOKKERENDE-funn, kode-review r1).
-awk '/\| 246 \|/{f=1} f' docs/superpowers/loop/run-log.md \
-  | awk '/\| health \|/ { s=0; c=0; b=0; next } /^20[0-9][0-9]-/ { c++; if (match($0, /auto_decided=[^ |]*:[0-9]+/)) { t=substr($0, RSTART, RLENGTH); sub(/.*:/, "", t); s+=t } else b++ } END { print "sum=" s+0, "rader=" c+0, "mangler_token=" b+0 }'
-
-# 4. Run-log-krysssjekk — tre deler, samme anker som steg 3 (hardkodet 246, se begrunnelsen over):
+# Run-log-krysssjekk — tre deler. Ankeret er hardkodet 246 (ikke en `<todo_nr>`-plassholder):
+# 246 sin merge-rad er der auto_decided-kontrakten trådte i kraft, og raden selv er med i vinduet.
 awk '/\| 246 \|/{f=1} f' docs/superpowers/loop/run-log.md \
   | awk -F' \| ' '$4 ~ /^(merged|paused)$/ && $7+0 > 2 {print $1, $2, "prr="$7}'   # V16a
 awk '/\| 246 \|/{f=1} f' docs/superpowers/loop/run-log.md \
@@ -417,10 +453,21 @@ awk '/\| 246 \|/{f=1} f' docs/superpowers/loop/run-log.md \
   | awk -F' \| ' '$4 ~ /^(merged|paused)$/ && $8+0 >= 4 {print $1, $2, "crr="$8}'  # V16c
 ```
 
-Krav: **steg 2 == sum (steg 3)** OG **mangler_token = 0** ⇒ `OK`. Avvik ⇒ **RØD** («AVVIK» i
-rapportblokken), eskalér — en koordinator som logget et nivå-B-valg uten `auto_decided=` (eller
-omvendt) har brutt en av de fire logg-pliktene. Hver V16a/b-treffende rad MÅ ha en tilsvarende
-decision-log-entry (`[A0]` for V16a, `[B1]` for V16b). En V16c-treffende rad (`crr >= 4`) MÅ ha
+Krav til avstemmingen: exit 0 ⇒ `OK`. Exit 1 ⇒ **RØD**: gjengi `AVVIK`-, `MANGLER_TOKEN`- og
+`etter merged-rad`-linjene i rapportblokken og eskalér. En rad som fører et annet tall enn loggen
+gir, eller et nivå-B-valg uten rad, er brudd på en av de fire logg-pliktene. Exit 2 (en fil kan
+ikke leses, eller markøren mangler) ⇒ **RØD**. `rader=0` er et tomt vindu og skrives slik.
+
+Regelen (`attribute()` i skriptet, samme funksjon som `--auto-decided` i §6 steg 5): en
+`[B<siffer>]`-oppføring eies av første `TODO <nr>` i overskriften og telles på eierens første rad
+med radtid ≥ oppføringstid. `venter på merge` (eieren har ingen rad ennå, eller siste rad er ikke
+`merged`) og `uten todo` gjengis i rapportblokken og gir ikke rødt. **Eierløse B-valg (`— loop
+[Bn]`) står ikke på noen rad og avstemmes ikke.** De telles bare. Run-log-rader med `-` i todo-feltet (felt 2) hoppes over av `attribute()` og avstemmes heller ikke. `etter merged-rad` kan bli rødt for
+en todo som er åpnet igjen etter merge. Linja forsvinner når todoen får ny rad.
+
+Hver V16a/b-treffende rad MÅ ha en tilsvarende
+decision-log-entry (`[B7]` eller `[A0]`/`[A…]` for V16a, `[B1]` eller `[A0]`/`[A…]` for V16b — fast
+rundetak er fjernet i TODO 455, så runde 3+ kan være en B-runde). En V16c-treffende rad (`crr >= 4`) MÅ ha
 enten `[B1]` (lukking — den vanlige klassen: `merge_carry`/`stop` ved `crr>=4` er B1 uansett
 rundetall) eller `[A0]` (et forkastet nytt fix-runde-forsøk) — IKKE strengt `[A0]`. Rad uten NOEN
 av de tillatte entry-typene ⇒ **RØD**.
@@ -429,8 +476,21 @@ av de tillatte entry-typene ⇒ **RØD**.
 `code_review_rounds`-felt skrives av SAMME aktør i samme runde — se «Residual» i
 `coordinator-runbook.md` § Pausepunkter for mitigeringen (`Runde-SHA:`-feltet + `git cat-file -e`).
 Del D4 verifiserer IKKE `Runde-SHA:` mekanisk i denne PR-en (ingen `git log`-avhengig gate er lagt
-til Del D — kun de fire kommandoene over); det er en dokumentert, bevisst avgrensning, ikke en
+til Del D — kun kommandoene over); det er en dokumentert, bevisst avgrensning, ikke en
 påstått lukket gate.
 
-Rødt i D1-D4 ⇒ helsesjekk RØD (samme eskalering som Del A6) — §8b kjøres IKKE (se
+### D5 — Treffsikkerhet per type (TODO 455)
+
+```bash
+python3 tasks/decision-level.py --agreement
+```
+
+TSV-en (`type n fulgt avvek forslag`) går inn i rapportblokken. En rad med `flytt-til-B` gir ett
+nivå A-spørsmål (`Type: calibration`, se `coordinator-runbook.md` § Kalibrering). Exit ≠ 0 ⇒ **RØD**.
+En type som alt har en `[B, calibration]`-oppføring med samme `Type`, får `-` og foreslås ikke på
+nytt. `-` demper også et nytt `flytt-til-B` for samme type, så en videre utvidelse av en flyttet
+type (f.eks. `content=yes` for `revise_gate_choice`) må tas opp manuelt. Dempingen varer for alltid, også etter en VETO mot flyttingen; en tilbakeføring
+må da også tas opp manuelt.
+
+Rødt i D1-D5 ⇒ helsesjekk RØD (samme eskalering som Del A6) — §8b kjøres IKKE (se
 `coordinator-runbook.md` «Etter §6c»).

@@ -685,7 +685,7 @@ SEED_ONLY = {
     "tasks/lessons.md",
     "docs/naming-conventions.md",
     "docs/data-model.md",
-    # v3.5: køsidens prosjektdel og artefakt-lenkene. queue-status.py er kit-eid og lik overalt;
+    # v3.6: køsidens prosjektdel og artefakt-lenkene. queue-status.py er kit-eid og lik overalt;
     # tittel, eierskap, notater og leverte releaser står i queue-config.py. artifacts.md bærer
     # prosjektets URL-er — en regenerering ville slettet dem (kit-drift.py vokter Køsiden-raden).
     "tasks/queue-config.py",

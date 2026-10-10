@@ -19,7 +19,7 @@ pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/se
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
-**v3.5** (felles køside):
+**v3.6** (felles køside):
 - **`tasks/queue-status.py` er lik i alle prosjekter:** FamilieHubs køside (markdown, `--html` med
   release-baner, epics, filtre og datakvalitet, mermaid) gjort prosjektnøytral. Releaser, mål,
   `done_when`, epics, fremdrift og «levert» kommer fra `tasks/releases/` via `release.py`.
@@ -28,8 +28,45 @@ v3-formatene.
   generatoren.
 - **Felles Køsiden-rad i `artifacts.md`** med samme generator og vakter (`--print-title`) overalt.
   `artifacts.md` er seed-only, så URL-ene overlever `/setup`.
-- **`tasks/kit-drift.py`** (helsesjekk A5e) melder når et prosjekts `queue-status.py` eller
-  Køsiden-rad har gått bort fra malen. Migrering: [`MIGRATION.md`](MIGRATION.md#fra-v34-til-v35).
+- **`tasks/kit-drift.py`** (helsesjekk A5f) melder når et prosjekts `queue-status.py` eller
+  Køsiden-rad har gått bort fra malen. Migrering: [`MIGRATION.md`](MIGRATION.md#fra-v35-til-v36).
+
+**v3.5** — tre endringer fra FamilieHub v1.16 (TODO 472, TODO 483 og eierens vedtak 2026-10-09):
+- **Avstemming per todo (TODO 472):** `python3 tasks/decision-level.py --auto-decided <nr>` skriver run-log-tokenet
+  `auto_decided=<nr>:<n>`, og `--reconcile` avstemmer hver run-log-rad mot decision-log (helsesjekk D4). Tokenet
+  telles aldri for hånd. `--event … --todo <nr> --title <tekst>` gir `header`-feltet, som limes ordrett inn som
+  overskrift i decision-log. §6 steg 5: tell først, ta radtiden fra klokka etterpå.
+- **§5b leses smalt (TODO 472):** at gate-funnene ikke går ned, eller at en ny feilklasse dukker opp, er nivå B1 i
+  §5b. Innholdsfunn, manglende konvergensdata og kostnadsbremsen er fortsatt A0. §4 er uendret.
+- **`over=few` (TODO 483):** `measure-cost.py --brake` gir `over=few` når effort-klassen har færre enn 5 andre
+  todoer med målt kost. `cost_over=few` gir A0 for en ny fix-runde i §5b fra runde 2, og teller som `no` i §4 og
+  i runde 1.
+- **Tak for samtidige implementere:** FamilieHub hevet `parallel_implementers.max` til 3. Kitet trenger ingen
+  endring: verdien kommer fra `loop.config.yaml` (`{{PARALLEL_IMPLEMENTERS_MAX}}`), og `/setup` godtar alle heltall ≥ 1.
+- Sjekk: `python3 tasks/decision-level.py --self-test` (`52/52`, `logg-parser: PASS`, `avstemming: PASS`) og
+  `python3 tasks/measure-cost.py --brake-self-test` (`6/6`).
+
+**v3.4.6** — kostnadsmålingen kalibreres mot harnessens eget tall, fra FamilieHub TODO 457:
+- **`python3 tasks/measure-cost.py --calibrate`** skriver én linje per avsluttet økt: harnessens
+  `cost-state.totalCostUSD`, egen sum (hovedfil + underagenter i vinduet `startTime`–slutt), avvik og `final`
+  (andelen underagent-meldinger med endelig usage). Avvik over 10 % gir `over=yes` og exit 1.
+- **KJENT HULL:** fra Claude Code 2.1.281 mangler underagent-transkriptene endelig usage, så egen sum blir for
+  lav. Negativt avvik med `final` under 50 % meldes som `KJENT HULL` (exit 0) og etterprøver ikke prisene.
+- **`--prices-check <fil>`** sammenligner pristabellen med prissiden (hentes med `curl`, se kommentaren ved `PRICES`).
+- **Helsesjekken** har steget A5e, som kjører kalibreringen og aldri gjør helsesjekken rød.
+- Sjekk: `python3 tasks/measure-cost.py --calibrate-self-test` (`9/9`).
+
+**v3.4.5** — kalibrert beslutningsgrense (konvergens i stedet for rundetak, kostnadsbrems, samsvarsmåling, veto-flate) fra FamilieHub TODO 455:
+- **Konvergensregel** (`coordinator-runbook.md` § Konvergensregel): fast rundetak (fjernet i TODO 455) er
+  erstattet av konvergens. Fra runde 2 er en ny plan-/fix-runde nivå B (B7/B1) bare når gate-funnene går ned,
+  ingen ny feilklasse dukker opp og funnene bare gjelder form (ikke RLS/datamodell/omfang); ellers A0. `tasks/decision-level.py` har 39 fixtures.
+- **Kostnadsbrems:** `python3 tasks/measure-cost.py --brake <nr> [--pr <n>]` gir `over=yes` når todoen koster
+  mer enn 2× medianen i samme effort-klasse. `cost_over=yes` gir A0 i alle runder, også runde 1.
+- **Samsvarsmåling:** nivå A-entries i `decision-log.md` får `Type:`/`Anbefaling:`/`Eierens svar:`.
+  `decision-level.py --agreement` teller fulgt/avvek per type (helsesjekk D5, § Kalibrering).
+- **Veto-flate:** `decision-level.py --recent-b` og en «Nivå B siste 24 t»-seksjon øverst i `tasks/queue-status.py`.
+- Sjekk: `python3 tasks/decision-level.py --self-test` (`39/39`, `logg-parser: PASS`) og
+  `python3 tasks/measure-cost.py --brake-self-test` (`5/5`).
 
 **v3.4.4** (fra FamilieHub 2026-10-02):
 - **`/todo-new`** oppretter én todo: duplikatsøk først, neste ledige nr fra `tasks/next-todo-nr.sh`
@@ -182,6 +219,7 @@ v3-agent-orchestrator/
 ├── examples/
 │   ├── tech-review-agents/    rls-auditor, security-reviewer, race-reviewer (pluggbare EKSEMPLER)
 │   └── hooks/                 guard-supabase-ref.example.sh (miljø-vakt for Supabase-prosjekter)
+│                              format-on-edit.example.sh (PostToolUse: Prettier på den redigerte fila)
 └── scaffolding/
     ├── githooks/pre-push      Produksjons-branch-beskyttelse
     ├── githooks/pre-commit    Delt-checkout-vern: koordinatoren committer kun loop-state på base

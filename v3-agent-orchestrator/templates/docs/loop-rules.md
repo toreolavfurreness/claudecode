@@ -195,3 +195,19 @@ En hook-endring krever **fersk sesjon** før den gjelder — hook-konfig lastes 
 
 Hver vakt har en testharness ved siden av seg (`test-guard-*.sh`). Endrer du en vakt: kjør
 harnessen, og behandle endringen som `hook_selfmod` (se `docs/superpowers/loop/report-schema.md`).
+
+## Kit-regelen
+
+En PR som endrer en kitfil (en loop-fil som også finnes i kit-repoet), har en egen `Kit:`-linje i
+PR-teksten. En direktecommit uten PR har linja i commit-meldingen.
+
+- `Kit: claudecode#NN` navngir kit-PR-en.
+- `Kit: ingen endring – <begrunnelse>` sier at kitet ikke trenger endringen.
+- `Kit: porteres …` sier at porten lages etter merge. Den godtas i kode-review, men er et brudd i
+  releasevakten til linja er byttet til en av de to første.
+
+Kode-revieweren kjører `python3 scripts/kit-release-check.py --pr <nr>`. Releasevakten er
+`python3 scripts/kit-release-check.py` (exit 1 = brudd, exit 2 = sjekken kunne ikke kjøres).
+Kitfil-lista utledes fra kit-repoets tre. Unntak (`EXCEPTIONS`) og frafall for direktecommits
+(`WAIVED`, full sha og begrunnelse) står i skriptet. `WAIVED` er tom i kitet: en rad der er
+prosjektets egen og porteres ikke.

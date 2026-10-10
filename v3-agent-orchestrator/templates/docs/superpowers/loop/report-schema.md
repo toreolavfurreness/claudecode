@@ -79,7 +79,7 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
 ```
 
 - `severity` ∈ `"BLOKKERENDE"|"VIKTIG"|"MINDRE"`.
-- `verdict` ∈ `"go"` (ingen BLOKKERENDE) | `"no-go"` (≥1 BLOKKERENDE → koordinator sender tilbake til planner, maks 2 runder).
+- `verdict` ∈ `"go"` (ingen BLOKKERENDE) | `"no-go"` (≥1 BLOKKERENDE → koordinator sender tilbake til planner etter konvergensregelen i `coordinator-runbook.md` § Konvergensregel).
 - `evidence`: reviewer er IKKE symmetrisk med planner — revieweren SKRIVER ingenting, den LESER kun planfilen. `reviewed_head` er derfor PRIMÆRT bevis (beviser faktisk lesing av riktig artefakt); koordinatoren matcher den mot SIN EGEN kopi av planfilen (den reviewer ble dispatchet mot). `toplevel` beviser kun reviewerens egen cwd, ikke at riktig artefakt ble lest — merkes SVAKT/sekundært.
 - **Dette skjemaet har ingen `technical_risk`-nøkkel** (TODO 246). En reviewer som mener planen
   bærer teknisk risiko, flagger det via `verdict: "no-go"` + `notes`, ikke via et strukturert felt.

@@ -80,7 +80,7 @@ Du har sluttet å godkjenne planer per todo — så kvaliteten sikres i tre lag,
 
 **Loopens egne lag (automatisk):**
 - Uavhengig plan-reviewer (devil's advocate) før implementering
-- Uavhengig kode-review på PR-diffen etter implementering, før merge (`{{PROJECT_NAME}}-code-reviewer`; adversariell, read-only, maks 2 revise-runder)
+- Uavhengig kode-review på PR-diffen etter implementering, før merge (`{{PROJECT_NAME}}-code-reviewer`; adversariell, read-only, revise-runder etter konvergensregelen)
 - Implementer-selvgransking + CI (build/type-check/lint/test) på hver PR
 - **Periodisk helsesjekk** (`/loop-health-check`): koordinatoren kjører tester, type-check, lint, web-smoke (A5b — minste web-lastings-/login-gate, tetter BUG-076-blindsonen) og tech-sweep (pluggbar; f.eks. RLS-sweep via rls-auditor hvis konfigurert) mot integrert `origin/{{BASE_BRANCH}}` — enten etter {{HEALTH_CHECK_INTERVAL}} merges eller når køen tømmes. Resultatet skrives som en `outcome=health`-rad i run-loggen. Rød helsesjekk er et pausepunkt (se under).
 - **Release-rådgiver**: som del av helsesjekken sammenlignes `origin/{{BASE_BRANCH}}` mot `origin/{{PROD_BRANCH}}`, brukervendte endringer oppsummeres, og en go/no-go-anbefaling produseres. Selve releasen utføres aldri av loopen — kun av deg via `{{RELEASE_COMMAND}}`.
@@ -103,8 +103,8 @@ Review-kadansen din går altså fra *per plan* til *per release* + stikkprøver.
 |---|---|
 | **Teknisk risiko (nivå A)** — migrasjon, RLS-endring, prod-/{{PROD_BRANCH}}-push, secrets, native/EAS/iOS-Modal, Edge Function-deploy | Uopprettelig — krever din godkjenning. Unntak: `technical_risk` fra PLAN-rapporten klassifisert som **pausepunkt-regel B5** (docs-/hook-selvmodifisering med kjørbar testgate, TODO 246) — koordinatoren avgjør selv og logger i `decision-log.md`. `technical_risk` flagget av en REVIEWER er alltid nivå A. |
 | **Brainstorm-påkrevd todo** | Krever designvalg bare du kan ta — hoppes over, rapporteres |
-| **Reviewer-no-go som ikke løses** | Planen har blokkerende svakheter etter 1–2 revisjoner |
-| **Kode-reviewer revise-gate etter 2/2 — pausepunkt-regel B1 (TODO 246)** | Koordinatoren velger selv (én ekstra fix-runde, merge m/carry-forwards, eller stopp) og logger valget i `decision-log.md`; eskalerer til deg (nivå A) kun hvis den ene ekstra runden også er brukt og gaten fortsatt ikke er tom (§5b) |
+| **Reviewer-no-go som ikke løses** | Gate-funnene konvergerer ikke, eller kostnaden er over taket (se `coordinator-runbook.md` § Konvergensregel) |
+| **Kode-reviewer revise-gate — pausepunkt-regel B1 (TODO 246/455)** | Koordinatoren velger selv (ny fix-runde, merge m/carry-forwards, eller stopp) og logger valget i `decision-log.md`; eskalerer til deg (nivå A) ved innholdsfunn, manglende konvergensdata eller kostnad over taket (se `coordinator-runbook.md` § Konvergensregel) |
 | **Agent-probe i preflight feiler («Agent type not found», dekker §5b)** | Start en fersk koordinator-sesjon (se sesjonsstart-noten (B1) over) |
 | **Release: scope tomt eller blokkert** | Med en aktiv release stopper loopen når scopet er tomt (`MÅL NÅDD` → prod-release-todoen er din; `MÅL IKKE NÅDD` → legg til todoer eller juster `done_when`), eller når åpne todoer i scope ikke kan velges. Den henter ikke arbeid utenfor releasen uten ditt ord. |
 | **Helsesjekk rød** | Regresjon eller infra-feil i integrert `{{BASE_BRANCH}}` — koordinatoren eskalerer med detaljer, du bestemmer neste steg |

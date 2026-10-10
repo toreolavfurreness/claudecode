@@ -123,8 +123,15 @@ r(N+1).
 
 Les `code_review`-rapporten:
 
-- Inneholder rapporten **≥1 BLOKKERENDE eller ≥1 VIKTIG** → **revise-gate**: send funnene tilbake til implementeren via fix-mode-dispatch (se fix-mode-mal under). Når fix-rapporten kommer tilbake: kjør **Gate F** (under) FØR du dispatcher kode-review r(N+1) — rød gate F ⇒ mekanisk retur, ingen ny review. **Hold en eksplisitt teller** («kode-review-runde X/2», samme mønster som §4). **TODO 246 — nivå B1:** etter **2** runder (`code_review_rounds = 2`) klassifiseres valget mellom (a) én ekstra målrettet fix-runde (runde 3), (b) merge med carry-forwards, eller (c) stopp, som **nivå B1** — `python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=<fix_round|merge_carry|stop> --context decision_logged=yes`. Koordinatoren velger selv (anbefalt handling), logger alle fire pliktene i § Pausepunkter, og fortsetter — mennesket kan vetoe i etterkant. Er den ene ekstra runden (`code_review_rounds = 3`) ALLEREDE brukt og revise-gaten fortsatt ikke tom (et nytt `fix_round`-forsøk) → dette er **nivå A0** (`decision-level.py` feiler høyt) → ⚠️ eskalér til mennesket, release claim. En LUKKENDE beslutning (`merge_carry`/`stop`) forblir nivå B1 uansett rundetall — se rundetak-vakten i § Pausepunkter.
-- **Rotårsaksanalyse før fix-runde 3 (eier 2026-09-26, etter TODO 283A: 7 kode-review-runder).** Når kode-review r2 fortsatt trigger revise-gaten, dispatches IKKE fix-runde 3 direkte. Først dispatches én skrivebeskyttet analyse med dyp modell (`{{PROJECT_NAME}}-planner` med `model: "{{DEEP_MODEL_ALIAS}}"`, uten skriving) som svarer på tre spørsmål: (1) hvilken feilklasse hører funnene fra r1+r2 til, (2) kan omfanget kuttes i stedet for å fikses (skip + telling, avvis formen), (3) er tilnærmingen feil (f.eks. forutsi et biblioteks feil vs. kontrollere resultatet). Svaret legges ved fix-runde 3-dispatchen som føring, og et «kutt omfang»/«bytt tilnærming»-svar er et nivå A-spørsmål til mennesket. **Hvorfor:** hver fix-runde som utvidet semantikken åpnet en ny feilklasse; kuttet i r7 burde kommet ved r3. Fix-runde 3+ går i tillegg alltid med modell-override (se «Modell-eskalering fra fix-runde 3») — sjekk at `model` faktisk står i `Agent`-kallet.
+- Inneholder rapporten **≥1 BLOKKERENDE eller ≥1 VIKTIG** → **revise-gate**: send funnene tilbake til implementeren via fix-mode-dispatch (se fix-mode-mal under). Når fix-rapporten kommer tilbake: kjør **Gate F** (under) FØR du dispatcher kode-review r(N+1) — rød gate F ⇒ mekanisk retur, ingen ny review. **Hold en eksplisitt teller** («kode-review-runde N», samme mønster som §4). **Nivå B1 (TODO 246/455):** ved HVER utløst revise-gate, også runde 1, kjøres `python3 tasks/measure-cost.py --brake <nr> --pr <PR-nr>` og så `decision-level.py` med `cost_over=<over>`. Ordet etter `over=` limes ordrett inn; `few` er ikke `no`, og `cost_over=no` i eksempelkallene under er bare et eksempel. Fra runde 2 også med `decision_logged=yes` og konvergensdata (se `coordinator-runbook.md` § Konvergensregel). Valget mellom (a) ny fix-runde, (b) merge med carry-forwards, eller (c) stopp er **nivå B1**, også når gate-funnene ikke går ned eller en ny feilklasse dukker opp (eierens vedtak 2026-10-04 18:08). Koordinatoren velger selv (anbefalt handling), logger alle fire pliktene i § Pausepunkter, og fortsetter — mennesket kan vetoe i etterkant. Gir et nytt `fix_round`-forsøk **A0** (innholdsfunn, manglende data, over kostnadstaket eller, fra runde 2, `over=few`: for få sammenlignbare todoer til å måle kostnaden) → ⚠️ eskalér til mennesket, release claim. En LUKKENDE beslutning (`merge_carry`/`stop`) forblir nivå B1 uansett rundetall.
+
+
+```bash
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=1 --context action=fix_round --context cost_over=no
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
+```
+
+- **Rotårsaksanalyse før eskalering (eier 2026-09-26, etter TODO 283A: 7 kode-review-runder; omformet i TODO 455).** Når gate-funnene ikke går ned, en ny feilklasse dukker opp, eller klassifiseringen gir A0 på §5b, dispatches én skrivebeskyttet analyse med dyp modell (`{{PROJECT_NAME}}-planner` med `model: "{{DEEP_MODEL_ALIAS}}"`, uten skriving) som svarer på tre spørsmål: (1) hvilken feilklasse hører funnene fra r1+r2 til, (2) kan omfanget kuttes i stedet for å fikses (skip + telling, avvis formen), (3) er tilnærmingen feil (f.eks. forutsi et biblioteks feil vs. kontrollere resultatet). Svaret er grunnlaget for koordinatorens eget B1-valg (ny fix-runde, merge med carry-forwards eller stopp). Ved A0 blir det `Anbefaling:` i A-spørsmålet til mennesket. En runde der funnene går ned uten ny feilklasse trenger ingen analyse (283A-mønsteret, «hver fix-runde åpnet en ny feilklasse», er `new_class=yes` og gir nå B1, og analysen kjører fortsatt der). **Hvorfor:** hver fix-runde som utvidet semantikken åpnet en ny feilklasse; kuttet i r7 burde kommet ved r3. Fix-runde 3+ går i tillegg alltid med modell-override (se «Modell-eskalering fra fix-runde 3») — sjekk at `model` faktisk står i `Agent`-kallet.
 - Kun MINDRE eller ingen funn (`verdict = "go"`, revise-gate ikke trigget) → fortsett til §6.
 - Teknisk risiko som dukker opp i rapporten → ⚠️ STOPP, release claim, rapporter (samme som §4-gaten).
 
@@ -411,50 +418,24 @@ gulvet lens faktisk overlevde synthesizeren), ikke noe denne runbook-linja alene
 **`auto_decided=<rad-eier>:<antall>` (TODO 246), skrevet ved siden av `selector=`/`floor=`/
 `pipelined_from=` i SAMME frittekst-felt — IKKE en ny kolonne:**
 
-- `<rad-eier>` = todo-nummeret som EIER run-log-raden (radens felt 2, den claimede todoen) —
-  ALDRI beslutningens egen todo hvis den er en annen (f.eks. en B3-hopp av en ANNEN todo telles
-  under den aktive todoens rad).
-- `<antall>` = ALLE nivå-B-valg logget i denne runden, uansett hvilken todo de gjaldt.
-- Nøyaktig ÉTT `auto_decided=`-token per rad — to tokens på samme rad gjør at avstemmingens
-  `match()` bare fanger det siste (Del D4).
-- Ingen nivå-B-valg denne runden ⇒ skriv `auto_decided=<rad-eier>:0` uansett — fravær av tokenet
-  er et kontraktbrudd, ikke «tomt betyr null» (samme prinsipp som `floor=` over).
-- `outcome=health`-rader bærer ALDRI `auto_decided=` — nivå-B-oppsummeringen ligger i
+- Tokenet telles aldri for hånd. Kjør `python3 tasks/decision-level.py --auto-decided <rad-eier>`
+  og lim inn svaret ordrett (§6 steg 5: kallet først, radtiden fra klokka etterpå).
+- `<rad-eier>` = todo-nummeret som EIER run-log-raden (radens felt 2, den claimede todoen).
+- `<antall>` = `[B<siffer>]`-oppføringene der rad-eieren står FØRST i overskriften, og som ingen
+  tidligere rad for todoen bærer. Et valg som gjelder en annen todo, men skal stå på denne raden
+  (f.eks. et B3-hopp av en annen todo), logges med `--todo <rad-eier>`. `— loop`-valg uten todo
+  står ikke på noen rad.
+- Nøyaktig ÉTT `auto_decided=`-token per rad.
+- Ingen nivå-B-valg ⇒ kallet gir `auto_decided=<rad-eier>:0`, som skrives uansett. Fravær av
+  tokenet er et kontraktbrudd, ikke «tomt betyr null» (samme prinsipp som `floor=` over).
+- `outcome=health`-rader bærer ALDRI `auto_decided=` — avstemmingen ligger i
   `loop-health-check.md` Del D4 i stedet.
-- **Legacy:** `auto_decided=<nr>` UTEN kolon (forekommer i dag på rader FØR denne PR-en) er
-  pre-246 og IGNORERES av alle gater — ikke samme felt-semantikk som den nye kolon-formen.
+- **Legacy:** `auto_decided=<nr>` UTEN kolon (rader FØR TODO 246) IGNORERES av alle gater.
 
-**Partisjonering ved flere rader i SAMME runde (TODO 233, §5d — parallelle implementere) — TEMPORAL,
-ikke rolle-basert (kode-review-funn).** Del D4s `sum`-avstemming
-(`.claude/commands/loop-health-check.md`) summerer over ALLE rader siden forrige `health`-rad og
-krever `sum == <antall>`. En runde med §5d armet skriver mer enn én rad (A sin `merged`-rad, og
-enten B sin `merged`-rad eller B sin `paused`-rad ved eskalering, § 5.5) — uten en
-partisjoneringsregel ville hver rad båret rundens FULLE `<n>`, og summen dobles mot avstemmingens
-`<antall>`. En ren rolle-basert regel («A bærer alt, B bærer alltid `:0`») er FEIL: A merges først
-(§ 5), så A-raden skrives i §6(A) MENS B fortsatt er i flukt. Ethvert nivå-B-valg som oppstår PÅ B
-sitt spor ETTER at A-raden allerede er skrevet (f.eks. et B4-valg under B sin kode-review r2) har da
-ingen bærer hvis B-raden er hardkodet til `:0` — en decision-log-entry uten et matchende
-run-log-inkrement ⇒ D4 AVVIK ⇒ helsesjekk RØD.
-
-Regelen er derfor **partisjonert på TID, ikke på rolle**: hver rad bærer nivå-B-valgene som var
-kjent DA DEN raden ble skrevet. A-raden (skrevet FØRST, § 5 steg 1) bærer
-`auto_decided=<A>:<n>`, der `<n>` er alle rundens nivå-B-valg kjent PÅ DET TIDSPUNKTET. **Enhver
-senere rad i samme runde — B sin `merged`-rad (§5 steg 6) eller B sin `paused`-rad (§5.5) — bærer
-`auto_decided=<B>:<m>`**, der `<m>` teller nivå-B-valg tatt ETTER at A-raden ble skrevet. `<m>` er
-**normalt `0`** (de fleste runder har ingen nye nivå-B-valg på B sitt spor etter at A er ferdig),
-men er **IKKE mandatert til å være `0`** — en fix-runde eller eskalering på B ETTER §6(A) kan
-introdusere et B4-valg (f.eks. «arm re-synk i stedet for pausepunkt») som ikke har noen annen bærer
-enn B-raden selv. Tokenet er fortsatt obligatorisk på ALLE rader i runden; det er FORDELINGEN og
-TIDSPUNKTET som er definert, ikke plikten. `<rad-eier>`-definisjonen over («todo-nummeret som EIER
-run-log-raden») gir A-raden ansvar for alt som er kjent FØR den skrives, og B-raden ansvar for
-resten — ikke fordi B «alltid er null», men fordi B-raden skrives SIST og derfor er den eneste
-gjenværende bæreren for alt som skjer i mellomtiden.
-
-**Ankeret er navngitt (kode-review-funn, fix-runde 2, MINDRE 5).** Grensen mellom «kjent PÅ DET
-TIDSPUNKTET» (A-raden) og «ETTER at A-raden ble skrevet» (B-raden) er A-radens `$TS` — run-log
-felt 1, satt idet A-raden faktisk skrives (§ 5 steg 1). Enhver decision-log-entry med et
-tidsstempel STØRRE ENN `$TS` hører til B-raden og telles i `<m>`; enhver med tidsstempel MINDRE
-ENN ELLER LIK `$TS` hører til A-raden og telles i `<n>`.
+**Flere rader i samme runde eller for samme todo (§5d, eller pauset og så merget).** En oppføring
+telles på eierens første rad med radtid ≥ oppføringstid (`attribute()` i `tasks/decision-level.py`,
+som Del D4 også bruker). Hver rad bærer derfor valgene for SIN todo fram til sin egen radtid, og
+ingen oppføring telles på to rader. Det forutsetter at radtiden er tatt fra klokka ETTER tellingen.
 
 **`attest=<verdi>` (TODO 250A — `observe`-spor i SAMME frittekst-felt, IKKE en ny kolonne):**
 
@@ -848,8 +829,7 @@ snapshotet fantes ikke; `legacy` = `F3a_ref = 0` (gulvet ikke bindende, resten p
 releasen (samme klasse som `attest=`/`pipelined_from=`, ikke som `floor=`/`auto_decided=`).
 
 **Modell-eskalering fra fix-runde 3 (nivå B).** Fix-runde 1 og 2 dispatches med
-`models.implementer`. **Fix-runde 3 og senere** — den ekstra runden utover 2/2 og enhver
-A0-godkjent runde etter den — dispatches med prosjektets DYPE modell
+`models.implementer`. **Fix-runde 3 og senere** — dispatches med prosjektets DYPE modell
 (`models.reviewer`/`models.code_reviewer`-klassen i `loop.config.yaml`), ikke `models.implementer`.
 Mekanismen er en per-dispatch modell-override i `Agent`-blokken; charterets `model:`-frontmatter
 står uendret (den leses ved sesjonsstart, ikke per dispatch). **Mekaniske gate F-returer teller

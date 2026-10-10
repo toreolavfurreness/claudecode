@@ -34,7 +34,7 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
      gatens detaljlinjer; tom logg ⇒ les ANNOTATIONS i `gh run view <run-id>`, lesson
      2026-09-17). Er den røde linja en `status <context>` (ingen run-id), ⇒ PAUSEPUNKT.
      Peker feilen ellers på en fil i PR-ens egen diff (`gh pr diff <pr> --name-only`) ⇒
-     tilbake til §5b fix-mode med CI-feilen som BLOKKERENDE funn; B1-reglene og rundetaket gjelder
+     tilbake til §5b fix-mode med CI-feilen som BLOKKERENDE funn; B1-reglene og konvergensregelen gjelder
      uendret. Ellers (samme sjekk rød på `{{BASE_BRANCH}}`, jobb som aldri startet, uklar årsak)
      ⇒ ⚠️ PAUSEPUNKT.
    - `ci=cancelled` ⇒ `gh run rerun <run-id>` én gang, deretter gaten på nytt. Fortsatt ikke
@@ -201,11 +201,21 @@ Fra ferdig-rapporten, `status: "implemented"`:
 
 5. **Run-log merged-rad (dedup-guardet), FØR git-halen:**
    ```bash
-   # $TS holdes KONSTANT ved en re-kjøring av samme §6-invokasjon (se «Re-kjørbarhet» under).
+   # Rekkefølgen er bindende: tell FØRST, ta radtiden fra klokka ETTERPÅ. En oppføring telles på
+   # eierens første rad med radtid >= oppføringstid, så en radtid tatt før tellingen (eller
+   # gjettet) kan havne foran en oppføring raden skulle bære.
+   AD=$(python3 tasks/decision-level.py --auto-decided "$TODO_NR")
+   TS=$(date '+%Y-%m-%dT%H:%M')
+   # Ved re-kjøring av blokka: hopp over `AD=`- og `TS=`-linjene. En ny $TS treffer ikke dedup-guarden og gir en ekstra rad.
    ROW="$TS | $TODO_NR | $SLUG | merged | $PAUSE | $PR | $PRR | $CRR | $MODELS | - | $DEGR"
    grep -qF "$TS | $TODO_NR |" docs/superpowers/loop/run-log.md \
      || printf '%s\n' "$ROW" >> docs/superpowers/loop/run-log.md
    ```
+   `$AD` (`auto_decided=<nr>:<n>`) limes ordrett inn i notat-feltet, aldri et tall talt for hånd.
+   Kallet kjøres i koordinatorens sjekkout på oppdatert `dev`, etter at todoens siste
+   decision-log-oppføring er skrevet og FØR raden skrives (etterpå gir det `:0`). Det samme
+   gjelder enhver ikke-`health`-rad, også `paused`. Et valg som gjelder en annen todo, men skal
+   stå på denne raden, logges med `--todo <rad-eier>` i klassifiseringskallet.
    Rett etter raden: `python3 tasks/loop-cadence.py`. Exit 1 ⇒ §6c (Trigger 2) kjøres etter
    git-halen, før neste dispatch.
    Telemetri: (a) ferdig-rapportens `todo_nr`, `slug`, `pr_url`; (b) egne kontekst-tellere
