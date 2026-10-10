@@ -11,6 +11,100 @@ et live-prosjekt (der loopen har gått i ordinær drift siden juni 2026) og gjor
 
 ---
 
+## Slik fungerer loopen
+
+Kitet er en løkke rundt en kø av todo-filer. Én **koordinator** (hovedsesjonen som kjører
+`/run-loop`) velger neste todo og sender den gjennom fire kortlevde **workers**, som hver jobber i sin
+egen worktree og svarer med en kort rapport. Koordinatoren er den eneste som skriver delt state
+(lessons, arkiv, logger) og den eneste som merger.
+
+| Rolle | Agent | Gjør | Skriver |
+|---|---|---|---|
+| Koordinator | hovedsesjonen | velger todo, dispatcher, gater på rapportene, merger | delt state, base-branchen |
+| Planner | `<prosjekt>-planner` | skriver plan med verifiseringsblokk | planfila |
+| Reviewer | `<prosjekt>-reviewer` | uavhengig plan-review: `go` eller `no-go` | ingenting (read-only-hook) |
+| Implementer | `<prosjekt>-implementer` | koder, verifiserer, åpner PR | feature-branch |
+| Kode-reviewer | `<prosjekt>-code-reviewer` | uavhengig review av PR-diffen | ingenting (read-only-hook) |
+
+Boksene er steg i `coordinator-runbook.md`. Rombene er gater, der et skript eller en rapport avgjør
+neste kant. Stiplede kanter er sidespor og veier ut til eieren.
+
+```mermaid
+flowchart TD
+    START(["/run-loop"]) --> S0["§0 Synk<br/>ff-only mot base-branchen"]
+    S0 --> S1{"§1 Kø-utvelgelse<br/>kvalifisert todo?"}
+
+    S1 -- "ja" --> S2["§2 Claim<br/>+ lessons-tema"]
+    S2 --> FP{"§2b Fast-path,<br/>eller plan alt godkjent?"}
+    FP -- "nei" --> S3["§3 Planner<br/>skriver plan"]
+    S3 --> S4{"§4 Reviewer<br/>go eller no-go?"}
+    S4 -- "no-go: revisjon (B7)" --> S3
+    S4 -- "go" --> S5["§5 Implementer<br/>kode, verifisering, PR"]
+    FP -- "ja" --> S5
+
+    S5 --> S5B{"§5b Kode-reviewer<br/>BLOKKERENDE eller VIKTIG?"}
+    S5B -- "ja: fix-runde (B1)" --> FIX["§5 Implementer<br/>fix-mode"]
+    FIX --> GF{"Gate F<br/>V-blokken grønn?"}
+    GF -- "nei: mekanisk retur" --> FIX
+    GF -- "ja: ny review-runde" --> S5B
+    S5B -- "nei, eller merge med<br/>carry-forwards (B1)" --> S6["§6 CI-gate, lessons, arkiv,<br/>merge til base-branchen"]
+
+    S6 --> S6B["§6b Bug-innboks<br/>§6d Worktree-sweep"]
+    S6B --> CAD{"Hver 5. merge?<br/>loop-cadence.py"}
+    CAD -- "nei: neste todo" --> S0
+    CAD -- "ja (trigger 2)" --> HC
+
+    S1 -- "nei: kø tom (trigger 1)" --> HC{"§6c Helsesjekk<br/>/loop-health-check"}
+    HC -- "grønn" --> S8B["§8b Drain retro-logg<br/>§8c Agér på tallene"]
+    S8B -- "trigger 2: fortsett" --> S0
+    S8B -- "trigger 1: kø tom" --> S7["§7 Grooming<br/>inntil 3 utkast"]
+    S7 --> S8["§8 Mini-retro"]
+    S8 --> STOP(["Stopp:<br/>venter på eieren"])
+
+    S5 -. "§5c: samtidig" .-> P5C["Planner + reviewer<br/>for neste todo"]
+    S5 -. "§5d: samtidig,<br/>fil-disjunkt" .-> P5D["Implementer<br/>for neste todo"]
+
+    S0 -. "skittent tre" .-> PAUSE
+    S1 -. "release-scope tomt<br/>eller blokkert" .-> PAUSE
+    S4 -. "A0 eller<br/>teknisk risiko" .-> PAUSE
+    S5 -. "failed eller blocked" .-> PAUSE
+    S5B -. "A0: innholdsfunn<br/>eller kostnadsbrems" .-> PAUSE
+    S6 -. "CI rød eller<br/>merge-konflikt" .-> PAUSE
+    HC -. "rød" .-> PAUSE
+    PAUSE(["Pausepunkt nivå A<br/>claim slippes, eieren spørres"]) --> S8
+```
+
+**Løkkene i grafen:**
+
+- **Ytre løkke** (§0 → §6 → §0): én runde per todo, til køen er tom eller et pausepunkt slår inn.
+- **Planløkka** (§3 ⇄ §4): `no-go` sender planen tilbake til planneren. Fra runde 2 må gate-funnene
+  gå ned, ellers blir det nivå A.
+- **Fix-løkka** (§5b → fix-mode → Gate F → §5b): funn går tilbake til implementeren, og Gate F kjører
+  planens verifiseringsblokk på nytt før neste review-runde.
+- **Helseløkka** (§6c): `/loop-health-check` kjører når køen er tom og etter hver femte merge. Grønn
+  sjekk slipper retro-forslagene og tallene videre (§8b, §8c). Rød sjekk stopper loopen.
+
+**Hvem avgjør i gatene:** `tasks/decision-level.py` klassifiserer hvert valg. Nivå B (B1–B7)
+avgjør koordinatoren selv, logger i `decision-log.md`, og eieren kan vetoe etterpå. Nivå A (A0–A8)
+stopper loopen og spør eieren. A0 er fail-closed: et valg skriptet ikke kan klassifisere, blir aldri
+nivå B. Kostnadsbremsen (`tasks/measure-cost.py --brake`) kjøres foran §4- og §5b-gaten.
+
+| Gate i grafen | Avgjøres av |
+|---|---|
+| §1 kvalifisert todo | `tasks/release.py status` og kø-skriptet i `steps/1-koe-utvelgelse.md` |
+| §4 go / no-go | reviewerens `verdict`, `tasks/vblock-lint.py`, `decision-level.py --event plan_review_choice` |
+| §5b funn | `review-lens-select.py`, `review-severity-floor.py`, `decision-level.py --event revise_gate_choice` |
+| Gate F | `tasks/gate-f.sh` |
+| §5d fil-disjunkt | `tasks/parallel-disjoint.py` |
+| §6 merge | `tasks/ci-gate.py`, `scripts/check-todo-nr-premerge.sh`, hooken `guard-main-merge.sh` |
+| Hver 5. merge | `tasks/loop-cadence.py` |
+| §6c helsesjekk | `/loop-health-check` (Del A–D) |
+
+Operatørens utgave av det samme står i `docs/orchestration-loop.md` i det installerte prosjektet.
+Hvert steg har sin egen fil under `docs/superpowers/loop/steps/`.
+
+---
+
 ## Hva er nytt vs. v2
 
 Kontrollmodellen er den samme som i v2 (koordinator + uavhengige workers, menneske kun ved
@@ -197,7 +291,8 @@ v3-agent-orchestrator/
 │   │                          (+ harnesser og kontrakt), session-start-lint, typecheck-on-edit,
 │   │                          sessionstart-/precompact-checkpoint (valgfri, + harness)
 │   ├── .claude/scripts/       bootstrap-worktree.sh
-│   ├── scripts/               check-todo-nr-collisions.sh, check-todo-nr-premerge.sh
+│   ├── scripts/               check-todo-nr-collisions.sh, check-todo-nr-premerge.sh,
+│   │                          kit-release-check.py
 │   ├── docs/                  loop-rules.md, orchestration-loop.md, hotfix-runbook.md,
 │   │                          superpowers/loop/ (kjerne-runbook, steps/, runbook-hvorfor.md, logger),
 │   │                          naming-conventions.md + data-model.md (seed)
