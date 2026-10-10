@@ -21,20 +21,30 @@ Et system som tar todos fra `tasks/todos/` og kjører dem gjennom planlegging �
 
 ## Hvordan en runde fungerer
 
+```mermaid
+flowchart TD
+    START(["Du starter /run-loop"]) --> S1{"Koordinator:<br/>neste todo i køen?"}
+    S1 -- "ja" --> S3["Planner<br/>skriver plan"]
+    S3 --> S4{"Reviewer<br/>godkjenner planen?"}
+    S4 -- "nei: revisjon" --> S3
+    S4 -- "ja" --> S5["Implementer<br/>koder, verifiserer, lager PR"]
+    S5 --> S5B{"Kode-reviewer<br/>godkjenner PR-en?"}
+    S5B -- "nei: fix-runde" --> S5
+    S5B -- "ja" --> S6["Koordinator: lessons, arkiv,<br/>merge til base-branchen"]
+    S6 --> S1
+    S1 -- "nei: kø tom" --> HC["Helsesjekk, grooming,<br/>mini-retro"]
+    HC --> STOP(["Loopen stopper<br/>og venter på deg"])
+    S4 -. "veiskille" .-> PAUSE(["Pausepunkt:<br/>du blir spurt"])
+    S5 -. "veiskille" .-> PAUSE
+    S5B -. "veiskille" .-> PAUSE
+    S6 -. "veiskille" .-> PAUSE
 ```
-DU starter loopen
-   │
-   ▼
-KOORDINATOR  ── velger neste todo (prioritert → order, deps oppfylt, ikke claimet)
-   │
-   ├─→ PLANNER       ({{MODEL_PLANNER}})        skriver en plan for todoen
-   ├─→ REVIEWER      ({{MODEL_REVIEWER}})       uavhengig djevelens advokat — godkjenner eller sender tilbake
-   ├─→ IMPLEMENTER   ({{MODEL_IMPLEMENTER}})    koder, verifiserer, lager PR mot {{BASE_BRANCH}}
-   ├─→ CODE REVIEWER ({{MODEL_CODE_REVIEWER}})  uavhengig review av PR-diffen — godkjenner eller sender tilbake
-   │
-   ▼
-KOORDINATOR  ── skriver lessons, arkiverer todo, merger til {{BASE_BRANCH}}, går til neste
-```
+
+- **Koordinator** velger neste todo (prioritert → order, deps oppfylt, ikke claimet), og er den eneste som merger til `{{BASE_BRANCH}}`.
+- **Planner** (`{{MODEL_PLANNER}}`) skriver en plan for todoen.
+- **Reviewer** (`{{MODEL_REVIEWER}}`) er uavhengig djevelens advokat: godkjenner eller sender tilbake.
+- **Implementer** (`{{MODEL_IMPLEMENTER}}`) koder, verifiserer og lager PR mot `{{BASE_BRANCH}}`.
+- **Code reviewer** (`{{MODEL_CODE_REVIEWER}}`) gjør en uavhengig review av PR-diffen: godkjenner eller sender tilbake.
 
 Hver worker kjører i sin egen worktree (isolert), så de kolliderer ikke. Du ser fremdriften rulle forbi, og blir kun stoppet ved ekte veiskiller (se under).
 
