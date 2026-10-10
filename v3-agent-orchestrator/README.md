@@ -99,6 +99,20 @@ pausepunkter). v3 er v2 pluss herding fra drift, og at `/setup` nå installerer
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.6.1** (køsiden):
+- **Vente-grunn i pillen:** en `venter`-rad sier hva den venter på (deps, brainstorm, triage, eier,
+  en annen release) i stedet for bare «venter».
+- **Plan-status på hver rad** («ingen plan», «plan til godkjenning», «plan godkjent»), også i banene
+  for planlagte og leverte releaser. Pillen «plan skrevet» er borte fra HTML-siden.
+- **Epic-pille** på radene i planlagte releaser.
+- **`epic:`-feltet vinner over `CLUSTERS`** og tags. Før vant nummer-settene. Sett
+  `EPIC_FROM_FIELD = False` i `queue-config.py` for å beholde gammel rekkefølge.
+- **`REST_EPICS`** (ny, valgfri nøkkel i `queue-config.py`): epic-navn som er restkort og sorteres
+  sist sammen med «Uklassifisert».
+- **Nivå B-lista og leverte releaser** ligger i `<details>`, lukket som standard.
+- **Vakt:** en release som har todoer, men ingen bane på siden (f.eks. `release:` uten release-fil),
+  stopper generatoren med feil.
+
 **v3.6** (felles køside):
 - **`tasks/queue-status.py` er lik i alle prosjekter:** køsiden (markdown, `--html` med
   release-baner, epics, filtre og datakvalitet, mermaid) er prosjektnøytral. Releaser, mål,
@@ -189,7 +203,7 @@ v3-formatene.
   `measure-cost.py --release <versjon>` gir kostnaden per release.
 - Uten en aktiv release oppfører loopen seg som før.
 
-**v3.3** (mer fra det samme andre prosjektet):
+**v3.3**:
 - **Plan-lint før review:** `tasks/vblock-lint.py` har en hard regel R0 (planen må ha en
   `## Steg`-seksjon med minst ett steg), og §4 kjører linten før reviewer-dispatch. En rød plan går
   tilbake til planneren uten å telle som en review-runde.
@@ -205,7 +219,7 @@ v3-formatene.
   - En ny plan står som «utkast — ikke reviewet» til reviewen har godkjent den.
   - Målescriptet sier fra om at transkripter slettes etter `cleanupPeriodDays` (standard 30 dager).
 
-**v3.2** (fra et andre prosjekt som kjørte v2-loopen):
+**v3.2**:
 - **Sjekkpunkt ved komprimering (valgfri, av som standard):** koordinatoren skriver et sjekkpunkt
   ved hver steg-overgang. To hooks legger det tilbake i konteksten etter en auto-komprimering og
   logger om det var ferskt. Slås på med `hooks.compaction_checkpoint`; mål på din runtime først

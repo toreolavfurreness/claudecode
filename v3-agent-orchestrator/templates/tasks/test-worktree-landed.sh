@@ -3,7 +3,7 @@
 # mutasjonskrok-punkt (§ 8 M1-M4, M9, M10).
 #
 # Hver case bygger sitt EGET, disjunkte git-repo under mktemp -d — ingen delt tilstand mellom
-# casene, og ALDRI mot dette prosjektets egne worktrees. C10a/b/c/d (env-delmengde, 380-
+# casene, og ALDRI mot dette prosjektets egne worktrees. C10a/b/c/d (env-delmengde, 
 # oppfølging) bruker et EKTE `git worktree add` inne i sitt eget scratch-repo (i motsetning til
 # C1-C9, som simulerer «treet» med en ren branch-bytte i samme katalog) — dette er nødvendig for
 # at klassifikatorens `--git-common-dir`-basert `main_root`-oppslag faktisk skal peke på en
