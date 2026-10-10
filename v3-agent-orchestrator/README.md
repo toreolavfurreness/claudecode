@@ -100,6 +100,53 @@ nivå B. Kostnadsbremsen (`tasks/measure-cost.py --brake`) kjøres foran §4- og
 | Hver 5. merge | `tasks/loop-cadence.py` |
 | §6c helsesjekk | `/loop-health-check` (Del A–D) |
 
+### Selvlærende: atomiske lessons
+
+Loopen lærer av seg selv på to måter. Begge bygger på at en lesson er **atomisk**: én fil per lesson
+under `tasks/lessons/<tema>/<dato>-<slug>.md`, med én påstand om kodebasen, plattformen eller
+verktøyet. Fila har `**Problem:**`, `**Årsak:**`, `**Løsning:**` og `**Unngå:**`, og frontmatter med
+`tags` og `kilder` (`TODO-NN`, `BUG-NNN`). Det finnes ingen indeks og ingen telling som kan bli
+utdatert. Filsystemet er indeksen.
+
+```mermaid
+flowchart TD
+    W["Worker-rapport<br/>lessons-kandidater"] --> S6["§6 Koordinator skriver<br/>én fil per lesson"]
+    S6 --> L[("tasks/lessons/tema/<br/>atomiske lesson-filer")]
+
+    L --> G["graph-build.py<br/>kanter: todo, bug, PR, fil, lesson"]
+    G --> S2["§2 graph-query.py<br/>foreslår lessons-tema for todoen"]
+    S2 --> R["Planner, implementer og kode-reviewer<br/>leser 3–5 relevante lessons"]
+    R -- "neste todo unngår<br/>den kjente fallgruven" --> W
+
+    L --> C["§8c lesson-classes.py<br/>teller feilklasser siste 7 døgn"]
+    C --> Q{"Høyest rangerte klasse<br/>uten mekanisk gate?"}
+    Q -- "nei" --> OK(["Ingen handling"])
+    Q -- "ja" --> A{"Kan regelen<br/>uttrykkes mekanisk?"}
+    A -- "ja, under ca. 30 linjer" --> GATE["Ny gate: vblock-lint.py,<br/>hook eller skript"]
+    A -- "ja, men større" --> TODO["Todo-utkast<br/>tags: forslag"]
+    A -- "nei: krever skjønn" --> NG["Merkes ikke gatebar<br/>i lesson-classes.py"]
+    GATE -- "stopper feilklassen<br/>i §4 og §5b" --> W
+    GATE --> M["Neste §8c måler effekten:<br/>har klassen falt?"]
+    M --> C
+```
+
+- **Rask løkke, per todo (minne):** workers skriver aldri lessons selv. De melder kandidater i
+  rapporten, og koordinatoren skriver filene i §6. Før neste todo slår §2 opp i kantgrafen
+  (`python3 tasks/graph-query.py --todo <nr>` og `--file <sti>`), som viser hvilke lessons, bugs og
+  tidligere todoer som henger sammen med filene todoen rører. Koordinatoren velger 1–3 tema, og
+  workeren leser de 3–5 relevante filene, aldri en hel mappe. Atomiske filer er det som gjør dette
+  mulig: en lesson kan hentes alene, uten å lese resten av temaet.
+- **Treg løkke, per helsesjekk (regler):** §8c teller hvilke feilklasser lessons fra de siste sju
+  døgnene faller i. Den høyest rangerte klassen uten mekanisk gate må få ett av tre utfall: ny gate
+  nå, todo-utkast, eller «ikke gatebar» med grunn. «Ingenting skjedde» er ikke lov. En feil som
+  gjentar seg, går dermed fra å være noe agentene må huske, til å være noe et skript stopper. Neste
+  §8c måler om klassen faktisk falt.
+
+Grafen bygges ved hvert oppslag og lagres aldri (`tasks/graph.json` sjekkes ikke inn). Klassene og
+gatene i `lesson-classes.py` er utledet fra opphavsprosjektet og må tilpasses etter noen runder.
+Lessons er én av tre kunnskapsbaser. De to andre er brukerminnet (samarbeidspreferanser) og
+agent-minnet (arbeidsmetode per rolle), se `docs/loop-rules.md` § «Tre kunnskapsbaser».
+
 Operatørens utgave av det samme står i `docs/orchestration-loop.md` i det installerte prosjektet.
 Hvert steg har sin egen fil under `docs/superpowers/loop/steps/`.
 
