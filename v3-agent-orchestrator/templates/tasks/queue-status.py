@@ -154,6 +154,8 @@ def _self_test():
     check("full config: CLUSTERS", 'class="epic-t">Klynge A<' in html)
     check("full config: NOTES", "Et notat om 1." in html)
     check("full config: LEVERT + gammel tag", "v1.1 · levert" in html and "første versjon." in html)
+    check("full config: leverte sammenlagt, åpne todos i oppsummeringen",
+          "<summary>1 levert release (v1.1) · 1 åpne todos</summary>" in html)
     check("full config: RELEASE_COLORS", ".relp.v1-1{background:var(--rel2-wash)" in html)
     check("full config: merknader", "- En merknad." in md and "- 5 todos." in md and "En merknad." in html)
     check("full config: EKSTRA_FLAGG", "<b>Et flagg</b>" in html)
@@ -171,6 +173,9 @@ def _self_test():
           "ingen aktiv release" in html and "hele køen er kvalifisert" in md and "todos igjen" not in html)
     check("shipped-fil: levert-bane med dato og mål",
           "v1.2 · levert" in html and "Levert 2026-02-03" in html and "Første mål" in html)
+    rc, md, err, html, title = run({**base, "tasks/releases/1.2.0.md": shipped, "tasks/releases/1.1.0.md": shipped},
+                                   "--html", "q.html")
+    check("to leverte: spenn eldste til nyeste", "<summary>2 leverte releaser (v1.1 til v1.2)" in html)
 
     # 5. To aktive releaser: siden rendres, og sier at bare én er lov.
     rc, md, err, html, title = run({**base, "tasks/releases/1.3.0.md": rel}, "--html", "q.html")
@@ -1100,6 +1105,14 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
         return (f"<strong>Levert{' ' + _h.escape(dato) if dato else ''}</strong>"
                 + (f": {inl(r['goal'])}" if r.get("goal") else "."))
 
+    # Sammenlagt. Åpne todoer i en levert release står i oppsummeringen, så de ikke blir skjult
+    # av at modulen er lukket.
+    if SHIPPED_KEYS:
+        _aapne = sum(len(lanes.get(k, [])) for k in SHIPPED_KEYS)
+        _spenn = SHIPPED_KEYS[0] if len(SHIPPED_KEYS) == 1 else f"{SHIPPED_KEYS[-1]} til {SHIPPED_KEYS[0]}"
+        a(f'<details><summary>{len(SHIPPED_KEYS)} levert{"" if len(SHIPPED_KEYS) == 1 else "e"} '
+          f'release{"" if len(SHIPPED_KEYS) == 1 else "r"} ({_spenn})'
+          + (f' · {_aapne} åpne todos' if _aapne else '') + '</summary>')
     for k in SHIPPED_KEYS:
         tekst = levert_tekst(k)
         lk = lanes.get(k, [])
@@ -1117,6 +1130,8 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
                   + (f'<span class="wy">{inl(why)}</span>' if why else "") + "</div>")
             a("</div>")
         a("</article>")
+    if SHIPPED_KEYS:
+        a("</details>")
     # -- uten release-tag: ALLTID nederst, under de leverte (eier 2026-09-27).
     for k in ("ingen",):
         navn = "Uten release-tag"
