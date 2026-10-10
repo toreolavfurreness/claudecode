@@ -11,9 +11,10 @@ Bruk: python3 tasks/measure-cost.py [<since-iso>] [<session-dir>...] [--html <st
   --release <ver>  bare todoene i releasens scope (`tasks/release.py scope <ver>`): kost per release.
   --brake <nr>     kostnadsbrems (TODO 455): én linje `brake todo=… class=… usd=… median=… n=… over=…`.
                    over=yes når todoens kost > 2× medianen for arkiverte todoer i samme effort-klasse.
+                   over=few når klassen har færre enn 5 andre todoer med målt kost (ingen median).
   --pr <n>         (med --brake) todoens åpne PR: rader tilskrevet `PR<n>` (review/fix før merge-raden
                    finnes i run-loggen) legges til todoens sum. Uten --pr teller de ikke med.
-  --brake-self-test  5 asserts mot brake_verdict/fold_pr.
+  --brake-self-test  6 asserts mot brake_verdict/fold_pr.
   --calibrate      egen sum (hovedfil + underagenter) mot harnessens `cost-state.totalCostUSD` per økt (TODO 457):
                    `calibrate session=… harness=… own=… diff=…% final=…% over=…`, vindu `startTime`–slutt.
                    Exit 1 ved minst én over=yes uten KJENT HULL, exit 2 når ingen økt ble målt.
@@ -39,7 +40,7 @@ def effort_class(v):
     return max(found, key=_RANK.get) if found else None
 
 def brake_verdict(nr, usd_by_todo, class_by_todo, cls):
-    """(median|None, n, over) — over ∈ {'yes','no','unknown'}."""
+    """(median|None, n, over) — over ∈ {'yes','no','few','unknown'}."""
     nr = str(nr).lower()
     usd_l = {str(k).lower(): v for k, v in usd_by_todo.items()}
     cls_l = {str(k).lower(): v for k, v in class_by_todo.items()}
@@ -47,7 +48,7 @@ def brake_verdict(nr, usd_by_todo, class_by_todo, cls):
         return None, 0, 'unknown'
     sample = [usd_l[t] for t, c in cls_l.items() if c == cls and t != nr and t in usd_l]
     if len(sample) < 5:
-        return None, len(sample), 'no'
+        return None, len(sample), 'few'
     med = median(sample)
     return med, len(sample), 'yes' if usd_l.get(nr, 0.0) > 2 * med else 'no'
 
@@ -64,10 +65,12 @@ def _brake_self_test():
     us = {str(i): 10.0 for i in range(1, 6)}
     assert brake_verdict('99', {**us, '99': 25.0}, {**cl, '99': 'M'}, 'M') == (10.0, 5, 'yes'), 'over'
     assert brake_verdict('99', {**us, '99': 15.0}, {**cl, '99': 'M'}, 'M') == (10.0, 5, 'no'), 'under'
-    assert brake_verdict('99', {'1': 1.0, '99': 99.0}, {'1': 'M'}, 'M') == (None, 1, 'no'), 'få utvalg'
+    assert brake_verdict('99', {'1': 1.0, '99': 99.0}, {'1': 'M'}, 'M') == (None, 1, 'few'), 'få utvalg'
+    four = {k: v for k, v in us.items() if k != '5'}
+    assert brake_verdict('99', {**four, '99': 99.0}, cl, 'M') == (None, 4, 'few'), 'fire er for få'
     assert brake_verdict('99', us, cl, None)[2] == 'unknown', 'ukjent klasse'
     assert fold_pr('99', {'99': 8.0, 'PR1091': 1.5}, '1091') == {'99': 9.5}, 'PR-rad teller i usd='
-    print('brake-self-test: 5/5')
+    print('brake-self-test: 6/6')
 
 def _calibrate_self_test():
     import tempfile

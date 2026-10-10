@@ -135,7 +135,7 @@ Tom kø → §6c helsesjekk + release-rådgiver → (grønn) §8b drain retro-lo
 - Brainstorm-påkrevd todo (hopp over, rapporter)
 - Release: scope tomt (`MÅL NÅDD` / `MÅL IKKE NÅDD`), åpne scope-todoer uten kvalifiserte, eller `release.py status` exit 2 (§1)
 - Worker `failed`/`blocked`, merge-konflikt, canary-mismatch, reviewer no-go som ikke konvergerer, CI-gate før merge ikke grønn (§6 steg 0)
-- Kode-reviewer revise-gate — nivå B1 så lenge funnene konvergerer og kostnaden er under taket (bestem selv + logg, se `coordinator-runbook.md` § Konvergensregel); ellers nivå A (§5b)
+- Kode-reviewer revise-gate — nivå B1 (bestem selv + logg, se `coordinator-runbook.md` § Konvergensregel); nivå A ved innholdsfunn, manglende konvergensdata eller kostnad over taket (§5b)
 - Agent-probe i preflight feiler («Agent type not found», dekker §5b) → fersk koordinator-sesjon kreves
 - `node_modules` mangler i koordinatorens sjekkout (preflight §1 rad 4) → `npm ci` kreves før første todo
 - Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b/§8c)

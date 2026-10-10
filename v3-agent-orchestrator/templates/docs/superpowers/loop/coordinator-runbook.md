@@ -91,7 +91,7 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 → `steps/5b-kode-review.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: sett `phase: kode-review r<n> PR <nr>`; Minne-gate → trigger-sett beregnet SELV → dispatch kode-reviewer → gate på severity (revise-gate) med kontrakt-vakt og liveness-vakt → fix-mode-dispatch («Rotårsaksanalyse før eskalering»; «Modell-eskalering fra fix-runde 3»: dyp modell fra runde 3) → Gate F re-verifisering av V-blokken før neste runde. Riving/migrering av brukervendt flate: gatene G1–G3.
 - [ ] Vakt/kommando: `tasks/review-lens-select.py`; `tasks/review-severity-floor.py` (se «Gulvunntak for ordlyd»); `tasks/review-fan-in-verify.py`; `python3 tasks/decision-level.py --event revise_gate_choice`; `.claude/hooks/guard-fix-round-model.sh` (krever eksplisitt `model` på HVER implementer-dispatch, dyp modell fra fix-runde 3)
-- [ ] Pausepunkt: Kode-reviewer revise-gate — **nivå B1 så lenge funnene konvergerer og kostnaden er under 2× medianen**; Agent-probe i preflight feiler; B1
+- [ ] Pausepunkt: Kode-reviewer revise-gate — **nivå B1; nivå A bare ved innholdsfunn, manglende data, kostnad over 2× medianen eller, fra runde 2, for få sammenlignbare todoer (`over=few`)**; Agent-probe i preflight feiler; B1
 
 ## 5c. Pipelining (plan neste todo mens denne implementeres)
 → `steps/5c-pipelining.md` — les hele fila FØR steget kjøres.
@@ -163,11 +163,11 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 
 **Klassifiser ALLTID mekanisk, aldri fra hukommelsen:**
 ```bash
-python3 tasks/decision-level.py --event <navn> --context k=v...
+python3 tasks/decision-level.py --event <navn> --context k=v... --todo <nr> --title "<kort valg>"
 ```
-stdout: `{"level":"A"|"B","rule":"<id>","trigger":"…","obligations":[…],"violations":[…]}`.
-`rule = "A0"` er fail-closed (ukjent hendelse, manglende påkrevd kontekst, eller uten
-konvergens/over kostnadstaket) — `level` er da ALLTID `"A"`, exit-koden ≠ 0, og valget behandles som et vanlig
+stdout: `{"level":"A"|"B","rule":"<id>","trigger":"…","obligations":[…],"violations":[…],"header":"…","warnings":[…]}`.
+`rule = "A0"` er fail-closed (ukjent hendelse, manglende påkrevd kontekst, eller brudd på
+§ Konvergensregel under) — `level` er da ALLTID `"A"`, exit-koden ≠ 0, og valget behandles som et vanlig
 nivå-A-pausepunkt under. Et ikke-klassifiserbart valg blir ALDRI stilltiende et nivå-B-valg.
 `--dump-rules`/`--self-test` finnes for verifisering — se `loop-health-check.md` Del D.
 
@@ -181,7 +181,7 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A | Teknisk risiko flagget (§4) eller truffet (§5/§6) |
 | A | Brainstorm-påkrevd todo (hoppet over i §1) |
 | A | Reviewer no-go uten konvergens eller over kostnadstaket (§4, se Konvergensregel) |
-| A | Kode-reviewer revise-gate uten konvergens eller over kostnadstaket (§5b, se Konvergensregel). Ellers nivå B1 (koordinatoren bestemmer selv og logger) |
+| A | Kode-reviewer revise-gate med innholdsfunn, manglende data eller over kostnadstaket (§5b, se Konvergensregel). Ellers nivå B1 (koordinatoren bestemmer selv og logger) |
 | A | Juridisk tekst (personvern) eller kutt som endrer det todoen lover brukeren |
 | A | Agent-probe i preflight feiler («Agent type not found», dekker §5b) → fersk koordinator-sesjon kreves |
 | A | Merge-konflikt (§6.4) |
@@ -202,7 +202,7 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A6 | Avvik fra `CLAUDE.md` eller `docs/naming-conventions.md` som krever menneskets bekreftelse |
 | A7 | Apply av migrasjon eller RLS-endring mot dev (`{{DEV_ENV_ID}}`) |
 | A8 | Edge Function-deploy (dev eller prod) |
-| B1 | §5b revise-gate: ny fix-runde (fra runde 2 kun ved konvergens) vs. merge m/carry-forwards vs. stopp — alle runder under kostnadstaket |
+| B1 | §5b revise-gate: ny fix-runde (fra runde 2 kun uten innholdsfunn) vs. merge m/carry-forwards vs. stopp — alle runder under kostnadstaket |
 | B2 | Splitt av en todo i del-todos |
 | B3 | Valg eller hopp av neste todo innenfor mennesket-godkjent rekkefølge (§1) |
 | B4 | Pipelining: valg eller drop av B-sporet (§5c) |
@@ -220,10 +220,11 @@ naming-avvik, migrasjon/RLS mot dev, Edge Function-deploy) som koordinatoren kla
 eksplisitt før den handler (§2c, §5c).
 
 
-**Pinnet (mot tvetydighet):** rundebetingelsene i B1/B7s triggertekst over («fra runde 2
-kun ved konvergens», «under kostnadstaket») er PROSA for menneskelesere og for V7-paritet mot
-`--dump-rules` — de er IKKE en betingelse i selve B1/B7-regelmatchingen i `decision-level.py`.
-Konvergens og kostnadsbrems bor UTELUKKENDE i konvergensvakten under; B1 matcher på `event=revise_gate_choice` +
+**Pinnet (mot tvetydighet):** rundebetingelsene i triggertekstene over («fra runde 2 kun uten
+innholdsfunn» i §5b-raden, «fra runde 2 kun ved konvergens» i B7, «under kostnadstaket») er PROSA
+for menneskelesere og for V7-paritet mot `--dump-rules` — de er IKKE en betingelse i selve
+regelmatchingen i `decision-level.py`. Konvergens, innholdsregel og kostnadsbrems bor UTELUKKENDE i
+konvergensvakten under; B1 matcher på `event=revise_gate_choice` +
 `action ∈ {fix_round, merge_carry, stop}` alene, og B7 matcher på `event=plan_review_choice` +
 `action ∈ {revise, drop}` alene. **B5 krever begge betingelser** (`kind`  OG `executable_gate`);
 et `technical_risk` med `kind=migration` treffer A7 fordi B5s `kind`-betingelse er usann — IKKE
@@ -252,20 +253,30 @@ Erstatter fast rundetak (fjernet i TODO 455). Evalueres FØR alt annet i `decisi
 - **Kostnadsbremsen i ALLE runder:** ved hver §4-no-go og hver utløst §5b-revise-gate, også runde 1,
   kjører koordinatoren `python3 tasks/measure-cost.py --brake <nr>` først (i §5b med `--pr <PR-nr>`,
   ellers telles ikke review/fix-radene for den åpne PR-en med). Deretter kjøres
-  `decision-level.py` med `cost_over=<over>`. Mangler verdien, eller er den ikke `no`, blir svaret
-  A0 (fail-closed). `over=yes` betyr at todoens kost er over 2× medianen for effort-klassen.
-  `class=?` (todoen mangler `effort:`) gir `over=unknown` og dermed forventet A0; løsningen er at
-  koordinatoren setter `effort` i todo-fila før §4.
-- **Fra runde 2** kreves i tillegg konvergensdata: `blocking_prev`, `blocking_now` (antall gate-funn
-  må gå ned), `new_class=no` og `content=no` (bare form). Brudd gir A0.
+  `decision-level.py` med `cost_over=<over>`. Verdien sendes ordrett slik bremsen skrev den.
+  `over=yes` betyr at todoens kost er over 2× medianen for effort-klassen, og gir A0. `over=few`
+  betyr at effort-klassen har færre enn 5 andre todoer med målt kost, så bremsen har ingen median
+  å måle mot. `over=few` gir A0 for en ny fix-runde i §5b fra runde 2 (eierens vedtak i
+  decision-log 2026-10-09 18:40, TODO 483), og teller som `no` i §4 og i runde 1. Alt annet enn
+  `no` og `few`, også manglende verdi, gir A0 (fail-closed). `class=?` (todoen mangler `effort:`)
+  gir `over=unknown` og dermed A0; løsningen er at koordinatoren setter `effort` i todo-fila før §4.
+- **Fra runde 2** kreves i tillegg konvergensdata: `blocking_prev`, `blocking_now`, `new_class` og
+  `content`. Manglende eller ugyldig verdi gir A0 i begge gater.
+  - **§4 (`plan_review_choice`):** antall gate-funn må gå ned, `new_class=no` og `content=no` (bare
+    form). Brudd gir A0. §4 krever fortsatt alle kravene for B7.
+  - **§5b (`revise_gate_choice`), eierens vedtak i decision-log 2026-10-04 18:08:** At gate-funnene
+    ikke går ned, eller at en ny feilklasse dukker opp (`new_class=yes`), er nivå B. Koordinatoren
+    velger selv og logger. `content` annet enn `no` (innholdsfunn) gir fortsatt A0, og
+    kostnadsbremsen er fortsatt nivå A.
 
 ```bash
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=1 --context action=fix_round --context cost_over=no
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
 ```
 
-Antall runder er fortsatt begrenset: gate-funnene må gå ned for hver runde, så runde 1 med k funn
-gir høyst k runder før A0. Kostnadstaket kommer i tillegg. Hver `[B1]`/`[B7]` fra runde 2 bærer en
+Antall runder: i §4 må gate-funnene gå ned for hver runde, så runde 1 med k funn gir høyst k
+runder før A0, og kostnadstaket kommer i tillegg. I §5b finnes ikke det rundetaket lenger. Der
+begrenses rundene av kostnadsbremsen og innholdsregelen. Hver `[B1]`/`[B7]` fra runde 2 bærer en
 `Konvergens:`-linje i decision-log (se § Format der), som er beviset og kan vetoes.
 
 ### Kalibrering
@@ -297,9 +308,12 @@ til Del D ennå).
 
 1. Decision-log-entry i frosset format (`docs/superpowers/loop/decision-log.md` § Format) — for
    `revise_gate_choice`-beslutninger ved `code_review_rounds >= 2` bærer entryen i tillegg
-   `**Runde-SHA:** <sha>` (se «Residual» over).
+   `**Runde-SHA:** <sha>` (se «Residual» over). Overskriften limes inn ordrett fra `header`-feltet
+   i klassifiseringssvaret (`--event … --todo <nr> --title <tekst>`).
 2. `auto_decided=<rad-eier>:<antall>` i `run-log.md` felt 11, ved siden av `selector=`/`floor=`/
-   `pipelined_from=` (se §6 steg 5).
+   `pipelined_from=`, limt inn ordrett fra `python3 tasks/decision-level.py --auto-decided <rad-eier>`
+   (se §6 steg 5). Tallet er `[B<siffer>]`-oppføringene der rad-eieren står først i overskriften.
+   `— loop`-valg uten todo står ikke på noen rad.
 3. Én linje i sluttmeldingen: `<regel-id> — <kort valg> (reversibel til <punkt>; veto: svar i
    chatten)`.
 4. Regel-IDen er hentet fra `python3 tasks/decision-level.py`, ikke fra hukommelsen.
