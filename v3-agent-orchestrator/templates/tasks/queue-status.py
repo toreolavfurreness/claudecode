@@ -183,6 +183,12 @@ def _self_test():
                                    "--html", "q.html")
     check("planlagt: egen bane", rc == 0 and "v1.3 · planlagt" in html and "Neste mål" in html)
 
+    # 7. «Uklassifisert» står sist, også når det har release-arbeid og en ekte epic ikke har det.
+    rc, md, err, html, title = run({**base, "tasks/todos/todo-5.md": todo("5", title='"Femte"', epic="annet")},
+                                   "--html", "q.html")
+    check("epic-rekkefølge: Uklassifisert sist",
+          rc == 0 and -1 < html.find('class="epic-t">annet<') < html.find('class="epic-t">Uklassifisert<'))
+
     print("SELF-TEST " + ("GRØNN" if not fails else f"RØD ({len(fails)} feil)"))
     return 0 if not fails else 1
 
@@ -774,11 +780,12 @@ if "--html" in sys.argv:
         epics.setdefault(c, []).append(d)
     for v in epics.values():
         v.sort(key=key)
-    # Rekkefølge: epics med arbeid i aktiv release først, så størst først, «Uklassifisert» sist.
+    # Rekkefølge: «Uklassifisert» sist uansett, så epics med arbeid i en release, så størst først.
+    # Restkortet sto øverst når én av todoene i det hadde en release-merkelapp.
     def epic_rank(item):
         name, mem = item
-        i_aktiv = any(rel_of(x) == NOW for x in mem)
-        return (0 if i_aktiv else 1, 1 if name == "Uklassifisert" else 0, -len(mem), name)
+        har_rel = any(rel_of(x) != "ingen" for x in mem)
+        return (1 if name == "Uklassifisert" else 0, 0 if har_rel else 1, -len(mem), name)
     epic_order = sorted(epics.items(), key=epic_rank)
 
     # ---------------- Datakvalitet: felter §1 ikke forstår ----------------
@@ -1130,7 +1137,10 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
     a("<h2>Nivå B siste 24 t — veto før neste release</h2>")
     _rb = subprocess.run([sys.executable, "tasks/decision-level.py", "--recent-b", "--hours", "24"],
                          capture_output=True, text=True)
+    # Lista ligger sammenlagt, så en dag med mange valg ikke skyver køen ut av skjermen. Feil i
+    # lesingen står utenfor <details>, så vakten aldri blir skjult.
     a('<div class="flags">')
+    _bs = []
     if _rb.returncode != 0:
         # Vakten skal synes — aldri en stille tom liste.
         a(f'<div class="flag"><b>Kunne ikke lese decision-log: {_h.escape(_rb.stderr.strip())}</b></div>')
@@ -1142,10 +1152,13 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
               f'«### YYYY-MM-DD HH:MM — …» og vises ikke her</b></div>')
         if not _bs:
             a('<p class="sub">Ingen nivå B-beslutninger siste 24 t.</p>')
+    a("</div>")
+    if _bs:
+        a(f'<details><summary>{len(_bs)} valg siste 24 t. Siste: {_h.escape(_bs[0]["ts"])}</summary><div class="flags">')
         for e in _bs:
             a(f'<div class="flag"><b>{_h.escape(e["ts"])} — {_h.escape(e["header"])}</b>'
               f'<p>Reversibel til: {_h.escape(e["reversibel"])}</p></div>')
-    a("</div>")
+        a("</div></details>")
     a("</section>")
 
     # ============================ 2. EPICS ============================
