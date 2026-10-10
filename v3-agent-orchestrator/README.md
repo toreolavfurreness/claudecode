@@ -110,6 +110,8 @@ v3-formatene.
 - **`REST_EPICS`** (ny, valgfri nøkkel i `queue-config.py`): epic-navn som er restkort og sorteres
   sist sammen med «Uklassifisert».
 - **Nivå B-lista og leverte releaser** ligger i `<details>`, lukket som standard.
+- **Vakt:** en release som har todoer, men ingen bane på siden (f.eks. `release:` uten release-fil),
+  stopper generatoren med feil.
 
 **v3.6** (felles køside):
 - **`tasks/queue-status.py` er lik i alle prosjekter:** køsiden (markdown, `--html` med
