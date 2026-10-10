@@ -17,6 +17,6 @@ Sjekk `tasks/bugs/inbox/` for nye `bug-*.md` (mennesker slipper dem her — én 
 **Årsakspåstander: MÅLT eller HYPOTESE.** Hver oppføring (i `bugs.md` eller en fix-todo) som sier
 noe om årsak eller atferd, bærer enten en **MÅLT**-kilde (hva som ble kjørt, og hva som ble sett) eller
 ordet **HYPOTESE**. En videreformidlet feilmelding er ikke en måling: en testrunners feiltekst er som
-regel en gjetning om årsak. Målt i et annet prosjekt: en bug skrevet ut fra en smoke-feilmelding
+regel en gjetning om årsak. Målt: en bug skrevet ut fra en smoke-feilmelding
 sendte feilsøkingen feil vei i over en time.
 Slett den drainede innboks-fila etterpå. Dette er koordinatorens skriving (single-writer) — mennesker rører aldri `bugs.md` selv.

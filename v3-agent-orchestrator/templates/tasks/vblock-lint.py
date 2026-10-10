@@ -52,7 +52,7 @@ RULES = []
 #
 # **Unntak: R0 er HARD fra start.** Den er strukturell, ikke et mønster-gjett: planen har en
 # Steg-seksjon med avkrysningsbokser eller ikke, og det er samme test kode-revieweren og §4 teller
-# med. Motprøvd begge veier i `--self-test`. Målt i et annet prosjekt med samme loop: to plannere
+# med. Motprøvd begge veier i `--self-test`. Målt: to plannere
 # på rad leverte uten Steg-seksjon, og hver gang kostet det en full review-runde.
 #
 # **Utover R0 er INGEN regel HARD, og det er en målt konklusjon, ikke forsiktighet.**

@@ -16,7 +16,7 @@ fordi hver runde legger til lag og ingen fjerner noen.
    referansepunkt å måle avviket mot, ikke et løfte.
 3. **Sett et budsjett** (linjer og filer). §4 stopper før review hvis planen sprenger det med mer
    enn ~5×.
-Målt i et annet prosjekt med samme loop: en todo med 4 linjers kjerne ble 828 linjer i 13 filer og
+Målt: en todo med 4 linjers kjerne ble 828 linjer i 13 filer og
 1,23 M tokens med alle gater grønne. Planen nådde aldri konsolideringsterskelen, og løsningen fantes
 ett `grep` unna.
 

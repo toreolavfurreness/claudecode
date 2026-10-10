@@ -203,7 +203,7 @@ v3-formatene.
   `measure-cost.py --release <versjon>` gir kostnaden per release.
 - Uten en aktiv release oppfører loopen seg som før.
 
-**v3.3** (mer fra det samme andre prosjektet):
+**v3.3**:
 - **Plan-lint før review:** `tasks/vblock-lint.py` har en hard regel R0 (planen må ha en
   `## Steg`-seksjon med minst ett steg), og §4 kjører linten før reviewer-dispatch. En rød plan går
   tilbake til planneren uten å telle som en review-runde.
@@ -219,7 +219,7 @@ v3-formatene.
   - En ny plan står som «utkast — ikke reviewet» til reviewen har godkjent den.
   - Målescriptet sier fra om at transkripter slettes etter `cleanupPeriodDays` (standard 30 dager).
 
-**v3.2** (fra et andre prosjekt som kjørte v2-loopen):
+**v3.2**:
 - **Sjekkpunkt ved komprimering (valgfri, av som standard):** koordinatoren skriver et sjekkpunkt
   ved hver steg-overgang. To hooks legger det tilbake i konteksten etter en auto-komprimering og
   logger om det var ferskt. Slås på med `hooks.compaction_checkpoint`; mål på din runtime først

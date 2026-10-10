@@ -32,6 +32,24 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 
 <!-- mekanisk-kandidat: review-funn siteres ALDRI inline i en fix-dispatch — PreToolUse-hook på Agent som måler promptlengde og BLOKKERENDE-blokk (mangler) -->
 
+## Egen sesjon, ikke agent
+
+Koordinatoren starter en **egen sesjon** for:
+
+1. prod-release, der eieren bekrefter hvert prod-steg,
+2. arbeid i et annet repo (f.eks. en kit-port),
+3. brainstorm og andre eierpunkter som trenger dialog med eieren,
+4. helsesjekk når den faller midt i en bunke.
+
+Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens vakter
+(worktree-snapshot, kanari, funn-gulv, kostnadsbrems) gjelder agent-rapporter, ikke sesjoner.
+
+- En side-sesjon claimer aldri todoer, og skriver aldri til lessons, oppfølgingskøen, bugs, arkivet
+  eller run-loggen (single-writer-kontrakten gjelder som for workers).
+- En sesjons rapport er dens egen framstilling: koordinatoren måler resultatet selv før det meldes
+  som ferdig (Bevis-regelen over).
+- Deler sesjonen sjekkout med koordinatoren, avtales det hvem som skriver hvilke filer.
+
 
 ## 0. Synk
 → `steps/0-synk.md` — les hele fila FØR steget kjøres.
