@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" width="960" height="560" role="img" aria-label="Flytdiagram for orkestreringsloopen" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7b8794"/></marker>
+<marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c53030"/></marker>
+</defs>
+<rect x="0.5" y="0.5" width="959" height="559" rx="12" fill="#ffffff" stroke="#d9e2ec"/>
+
+<text x="28" y="36" text-anchor="start" font-size="16" font-weight="700" fill="#1f2933">Orkestreringsloopen</text>
+<text x="28" y="55" text-anchor="start" font-size="12" font-weight="400" fill="#52606d">Én runde per todo. Løkkene går tilbake til venstre.</text>
+<rect x="32.0" y="121.0" width="156" height="58" rx="9" fill="#eef2f6" stroke="#52606d" stroke-width="1.5"/>
+<text x="110" y="146.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§0 Synk</text>
+<text x="110" y="163.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">ff-only mot base</text>
+<rect x="217.0" y="121.0" width="156" height="58" rx="9" fill="#fdf3d7" stroke="#b7791f" stroke-width="1.5"/>
+<text x="295" y="146.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§1 Velg todo</text>
+<text x="295" y="163.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">deps, prioritet, release</text>
+<rect x="402.0" y="121.0" width="156" height="58" rx="9" fill="#eef2f6" stroke="#52606d" stroke-width="1.5"/>
+<text x="480" y="146.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§2 Claim</text>
+<text x="480" y="163.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">+ lessons-tema</text>
+<rect x="587.0" y="121.0" width="156" height="58" rx="9" fill="#e3f0fb" stroke="#2b6cb0" stroke-width="1.5"/>
+<text x="665" y="146.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§3 Planner</text>
+<text x="665" y="163.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">skriver plan</text>
+<rect x="772.0" y="121.0" width="156" height="58" rx="9" fill="#fdf3d7" stroke="#b7791f" stroke-width="1.5"/>
+<text x="850" y="146.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§4 Reviewer</text>
+<text x="850" y="163.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">go eller no-go</text>
+<rect x="772.0" y="281.0" width="156" height="58" rx="9" fill="#e3f0fb" stroke="#2b6cb0" stroke-width="1.5"/>
+<text x="850" y="306.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§5 Implementer</text>
+<text x="850" y="323.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">kode, verifisering, PR</text>
+<rect x="587.0" y="281.0" width="156" height="58" rx="9" fill="#fdf3d7" stroke="#b7791f" stroke-width="1.5"/>
+<text x="665" y="306.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§5b Kode-reviewer</text>
+<text x="665" y="323.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">funn i PR-diffen?</text>
+<rect x="402.0" y="281.0" width="156" height="58" rx="9" fill="#eef2f6" stroke="#52606d" stroke-width="1.5"/>
+<text x="480" y="306.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§6 Merge</text>
+<text x="480" y="323.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">CI-gate, lessons, arkiv</text>
+<rect x="217.0" y="281.0" width="156" height="58" rx="9" fill="#fdf3d7" stroke="#b7791f" stroke-width="1.5"/>
+<text x="295" y="306.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§6c Helsesjekk</text>
+<text x="295" y="323.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">kø tom · hver 5. merge</text>
+<rect x="217.0" y="441.0" width="156" height="58" rx="9" fill="#eef2f6" stroke="#52606d" stroke-width="1.5"/>
+<text x="295" y="466.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">§7 Grooming</text>
+<text x="295" y="483.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">§8 Mini-retro</text>
+<rect x="32.0" y="441.0" width="156" height="58" rx="29.0" fill="#ffffff" stroke="#52606d" stroke-width="1.5"/>
+<text x="110" y="466.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">Stopp</text>
+<text x="110" y="483.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">venter på eieren</text>
+<rect x="402.0" y="441.0" width="526" height="58" rx="9" fill="#fde8e8" stroke="#c53030" stroke-width="1.5"/>
+<text x="665" y="466.0" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2933">Pausepunkt nivå A</text>
+<text x="665" y="483.0" text-anchor="middle" font-size="12" font-weight="400" fill="#52606d">claim slippes, eieren spørres. Også fra §4 og rød helsesjekk.</text>
+<path d="M188,150 L215,150" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M373,150 L400,150" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M558,150 L585,150" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M743,150 L770,150" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M850,179 L850,279" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="838.9" y="222.0" width="22.2" height="17" rx="4" fill="#ffffff"/>
+<text x="850" y="234.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#52606d">go</text>
+<path d="M772,310 L745,310" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M587,310 L560,310" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="561.4" y="289" width="22.2" height="17" rx="4" fill="#ffffff"/>
+<text x="572.5" y="301" text-anchor="middle" font-size="11.5" font-weight="400" fill="#52606d">ok</text>
+<path d="M402,310 L375,310" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M820,121 C820,76 695,76 695,119" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="691.5" y="80" width="132.0" height="17" rx="4" fill="#ffffff"/>
+<text x="757.5" y="92" text-anchor="middle" font-size="11.5" font-weight="400" fill="#52606d">no-go: revisjon (B7)</text>
+<path d="M695,339 C695,384 820,384 820,341" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="664.05" y="364" width="186.89999999999998" height="17" rx="4" fill="#ffffff"/>
+<text x="757.5" y="376" text-anchor="middle" font-size="11.5" font-weight="400" fill="#52606d">funn: fix-runde + Gate F (B1)</text>
+<path d="M295,179 L295,279" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="271.7" y="222.0" width="46.599999999999994" height="17" rx="4" fill="#ffffff"/>
+<text x="295" y="234.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#52606d">kø tom</text>
+<path d="M217,310 L110,310 L110,181" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="74.5" y="222.0" width="71.0" height="17" rx="4" fill="#ffffff"/>
+<text x="110" y="234.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#52606d">neste todo</text>
+<path d="M295,339 L295,439" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="250.35" y="382.0" width="89.3" height="17" rx="4" fill="#ffffff"/>
+<text x="295" y="394.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#52606d">grønn, kø tom</text>
+<path d="M217,470 L190,470" fill="none" stroke="#7b8794" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M480,339 L480,439" fill="none" stroke="#c53030" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#r)"/>
+<path d="M850,339 L850,439" fill="none" stroke="#c53030" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#r)"/>
+<path d="M629,339 L629,439" fill="none" stroke="#c53030" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#r)"/>
+<rect x="426.2" y="382.0" width="107.6" height="17" rx="4" fill="#ffffff"/>
+<text x="480" y="394.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#c53030">CI rød, konflikt</text>
+<rect x="617.9" y="402.0" width="22.2" height="17" rx="4" fill="#ffffff"/>
+<text x="629" y="414.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#c53030">A0</text>
+<rect x="799.25" y="402.0" width="101.5" height="17" rx="4" fill="#ffffff"/>
+<text x="850" y="414.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#c53030">failed, blocked</text>
+<rect x="28" y="522" width="14" height="14" rx="3" fill="#eef2f6" stroke="#52606d" stroke-width="1.5"/>
+<text x="48" y="533" text-anchor="start" font-size="11.5" font-weight="400" fill="#52606d">koordinator</text>
+<rect x="127.3" y="522" width="14" height="14" rx="3" fill="#e3f0fb" stroke="#2b6cb0" stroke-width="1.5"/>
+<text x="147.3" y="533" text-anchor="start" font-size="11.5" font-weight="400" fill="#52606d">worker</text>
+<rect x="195.1" y="522" width="14" height="14" rx="3" fill="#fdf3d7" stroke="#b7791f" stroke-width="1.5"/>
+<text x="215.1" y="533" text-anchor="start" font-size="11.5" font-weight="400" fill="#52606d">gate: skript eller rapport avgjør</text>
+<rect x="433.0" y="522" width="14" height="14" rx="3" fill="#fde8e8" stroke="#c53030" stroke-width="1.5"/>
+<text x="453.0" y="533" text-anchor="start" font-size="11.5" font-weight="400" fill="#52606d">ut til eieren</text>
+</svg>

@@ -34,11 +34,9 @@ flowchart TD
     S6 --> S1
     S1 -- "nei: kø tom" --> HC["Helsesjekk, grooming,<br/>mini-retro"]
     HC --> STOP(["Loopen stopper<br/>og venter på deg"])
-    S4 -. "veiskille" .-> PAUSE(["Pausepunkt:<br/>du blir spurt"])
-    S5 -. "veiskille" .-> PAUSE
-    S5B -. "veiskille" .-> PAUSE
-    S6 -. "veiskille" .-> PAUSE
 ```
+
+Ved et ekte veiskille i et av stegene stopper loopen og spør deg (pausepunkt, se under).
 
 - **Koordinator** velger neste todo (prioritert → order, deps oppfylt, ikke claimet), og er den eneste som merger til `{{BASE_BRANCH}}`.
 - **Planner** (`{{MODEL_PLANNER}}`) skriver en plan for todoen.
