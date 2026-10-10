@@ -178,7 +178,7 @@ du la inn før den.
 **Markøren committes og pushes STRAKS den er skrevet — en egen, andre commit i halen over.** Uten
 dette overlever telemetrien kun i denne sesjonens kontekst og forsvinner ved sesjonsdød — akkurat
 det problemet markøren finnes for å løse. Samme 0–4-nummerering og eksplisitt-sti-disiplin som
-pre-par-2-halen over (TODO 231 CF-5: markør-halen manglet steg 0 + speil-guard foran `git add`):
+pre-par-2-halen over:
 
 ```bash
 # 0. Forhåndssjekk: ingenting usporet under tasks/plans/ som ikke skal til {{BASE_BRANCH}}
@@ -305,8 +305,8 @@ opprinnelige verdien ellers går tapt.
 **Re-dispatch mot en allerede pushet plan.** Planfila for B ligger allerede på `{{BASE_BRANCH}}`
 (forrige hale i dette avsnittet pushet den). En re-dispatch av planneren treffer derfor Steg 0 sin
 `git merge origin/{{BASE_BRANCH}}` mot en usporet kopi av SIN EGEN plan i den nye worktreen —
-«untracked working tree file … would be overwritten by merge» — samme feilklasse som lesson
-2026-09-04 («Git-halens `git add -A tasks/` sveiper en usporet plan-kopi inn på dev»), IKKE
+«untracked working tree file … would be overwritten by merge» — samme feilklasse som
+(«Git-halens `git add -A tasks/` sveiper en usporet plan-kopi inn på dev»), IKKE
 ref-lock-kappløpet fra R13b (det er en annen mekanisme — ikke bland remediene). Par-dispatch-malens
 vanlige retry (fetch + merge på nytt) løser IKKE dette: den feiler identisk begge ganger og gir et
 falskt pausepunkt. Legg derfor dette tillegget i re-dispatch-prompten til planneren:
@@ -361,7 +361,7 @@ git-historikken. Dette er den ene lovlige bruken av carve-outen i §0b punkt 6.
 **Motsatt regel for de to grenene som dropper B FØR planen noensinne er committet**
 (canary-mismatch for planner(B); `technical_risk.flagged: true` i B sin PLAN-rapport, par 1):
 plannerens worktree **BEHOLDES** — den bærer den eneste kopien av planen, og begge grenene
-eskalerer uansett til mennesket. Ryddes av mennesket (TODO 245), aldri av §0b.
+eskalerer uansett til mennesket. Ryddes av mennesket, aldri av §0b.
 
 **Pausepunkt-samspill: A treffer et pausepunkt.** Et pausepunkt stopper loopen. B claimes ALDRI
 automatisk — heller ikke når A sin claim er frigitt. Gjør dette, i rekkefølge:
@@ -385,7 +385,7 @@ automatisk — heller ikke når A sin claim er frigitt. Gjør dette, i rekkeføl
 bindende: **en pausetilstand i B-sporet stopper ALDRI A.** B er u-claimet og spekulativ; A er
 claimet og i drift.
 
-**TODO 246 — drop-regelen under er hygiene, ikke et pausepunkt-nivå.** De fire drop-tilfellene
+**Drop-regelen under er hygiene, ikke et pausepunkt-nivå.** De fire drop-tilfellene
 under (technical_risk i plan/plan-review, §4 no-go uten konvergens, canary-mismatch) kjøres UAVHENGIG av
 om den utløsende hendelsen ellers ville vært klassifisert nivå A eller B av `decision-level.py` —
 en pipelinet B som ikke besto §4/canary droppes alltid stille ut av pipelinen, den spørres aldri

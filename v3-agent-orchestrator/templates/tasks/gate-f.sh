@@ -3,7 +3,7 @@
 # Bruk: tasks/gate-f.sh <planfil> <N> [F3a_ref]
 # Implementeren kjører den FØR fix-rapporten; koordinatoren kjører den på branch-snapshotet.
 # Exit 0 = GRØNN, 1 = RØD (mekanisk retur), 2 = bruksfeil. F5 (stikkprøve) er fortsatt manuell.
-# Innført 2026-09-27: begge gateF_return i én release i opphavsprosjektet var formfeil en selvsjekk ville fanget.
+# Fanger formfeil i V-blokka før planen sendes til review.
 set -uo pipefail
 P=${1:?planfil}; N=${2:?fix-runde N}; REF=${3:-}
 [ -f "$P" ] || { echo "finner ikke $P" >&2; exit 2; }

@@ -82,7 +82,7 @@ utdatert. Filsystemet er indeksen.
   §8c måler om klassen faktisk falt.
 
 Grafen bygges ved hvert oppslag og lagres aldri (`tasks/graph.json` sjekkes ikke inn). Klassene og
-gatene i `lesson-classes.py` er utledet fra opphavsprosjektet og må tilpasses etter noen runder.
+gatene i `lesson-classes.py` er eksempler og må tilpasses etter noen runder.
 Lessons er én av tre kunnskapsbaser. De to andre er brukerminnet (samarbeidspreferanser) og
 agent-minnet (arbeidsmetode per rolle), se `docs/loop-rules.md` § «Tre kunnskapsbaser».
 
@@ -94,14 +94,14 @@ Hvert steg har sin egen fil under `docs/superpowers/loop/steps/`.
 ## Hva er nytt vs. v2
 
 Kontrollmodellen er den samme som i v2 (koordinator + uavhengige workers, menneske kun ved
-pausepunkter). v3 er v2 pluss det opphavsprosjektet har herdet siden, og at `/setup` nå installerer
+pausepunkter). v3 er v2 pluss herding fra drift, og at `/setup` nå installerer
 **hele** maskineriet — ikke bare charterne. Det som var bedre i v2-versjonen i dette repoet
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
 **v3.6** (felles køside):
-- **`tasks/queue-status.py` er lik i alle prosjekter:** FamilieHubs køside (markdown, `--html` med
-  release-baner, epics, filtre og datakvalitet, mermaid) gjort prosjektnøytral. Releaser, mål,
+- **`tasks/queue-status.py` er lik i alle prosjekter:** køsiden (markdown, `--html` med
+  release-baner, epics, filtre og datakvalitet, mermaid) er prosjektnøytral. Releaser, mål,
   `done_when`, epics, fremdrift og «levert» kommer fra `tasks/releases/` via `release.py`.
 - **`tasks/queue-config.py`** (prosjekt-eid, valgfri) har alt prosjektspesifikt: tittel, eierskap,
   notater, epic-klynger, gamle release-tags, leverte releaser og merknader. Ukjente nøkler stopper
@@ -111,22 +111,20 @@ v3-formatene.
 - **`tasks/kit-drift.py`** (helsesjekk A5f) melder når et prosjekts `queue-status.py` eller
   Køsiden-rad har gått bort fra malen. Migrering: [`MIGRATION.md`](MIGRATION.md#fra-v35-til-v36).
 
-**v3.5** — tre endringer fra FamilieHub v1.16 (TODO 472, TODO 483 og eierens vedtak 2026-10-09):
-- **Avstemming per todo (TODO 472):** `python3 tasks/decision-level.py --auto-decided <nr>` skriver run-log-tokenet
+**v3.5** — tre endringer:
+- **Avstemming per todo:** `python3 tasks/decision-level.py --auto-decided <nr>` skriver run-log-tokenet
   `auto_decided=<nr>:<n>`, og `--reconcile` avstemmer hver run-log-rad mot decision-log (helsesjekk D4). Tokenet
   telles aldri for hånd. `--event … --todo <nr> --title <tekst>` gir `header`-feltet, som limes ordrett inn som
   overskrift i decision-log. §6 steg 5: tell først, ta radtiden fra klokka etterpå.
-- **§5b leses smalt (TODO 472):** at gate-funnene ikke går ned, eller at en ny feilklasse dukker opp, er nivå B1 i
+- **§5b leses smalt:** at gate-funnene ikke går ned, eller at en ny feilklasse dukker opp, er nivå B1 i
   §5b. Innholdsfunn, manglende konvergensdata og kostnadsbremsen er fortsatt A0. §4 er uendret.
-- **`over=few` (TODO 483):** `measure-cost.py --brake` gir `over=few` når effort-klassen har færre enn 5 andre
+- **`over=few`:** `measure-cost.py --brake` gir `over=few` når effort-klassen har færre enn 5 andre
   todoer med målt kost. `cost_over=few` gir A0 for en ny fix-runde i §5b fra runde 2, og teller som `no` i §4 og
   i runde 1.
-- **Tak for samtidige implementere:** FamilieHub hevet `parallel_implementers.max` til 3. Kitet trenger ingen
-  endring: verdien kommer fra `loop.config.yaml` (`{{PARALLEL_IMPLEMENTERS_MAX}}`), og `/setup` godtar alle heltall ≥ 1.
 - Sjekk: `python3 tasks/decision-level.py --self-test` (`52/52`, `logg-parser: PASS`, `avstemming: PASS`) og
   `python3 tasks/measure-cost.py --brake-self-test` (`6/6`).
 
-**v3.4.6** — kostnadsmålingen kalibreres mot harnessens eget tall, fra FamilieHub TODO 457:
+**v3.4.6** — kostnadsmålingen kalibreres mot harnessens eget tall:
 - **`python3 tasks/measure-cost.py --calibrate`** skriver én linje per avsluttet økt: harnessens
   `cost-state.totalCostUSD`, egen sum (hovedfil + underagenter i vinduet `startTime`–slutt), avvik og `final`
   (andelen underagent-meldinger med endelig usage). Avvik over 10 % gir `over=yes` og exit 1.
@@ -136,8 +134,8 @@ v3-formatene.
 - **Helsesjekken** har steget A5e, som kjører kalibreringen og aldri gjør helsesjekken rød.
 - Sjekk: `python3 tasks/measure-cost.py --calibrate-self-test` (`9/9`).
 
-**v3.4.5** — kalibrert beslutningsgrense (konvergens i stedet for rundetak, kostnadsbrems, samsvarsmåling, veto-flate) fra FamilieHub TODO 455:
-- **Konvergensregel** (`coordinator-runbook.md` § Konvergensregel): fast rundetak (fjernet i TODO 455) er
+**v3.4.5** — kalibrert beslutningsgrense (konvergens i stedet for rundetak, kostnadsbrems, samsvarsmåling, veto-flate):
+- **Konvergensregel** (`coordinator-runbook.md` § Konvergensregel): fast rundetak er fjernet og
   erstattet av konvergens. Fra runde 2 er en ny plan-/fix-runde nivå B (B7/B1) bare når gate-funnene går ned,
   ingen ny feilklasse dukker opp og funnene bare gjelder form (ikke RLS/datamodell/omfang); ellers A0. `tasks/decision-level.py` har 39 fixtures.
 - **Kostnadsbrems:** `python3 tasks/measure-cost.py --brake <nr> [--pr <n>]` gir `over=yes` når todoen koster
@@ -148,7 +146,7 @@ v3-formatene.
 - Sjekk: `python3 tasks/decision-level.py --self-test` (`39/39`, `logg-parser: PASS`) og
   `python3 tasks/measure-cost.py --brake-self-test` (`5/5`).
 
-**v3.4.4** (fra FamilieHub 2026-10-02):
+**v3.4.4**:
 - **`/todo-new`** oppretter én todo: duplikatsøk først, neste ledige nr fra `tasks/next-todo-nr.sh`
   (todos, arkiv og åpne PR-er på `origin/<base>`; exit 1 når en kilde ikke kan leses), frontmatter
   etter skjemaet og en `docs/`-PR uten claim. Sjekk: `bash tasks/test-next-todo-nr.sh`.
@@ -156,20 +154,20 @@ v3-formatene.
   eller agent-minne), duplikatsøk, filnavn fra `tasks/lesson-path.py` (samme slug som migreringen til
   atomære filer, `-2` ved kollisjon, `--tags` for gjenbruk) og en `docs/`-PR. Sjekk: `--self-test`.
 
-**v3.4.3** (fra FamilieHub 2026-10-02):
+**v3.4.3**:
 - **`/handover`** for koordinator-sesjoner. `tasks/handover-state.sh` måler tilstanden (claims, worktrees,
   release, PR-er, decision-log, om hovedsjekkouten ligger bak base). `docs/superpowers/loop/artifacts.md` er
   eneste sted lenkene til de faste artefaktene står. Kommandoen republiserer dem, skriver overleveringsfila og
   lager startprompten. `/endsession` peker til `/handover` i koordinator-sesjoner.
 - **`/run-loop`-preflight:** tom `node_modules` er et pausepunkt («kjør `npm ci`»), ikke «E2E: MANGLER».
 
-**v3.4.2** (fra FamilieHub 2026-10-02):
+**v3.4.2**:
 - **§5d tillater klientkode.** `--forbid-prefix app/ components/ lib/` er fjernet fra gate P og M,
   sammen med `client-code`-grenen og `gate_m_i`-bindingen. Forutsetningen er en e2e-lås som
   serialiserer kjøringene (port per implementer + `mkdir`-lås i `todo-finish-worker`). Ny regel:
   rører både A og B klientkode, synker B mot base og kjører e2e på nytt etter at A er merget.
 
-**v3.4.1** (rettelse fra FamilieHub 2026-10-02):
+**v3.4.1**:
 - **§1 tar med `status: reviewed`.** Før var bare `open` kvalifisert, så todoer med godkjent plan
   var usynlige for kø-utvelgelsen. Med en aktiv release ga det `PÅGÅR` og stopp selv om den
   klareste jobben lå i scope. §2 sender en `reviewed`-todo rett til §5 etter ferskhets-gaten i §5c
@@ -217,7 +215,7 @@ v3-formatene.
 - **Arbeidstre-vakt i eksempel-lensene:** lensene leser PR-en med `git show <sha>:<sti>` og endrer
   aldri HEAD, indeks eller refs i kode-reviewerens arbeidstre.
 
-**v3.1** (synk mot opphavsprosjektet per 30.09.2026):
+**v3.1**:
 - **Lessons:** én fil per lesson, `tasks/lessons/<tema>/<dato>-<slug>.md` med `tags`/`kilder`.
   Oppfølginger ligger i `tasks/followups/`. `scripts/split-lessons.py` migrerer gamle temafiler.
 - **Runbook:** delt i en kjerne-sjekkliste, én stegfil per steg (`docs/superpowers/loop/steps/`) og
@@ -406,8 +404,6 @@ feiler høyt på gjenværende `{{...}}` eller manglende nøkler. Se [`setup.md`]
   agent-lista.
 - **Post-fase i `test-guard-main-merge.sh`** (`HARNESS_PHASE=post`) er en planlagt rød fase —
   `pre` (default) er den som skal være grønn.
-- **`TODO NNN` / `CF-NNN` i kommentarer** er opphavsprosjektets sporingsnumre og forteller hvor en
-  regel kom fra. Du trenger ikke slå dem opp; reglene står fullt ut der de brukes.
 - **Verifier-agenten fra v2 er ikke med.** v3 dekker deler av rollen på en annen måte:
   - At en vakt kan gå rød, bevises av planens mutasjonsrader og gate F.
   - Rekkefølgen rødt før grønt sjekkes av kode-revieweren.
@@ -415,9 +411,10 @@ feiler høyt på gjenværende `{{...}}` eller manglende nøkler. Se [`setup.md`]
     som muterer koden i eget arbeidstre. v3 har heller ingen layout-sjekk ved UI-endringer.
     Trenger prosjektet det, kopier `PROJECT_NAME-verifier.md` fra v2 og tilpass den.
 - **Retro- og beslutningslogg-stegene fra v2 er ikke med.** v3 har egne varianter av dem.
-- **Enkelte regelsett er utledet fra opphavsprosjektet** og sier det selv i kommentaren
-  (`lesson-classes.py`, `vblock-lint.py`, beslutningsklasse A3 i `decision-level.py`). De virker,
-  men treffer best i et prosjekt som ligner. Tilpass etter noen runder.
+- **Enkelte regelsett er stack-spesifikke eksempler** og sier det selv i kommentaren
+  (`lesson-classes.py`, `vblock-lint.py`, beslutningsklasse A3 i `decision-level.py`, kostnadssiden
+  i `measure_cost_html.py`). De virker, men antar blant annet React Native, Playwright og
+  native app-bygg. Tilpass etter noen runder.
 - **Ikke med:** `/release-prod`, `/issue`, `/fix-design-bug`, `docs/workflow.md` — de er for
   prosjektspesifikke. `guard-supabase-ref` ligger kun som eksempel.
 - **`/setup`-robusthet:** validerer config-*nøkler* og tegnsett, ikke at *verdiene* er

@@ -18,7 +18,7 @@ Exit 0 alltid — dette er en måling, ikke en vakt. Terskelvurderingen gjøres 
 # ────────────────────────────────────────────────────────────────────────────────
 # MAL-NOTAT — LES FØR BRUK I ET NYTT PROSJEKT
 #
-# `CLASSES` og `GATES` under er utledet av opphavsprosjektets lesson-korpus. Klassenavnene
+# `CLASSES` og `GATES` under er utledet av ett konkret lesson-korpus. Klassenavnene
 # og mønstrene er eksempler på formen, ikke en fasit: et nytt prosjekt har andre
 # gjentakende feilklasser, og de finnes ved å lese egne lessons — ikke ved å arve
 # disse.
@@ -36,7 +36,7 @@ DEFAULT_DAYS = 7
 # Dette feltet — ikke et råtall — er det som utløser §8c-plikt: en klasse som topper
 # lista OG mangler gate er et mønster vi betaler for på nytt hver gang.
 #
-# KRAV FOR Å FYLLE INN EN VERDI (kode-review PR #852, 2026-09-17): en gate føres opp
+# KRAV FOR Å FYLLE INN EN VERDI: en gate føres opp
 # her først når den er motprøvd BEGGE VEIER mot minst én navngitt, datert lesson i
 # klassen — rød på den formen lessonen beskriver, ren på den fiksede formen. Det er
 # samme krav §8c steg 3 utfall (a) stiller, og det gjelder også denne tabellen.
@@ -86,7 +86,7 @@ CLASSES = [
 COMPILED = [(k, d, re.compile(p, re.I)) for k, d, p in CLASSES]
 
 def lessons(paths):
-    """Yield (dato, tittel, fil, full tekst) per lesson-fil (TODO 275: én fil per lesson)."""
+    """Yield (dato, tittel, fil, full tekst) per lesson-fil (én fil per lesson)."""
     for path in sorted(paths):
         name = os.path.basename(path)
         if not re.match(r'\d{4}-\d{2}-\d{2}-', name):

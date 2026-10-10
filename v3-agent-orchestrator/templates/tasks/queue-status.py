@@ -356,7 +356,7 @@ PAUSE_TITLE = re.compile(CFG["PAUSE_TITLE"], re.I)
 
 
 def in_release(d):
-    # release_of gir None for `split` (foreldre-rad, ellers telt tre ganger) og `done` (TODO 238).
+    # release_of gir None for `split` (foreldre-rad, ellers telt tre ganger) og `done`.
     return NOW is not None and release_of(d) == NOW
 
 
@@ -504,7 +504,7 @@ for _linje in release_oversikt(list(todos.values())):
     w(_linje)
 
 # Fasen til en claimet todo. Koordinatoren setter `phase` i frontmatter ved hvert steg. Første ord
-# er nøkkelen, resten er fritekst (runde, PR): `phase: kode-review r2 PR 1112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`.
+# er nøkkelen, resten er fritekst (runde, PR): `phase: kode-review r2 PR 112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`.
 PHASES = {
     "plan": "planlegges",
     "plan-review": "plan til review",
@@ -524,7 +524,7 @@ def phase_label(d):
     return (PHASES.get(key, "ukjent fase: " + key) + " " + rest).strip()
 
 
-assert phase_label({"phase": "kode-review r2 PR 1112"}) == "kode-review r2 PR 1112"
+assert phase_label({"phase": "kode-review r2 PR 112"}) == "kode-review r2 PR 112"
 assert phase_label({"phase": "fix 1"}) == "fix-runde 1"
 assert phase_label({}) == "fase ikke satt"
 assert phase_label({"phase": "tull"}) == "ukjent fase: tull"
@@ -1132,7 +1132,7 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
         a("</article>")
     if SHIPPED_KEYS:
         a("</details>")
-    # -- uten release-tag: ALLTID nederst, under de leverte (eier 2026-09-27).
+    # -- uten release-tag: ALLTID nederst, under de leverte.
     for k in ("ingen",):
         navn = "Uten release-tag"
         mem = lanes.get(k, [])
@@ -1147,7 +1147,7 @@ pre.mermaid{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
         a("</article>")
     a("</section>")
 
-    # ===================== 1b. NIVÅ B SISTE 24 T (under releasene) (veto, TODO 455) =====================
+    # ===================== 1b. NIVÅ B SISTE 24 T (under releasene) (veto) =====================
     a("<section>")
     a("<h2>Nivå B siste 24 t — veto før neste release</h2>")
     _rb = subprocess.run([sys.executable, "tasks/decision-level.py", "--recent-b", "--hours", "24"],

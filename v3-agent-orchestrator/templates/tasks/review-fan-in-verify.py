@@ -2,10 +2,9 @@
 # GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
 # Endre loop.config.yaml og kjør /setup på nytt.
 """review-fan-in-verify.py — mekanisk kontrakt-vakt for kode-reviewerens
-`fan_in`-rapport (TODO 250A + TODO 250B + TODO 250C). Speiler 180As tre
+`fan_in`-rapport. Speiler selektor-stegets tre
 mengde-sammenligninger og legger seks nye (attestasjon-form, ukjent agent,
-stale SHA, manglende attestasjon) pluss en betinget bindende liveness-regel
-(TODO 250C).
+stale SHA, manglende attestasjon) pluss en betinget bindende liveness-regel.
 
 **Dette er en LOGG uten `--strict`, og en GATE med `--strict`.** Uten
 `--strict` exit'er analysemodus `0` for ethvert antall funn (250A-
@@ -32,7 +31,7 @@ ETTER, samme rekkefølge som `decision-level.py:299`/`:300`). Exit-0-
 invarianten over gjelder KUN `--fan-in`-modus uten `--strict`.
 
 Opphavet til `fan_in`s felter (`returned`, `attestations`, …) er delvis
-verifisert her (TODO 250C, R12): en koordinator-etablert `--live-key`-fil kan
+verifisert her (R12): en koordinator-etablert `--live-key`-fil kan
 si at en `returned`-oppføring ikke matcher noe registrert signal
 (`premature-return`). Skriptet leser ALDRI rapportens egen `evidence` for
 dette formålet — nøkkelfila kommer alltid fra en ANNEN kilde enn `--fan-in`
@@ -71,16 +70,15 @@ utfallstabell):
         (betinget bindende — KUN når --live-key sin mode == "ledger")
     R14 --live-key gitt, men uleselig/ugyldig                           live-key-unreadable
 
-R6 ∧ R7 er nøyaktig 180As `returned == dispatched`, splittet i to koder fordi
+R6 ∧ R7 er nøyaktig `returned == dispatched`, splittet i to koder fordi
 de to retningene betyr helt ulike ting: `returned ⊄ dispatched` er et navn
 som aldri ble dispatchet (fabrikasjons-signal), `dispatched \\ returned ≠ ∅`
-er 180As «stille node». R6/R7/R8/R9 forblir `logg` og eies av **180B CF-1**.
+er en «stille node». R6/R7/R8/R9 forblir `logg`.
 
 **R13 `ledger-orphan` er RESERVERT og ubrukt** (nummeret brukes ALDRI her,
-slik at ingen renummerering trengs når regelen bygges) — se
-`tasks/plans/todo-250C-*.md` § 7 pkt. 1: den krever en ikke-tom ledger for å
-kunne fyre i det hele tatt, og ledgeren er målt tom i denne harnessen
-(2026-09-07).
+slik at ingen renummerering trengs når regelen bygges):
+den krever en ikke-tom ledger for å
+kunne fyre i det hele tatt, og ledgeren er målt tom i denne harnessen.
 
 Kontrollflyt: kun R1 kortslutter (uleselig input gjør resten meningsløst).
 R2/R3 kortslutter ikke selv, men en regel som avhenger av en manglende eller
@@ -88,8 +86,8 @@ feiltypet nøkkel HOPPES og føres i `signals.skipped[]`. R4–R11 og R12/R14 ha
 ingen tidlig `return` — alle avvik samles.
 
 `signals.attest` (frossen presedens, i denne rekkefølgen — kjøres MED
-`--strict` prefikses verdien med `strict:`, TODO 250B; uten `--strict` er
-verdien byte-identisk med 250A-formen):
+`--strict` prefikses verdien med `strict:`; uten `--strict` er
+verdien byte-identisk med den uarmerte formen):
     1. violations ikke-tom          ⇒ de kommaseparerte kodene (sortert, dedup)
     2. ellers dispatched == []      ⇒ "none"
     3. ellers attestations mangler  ⇒ "legacy"
@@ -101,11 +99,9 @@ egen etikett når skriptet krasjet, og prefikses ALDRI med `strict:`.
 `--dump-rules` skriver TSV (`<id><TAB><brudd-kode><TAB><utfall>`) for R1–R12
 og R14 (R13 utelatt) til stdout, paritets-orakelet mot runbookens
 utfallstabell (V6). `<utfall>` er `stopp` for R2–R5, R10 og R11, `betinget`
-for R12 (bindende KUN når `--live-key` sin `mode == "ledger"`, TODO 250C), og
-`logg` for R1 (koordinatorens egen inndata-fil), R6–R9 (eies av **180B
-CF-1**) og R14 (måler koordinatorens EGEN nøkkelfil, aldri bindende). Flippen
-til `stopp`/`logg` ble gjort i TODO 250B, `betinget` ble lagt til i TODO
-250C, i SAMME PR som runbook-tabellen.
+for R12 (bindende KUN når `--live-key` sin `mode == "ledger"`), og
+`logg` for R1 (koordinatorens egen inndata-fil), R6–R9
+og R14 (måler koordinatorens EGEN nøkkelfil, aldri bindende).
 
 `--self-test` kjører de frosne fixturene og skriver PASS/FEIL per fixture
 + `<bestått>/<total>` til stderr, JSON-sammendrag til stdout, exit 0 kun når
@@ -122,7 +118,7 @@ import tempfile
 {{TECH_REVIEW_SEVERITY_FLOORS}}
 
 # KUN nøklene (agentnavnene) brukes her, som KNOWN_AGENTS. Tom mengde er en
-# LOVLIG konfigurasjon (CF-250-2, TODO 250B) — et kit uten registrerte
+# LOVLIG konfigurasjon — et kit uten registrerte
 # tech-review-lenser er gyldig, og R8 blir da vakuøs (se evaluate()). Skulle
 # SEVERITY_FLOORS-substitusjonstokenet stå igjen uerstattet (en /setup-feil),
 # krasjer modulen ALLEREDE her med NameError — et eksplisitt fail-fast-kall
@@ -147,10 +143,10 @@ RULES = [
     ("R14", "live-key-unreadable"),
 ]
 
-# --- BINDING_CODES (D1.3, TODO 250B) ----------------------------------------
+# --- BINDING_CODES (D1.3) ----------------------------------------
 # `input-unreadable` (R1) er BEVISST UTENFOR: den måler koordinatorens EGEN
 # --fan-in-scratch-fil, ikke et felt revieweren fylte, og skal derfor aldri
-# kunne gi A0-eskalering (r3 VIKTIG-2). R6-R9 eies av 180B CF-1.
+# kunne gi A0-eskalering (r3 VIKTIG-2).
 BINDING_CODES = frozenset({
     "contract-missing-key",
     "contract-bad-type",
@@ -160,7 +156,7 @@ BINDING_CODES = frozenset({
     "attestations-missing",
 })
 
-# --- LIVE_BINDING_CODES (D1.5, TODO 250C) -----------------------------------
+# --- LIVE_BINDING_CODES (D1.5) -----------------------------------
 # `premature-return` (R12) er BETINGET bindende: den teller KUN mot
 # compute_binding når live_mode == "ledger" (positiv kontroll oppfylt denne
 # runden). En EGEN mengde, ikke en utvidelse av BINDING_CODES over — R12 skal
@@ -179,7 +175,7 @@ def _skip_key(r):
 
 
 def _normalize_sha(value):
-    """Normaliser en reviewed_sha for R10 (D1.4, CF-250-4 OMARBEIDET).
+    """Normaliser en reviewed_sha for R10 (D1.4).
     Returnerer lowercase hex-streng hvis den normaliserer til >= 7 hex-tegn,
     ellers None (unnormaliserbar — null-semantikk, aldri attestation-malformed)."""
     if not isinstance(value, str):
@@ -216,7 +212,7 @@ def load_fan_in(path):
 
 
 def load_live_key(path):
-    """Les og parse --live-key (D1.2, TODO 250C). Ren funksjon, SAMME
+    """Les og parse --live-key (D1.2). Ren funksjon, SAMME
     kontrakt som load_fan_in: returnerer (live, error), kaster ALDRI ut.
     `error` er ("live-key-unreadable", <melding>) når fila ikke kan leses,
     ikke er gyldig JSON, ikke er et objekt, eller `mode` mangler / ikke er i
@@ -261,7 +257,7 @@ def load_live_key(path):
 
 def live_state(live, err):
     """Normaliser (live, error)-paret fra load_live_key til ÉN av tre
-    live-tilstander (D1.0 i, TODO 250C). TOTAL funksjon — kalles av BEGGE
+    live-tilstander (D1.0 i). TOTAL funksjon — kalles av BEGGE
     kallstedene (run_analysis og run_self_test), slik at normaliseringen
     gjøres ÉN gang og ikke kan drive fra hverandre:
 
@@ -279,7 +275,7 @@ def live_state(live, err):
 
 def live_token(live):
     """Total funksjon: normalisert live-tilstand -> signals.live-verdien
-    (D1.6, TODO 250C). Definert for alle tre live-tilstandene i live_state(),
+    (D1.6). Definert for alle tre live-tilstandene i live_state(),
     og derfor kallbar i BEGGE grenene av run_analysis (også R1-feilgrenen)."""
     if live is None:
         return "none"
@@ -291,7 +287,7 @@ def live_token(live):
 def evaluate(data, pr_head_sha, require_attestations=False, known_agents=None, live=None):
     """Kjør R2..R12/R14 mot et allerede parset fan_in-objekt (R1 er kjørt av
     load_fan_in). `live` er NORMALISERT live-tilstand fra live_state() —
-    ALDRI en filsti og ALDRI rapportens `evidence` (D1.0 i, TODO 250C).
+    ALDRI en filsti og ALDRI rapportens `evidence` (D1.0 i).
     Returnerer (violations, skipped, signals_extra)."""
     known_agents = KNOWN_AGENTS if known_agents is None else known_agents
     violations = []
@@ -309,7 +305,7 @@ def evaluate(data, pr_head_sha, require_attestations=False, known_agents=None, l
 
     have_required = not missing and not bad_type
     if not have_required:
-        # CF-250-1 (D1.4): R10 er IKKE med her lenger — R10 sjekkes ubetinget
+        # D1.4: R10 er IKKE med her lenger — R10 sjekkes ubetinget
         # under attestations-grenen og skal aldri kunne rapporteres som
         # BÅDE brudd og hoppet i samme output.
         skipped.extend(["R5", "R6", "R7", "R8", "R9"])
@@ -351,7 +347,7 @@ def evaluate(data, pr_head_sha, require_attestations=False, known_agents=None, l
         else:
             skipped.append("R5")
 
-        # --- R10: stale-lens-sha (normalisert, CF-250-4 OMARBEIDET) ---------
+        # --- R10: stale-lens-sha (normalisert) ---------
         if pr_head_sha is not None:
             stale = []
             unnormalizable = []
@@ -385,7 +381,7 @@ def evaluate(data, pr_head_sha, require_attestations=False, known_agents=None, l
         skipped.append("R5")
         skipped.append("R10")
 
-    # --- R11: attestations-missing (--require-attestations, TODO 250B) -----
+    # --- R11: attestations-missing (--require-attestations) -----
     # `returned`-leddet er IKKE pynt: uten det fyrer R11 på hver eneste runde
     # uten lens-trigger (selector=none, flertallet av rundene).
     if require_attestations and returned and not attestations_present:
@@ -403,7 +399,7 @@ def evaluate(data, pr_head_sha, require_attestations=False, known_agents=None, l
             violations.append({"rule": "R7", "code": "silent-node", "detail": f"dispatchet men ikke returnert: {sorted(silent)}"})
 
         # --- R8: dispatched ⊆ known_agents (VAKUØS når known_agents er tom,
-        # CF-250-2 — et kit uten registrerte lenser er en gyldig konfigurasjon,
+        # et kit uten registrerte lenser er en gyldig konfigurasjon,
         # og skal ikke flagge ALLE dispatchede navn som "ukjente") ------------
         if known_agents:
             unknown = dispatched - known_agents
@@ -417,7 +413,7 @@ def evaluate(data, pr_head_sha, require_attestations=False, known_agents=None, l
         if under:
             violations.append({"rule": "R9", "code": "under-dispatch", "detail": f"forventet av selector, ikke dispatchet: {sorted(under)}"})
 
-    # --- R12/R14: liveness (D1.3/D1.4, TODO 250C). Første treff vinner ------
+    # --- R12/R14: liveness (D1.3/D1.4). Første treff vinner ------
     # (uttømmende tabell, D1.3): rad 0 (ingen nøkkel), 0b (R14 fyrte), 1
     # (have_required usann), 2-5 (mode=unavailable/ledger), 6-10
     # (mode=worktree), 11 (ellers — evaluert, rent, ingen oppføring).
@@ -433,7 +429,7 @@ def evaluate(data, pr_head_sha, require_attestations=False, known_agents=None, l
         # rad 1 — R2/R3 fyrte, ingenting meningsfullt å evaluere R12 mot
         skipped.append("R12:no-required-keys")
     elif live["mode"] == "unavailable":
-        # rad 2 — den målte normaltilstanden (2026-09-07, § 0.1)
+        # rad 2 — den målte normaltilstanden (§ 0.1)
         skipped.append("R12:unavailable")
     elif live["mode"] == "ledger":
         ledger = set(live.get("ledger") or [])
@@ -488,7 +484,7 @@ def evaluate(data, pr_head_sha, require_attestations=False, known_agents=None, l
 
 def compute_binding(violations, live_mode=None):
     """Mengden av fyrte koder som ligger i BINDING_CODES, ELLER i
-    LIVE_BINDING_CODES når `live_mode == "ledger"` (D1.5, TODO 250C).
+    LIVE_BINDING_CODES når `live_mode == "ledger"` (D1.5).
     `premature-return` er dermed bindende KUN i mode=ledger — i mode=worktree
     kan den fyre som brudd, men teller ALDRI mot verdikt/eskalering."""
     codes = {v["code"] for v in violations if v["code"] in BINDING_CODES}
@@ -526,7 +522,7 @@ def compute_attest(violations, signals_extra, strict):
 def run_analysis(path, pr_head_sha, strict=False, require_attestations=False, live_key_path=None):
     # Nøkkelfila lastes ØVERST, FØR load_fan_in, slik at `live` er i scope for
     # den ÉNE delte result["signals"]-dicten under — også R1-feilgrenen
-    # (D1.0 iv, TODO 250C). Skriptet leser ALDRI rapportens `evidence` her.
+    # (D1.0 iv). Skriptet leser ALDRI rapportens `evidence` her.
     live = live_state(*load_live_key(live_key_path)) if live_key_path is not None else None
     live_mode = None if live is None else live["mode"]
     data, err = load_fan_in(path)
@@ -535,8 +531,8 @@ def run_analysis(path, pr_head_sha, strict=False, require_attestations=False, li
         violations = [{"rule": "R1", "code": code, "detail": detail}]
         # R14 er UAVHENGIG av R1: `live` ble lastet FØR `load_fan_in` (se
         # kommentaren over) og skal ikke tapes bak R1-kortslutningen når
-        # BEGGE filene er uleselige samtidig (MINDRE-funn, TODO 250C
-        # fix-runde 1 — samme rad-0b-utfall som evaluate() ville gitt).
+        # BEGGE filene er uleselige samtidig (samme
+        # rad-0b-utfall som evaluate() ville gitt).
         if live is not None and live["mode"] == "unreadable":
             violations.append({"rule": "R14", "code": "live-key-unreadable", "detail": live.get("detail", "")})
             skipped = [rid for rid, _ in RULES if rid not in ("R1", "R12", "R14")]
@@ -562,8 +558,8 @@ def run_analysis(path, pr_head_sha, strict=False, require_attestations=False, li
     return 3 if verdict == "rejected" else 0
 
 
-# --- Frosne fixtures (TODO 250B — 13 arvet fra 250A + 11 nye, F24 realisert
-# som TO poster ⇒ 25 poster i praksis; TODO 250C legger til 13 nye, F25-F37,
+# --- Frosne fixtures (13 + 11 nye, F24 realisert
+# som TO poster ⇒ 25 poster i praksis; 13 nye, F25-F37,
 # for R12/R14 ⇒ 38 poster; fix-runde 1 legger til 3 nye, F38-F40, for to
 # udekkede D1.3-hoppgrener + R1-kortslutningens R14-tap ⇒ 41 poster totalt,
 # D1.8) ------------------------------------------------------------------
@@ -573,7 +569,7 @@ def _fixture(name, payload, pr_head_sha=None, strict=False, require_attestations
              known_agents=None, live_key=None, live_key_path=None):
     # `live_key` (dict, skrives til en temp-fil og lastes) og `live_key_path`
     # (streng, sendes rett til load_live_key) er gjensidig utelukkende INPUT
-    # (D1.0 ii, TODO 250C) — begge satt samtidig er en FIXTURE-DEFEKT, ikke
+    # (D1.0 ii) — begge satt samtidig er en FIXTURE-DEFEKT, ikke
     # en stille prioritering.
     if live_key is not None and live_key_path is not None:
         raise ValueError(f"{name}: live_key og live_key_path kan ikke begge være satt")
@@ -645,8 +641,8 @@ def _fixtures():
         _fixture("F13", {"fan_in": {"triggered": [], "dispatched": [], "returned": [], "expected_by_selector": []}},
                   expected_codes=[], expected_attest="none", expected_binding=[]),
 
-        # --- 11 nye (TODO 250B, D1.5) ----------------------------------------
-        _fixture(  # F14 — CF-250-1: R10 ikke både brudd og hoppet
+        # --- 11 nye (D1.5) ----------------------------------------
+        _fixture(  # F14: R10 ikke både brudd og hoppet
             "F14", {"fan_in": {"triggered": [], "dispatched": [a], "returned": [a], "attestations": [{"agent": a, "reviewed_sha": "bbbbbbb"}]}},
             pr_head_sha=pr_sha_match,
             expected_codes=["contract-missing-key", "stale-lens-sha"],
@@ -654,25 +650,25 @@ def _fixtures():
             expected_binding=["contract-missing-key", "stale-lens-sha"],
             expected_skipped=["R5", "R6", "R7", "R8", "R9", "R12", "R14"],
         ),
-        _fixture(  # F15 — CF-250-3 a: over-attestasjon (fabrikasjonsretningen)
+        _fixture(  # F15: over-attestasjon (fabrikasjonsretningen)
             "F15", {"fan_in": {"triggered": [], "dispatched": [a], "returned": [a], "expected_by_selector": [],
                                 "attestations": [{"agent": a, "reviewed_sha": "aaaaaaa"}, {"agent": b, "reviewed_sha": "aaaaaaa"}]}},
             pr_head_sha="aaaaaaa",
             expected_codes=["attestation-mismatch"], expected_attest="attestation-mismatch",
             expected_binding=["attestation-mismatch"],
         ),
-        _fixture(  # F16 — CF-250-4: 7-tegns prefiks som MATCHER 40-tegns
+        _fixture(  # F16: 7-tegns prefiks som MATCHER 40-tegns
             "F16", {"fan_in": {"triggered": [], "dispatched": [a], "returned": [a], "expected_by_selector": [],
                                 "attestations": [{"agent": a, "reviewed_sha": "aaaaaaa"}]}},
             pr_head_sha=pr_sha_match, expected_codes=[], expected_attest="ok", expected_binding=[],
         ),
-        _fixture(  # F17 — CF-250-4: 7-tegns prefiks som IKKE matcher
+        _fixture(  # F17: 7-tegns prefiks som IKKE matcher
             "F17", {"fan_in": {"triggered": [], "dispatched": [a], "returned": [a], "expected_by_selector": [],
                                 "attestations": [{"agent": a, "reviewed_sha": "bbbbbbb"}]}},
             pr_head_sha=pr_sha_match, expected_codes=["stale-lens-sha"], expected_attest="stale-lens-sha",
             expected_binding=["stale-lens-sha"],
         ),
-        _fixture(  # F18 — CF-250-4: for kort/ikke-hex ⇒ INGEN violation, R10:unnormalizable i skipped
+        _fixture(  # F18: for kort/ikke-hex ⇒ INGEN violation, R10:unnormalizable i skipped
             "F18", {"fan_in": {"triggered": [], "dispatched": [a], "returned": [a], "expected_by_selector": [],
                                 "attestations": [{"agent": a, "reviewed_sha": "abcdef"}]}},
             pr_head_sha=pr_sha_miss, expected_codes=[], expected_attest="ok", expected_binding=[],
@@ -690,13 +686,13 @@ def _fixtures():
             expected_codes=[], expected_attest="strict:none", expected_verdict="observed",
             expected_binding=[], expected_mode="strict",
         ),
-        _fixture(  # F21 — CF-250-2: tom agent-mengde SOM PARAMETER ⇒ R8 vakuøs, attest=none
+        _fixture(  # F21: tom agent-mengde SOM PARAMETER ⇒ R8 vakuøs, attest=none
             "F21", {"fan_in": {"triggered": [], "dispatched": [], "returned": [], "expected_by_selector": []}},
             known_agents=frozenset(),
             expected_codes=[], expected_attest="none", expected_binding=[],
             expected_skipped=["R4", "R5", "R8", "R10", "R12", "R14"],
         ),
-        _fixture(  # F22 — --strict på fixture som KUN gir R6-R9 ⇒ observed, exit 0 (180B CF-1-grensen)
+        _fixture(  # F22 — --strict på fixture som KUN gir R6-R9 ⇒ observed, exit 0
             "F22", {"fan_in": {"triggered": [], "dispatched": [a], "returned": [a, b], "expected_by_selector": []}},
             strict=True,
             expected_codes=["returned-not-dispatched"], expected_attest="strict:returned-not-dispatched",
@@ -720,7 +716,7 @@ def _fixtures():
             expected_binding=[], expected_mode="observe",
         ),
 
-        # --- 13 nye (TODO 250C, D1.8) — R12 premature-return / R14 -----------
+        # --- 13 nye (D1.8) — R12 premature-return / R14 -----------
         # live-key-unreadable. `a`/`b` er de samme to KNOWN_AGENTS-navnene som
         # over. Ingen av disse payloadene bærer `attestations`, så alle arver
         # R4/R5/R10 i skipped fra "ingen attestations"-grenen (D1.0), med
@@ -821,7 +817,7 @@ def _fixtures():
             expected_skipped=["R4", "R5", "R10", "R12", "R14"],
         ),
 
-        # --- 3 nye (TODO 250C fix-runde 1 — MINDRE-funn: to udekkede D1.3-
+        # --- 3 nye (to udekkede D1.3-
         # hoppgrener + R1-kortslutningens tap av R14) -------------------------
         _fixture(  # F38 — rad 1: manglende påkrevd nøkkel MED en gyldig --live-key
             # til stede ⇒ "not have_required" avgjøres FØR mode-sjekkene,
@@ -867,7 +863,7 @@ def run_self_test():
             with os.fdopen(fd, "w") as f:
                 json.dump(payload["fan_in"], f)
 
-        # --- live-nøkkel (D1.0 iii, TODO 250C) — dict skrives til en EGEN
+        # --- live-nøkkel (D1.0 iii) — dict skrives til en EGEN
         # temp-fil (samme mekanisme som payload["fan_in"] over); streng sendes
         # rett til load_live_key (samme mekanisme som payload["path"] for R1).
         # Begge None ⇒ live = None (ingen --live-key). live_tmp_path ryddes i
@@ -892,7 +888,7 @@ def run_self_test():
             violations = [{"rule": "R1", "code": code, "detail": detail}]
             # Samme rad-0b-bevaring som run_analysis (over) — R14 skal ikke
             # tapes bak R1-kortslutningen når begge filene er uleselige samtidig
-            # (MINDRE-funn, TODO 250C fix-runde 1).
+            # (MINDRE-funn).
             if live is not None and live["mode"] == "unreadable":
                 violations.append({"rule": "R14", "code": "live-key-unreadable", "detail": live.get("detail", "")})
                 skipped = [rid for rid, _ in RULES if rid not in ("R1", "R12", "R14")]
@@ -967,9 +963,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--fan-in", help="Fil med fan_in-JSON-objekt, eller '-' for stdin.")
     ap.add_argument("--pr-head-sha", default=None, help="PR-ens HEAD-SHA, for stale-lens-sha-sjekken (R10).")
-    ap.add_argument("--strict", action="store_true", help="Arm kontrakt-vakten (TODO 250B): exit 3 + verdict=rejected når minst én kode i BINDING_CODES fyrer.")
-    ap.add_argument("--require-attestations", action="store_true", help="Aktiver R11 (attestations-missing) sammen med --strict (TODO 250B).")
-    ap.add_argument("--live-key", default=None, help="Fil med koordinatorens live-nøkkel-JSON (mode/calibration/lens_isolation/mid_snapshot/ledger/residual_worktrees), for R12 premature-return (TODO 250C). Skrives av koordinatoren fra EGNE worktree-/ledger-snapshots — ALDRI avledet fra --fan-in sin egen evidence.")
+    ap.add_argument("--strict", action="store_true", help="Arm kontrakt-vakten: exit 3 + verdict=rejected når minst én kode i BINDING_CODES fyrer.")
+    ap.add_argument("--require-attestations", action="store_true", help="Aktiver R11 (attestations-missing) sammen med --strict.")
+    ap.add_argument("--live-key", default=None, help="Fil med koordinatorens live-nøkkel-JSON (mode/calibration/lens_isolation/mid_snapshot/ledger/residual_worktrees), for R12 premature-return. Skrives av koordinatoren fra EGNE worktree-/ledger-snapshots — ALDRI avledet fra --fan-in sin egen evidence.")
     ap.add_argument("--self-test", action="store_true", help="Kjør de frosne fixturene.")
     ap.add_argument("--dump-rules", action="store_true", help="Skriv TSV av alle tretten reglene (R13 utelatt).")
     args = ap.parse_args()

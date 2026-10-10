@@ -93,7 +93,7 @@ git diff <forrige_sha>..origin/{{BASE_BRANCH}} --name-only -- <sti>
   rapporter funnene. Sett `rls=green` (ingen åpne hull) eller `rls=red` (funn som krever eskalering).
 - Ingen tech-review-agenter konfigurert → `rls=n/a` alltid.
 
-### A5b — Web-smoke (betinget, tetter BUG-076-blindsonen: ingen annen gate faktisk LASTER web-appen)
+### A5b — Web-smoke (betinget, tetter blindsonen: ingen annen gate faktisk LASTER web-appen)
 
 Betinget som A5: sjekk om klientkode (`app/`, `components/`, `lib/`) er berørt siden forrige
 helsesjekk (samme `<forrige_sha>` fra A1):
@@ -118,7 +118,7 @@ mot port {{DEV_SERVER_PORT}}, så kommandoen kjører rent derfra. Hovedsjekkuten
 Utfallsklasser:
 - Kjørte, alle asserts passerte → `web=green`
 - Kjørte, feilet på en reell web-regresjon (login/lasting krasjer, konsoll-feil, DB-side-effekt) →
-  `web=red` → A6 RØD (regresjon), eskalér. Dette er nøyaktig BUG-076-klassen denne gaten finnes for.
+  `web=red` → A6 RØD (regresjon), eskalér. Dette er nøyaktig klassen denne gaten finnes for.
 - Kjørte, feilet på nav-/locator-assert **urelatert** til noe som faktisk endret seg (spec-drift,
   f.eks. en gammel `getByText`-selector) → dette er IKKE en web-regresjon. Fiks spec-en (foretrekk
   testID-baserte locators) i en liten oppfølgings-PR, og behandle IKKE dette som pausepunkt for
@@ -128,7 +128,7 @@ Utfallsklasser:
 - Playwright selv ødelagt (manglende dep, config-feil — IKKE worktree-stien) → `web=infra-feil` →
   A6 RØD (infra), eskalér.
 
-### A5c — Worktree-sweep-gate (TODO 380)
+### A5c — Worktree-sweep-gate
 
 ```bash
 ./tasks/worktree-sweep.sh --gate
@@ -142,10 +142,9 @@ ikke tidsstempel-basert — fix-runde 2, B1) og krever at raden bærer `wtsweep=
 - `GATE RØD` (exit 1) → `wtsweep=red` → A6 RØD (infra): §6 steg 4b (beskrevet i §6d) har enten ikke
   kjørt siden forrige syklus, eller kjørte men skrev et feil-formet token. Dette er ikke en kodefeil
   — det er en uteblitt driftsrutine, og skal eskaleres på samme måte: fravær av sweep er nøyaktig
-  den tilstanden som lot 72 agent-worktrees og 19,4 GB hope seg opp uten at noe noensinne ble rødt
-  (målt i kildeprosjektet, TODO 380).
+  den tilstanden som lot 72 agent-worktrees og 19,4 GB hope seg opp uten at noe noensinne ble rødt.
 
-### A5d — Vakter utenfor loopen (TODO 368)
+### A5d — Vakter utenfor loopen
 
 Noen vakter kan loopen ikke kjøre selv, fordi de leser et miljø loopen aldri skal lese (typisk prod).
 De kjører som planlagte GitHub-workflows og bærer markørlinja `# loop-guard: max-age-hours=<N>`.
@@ -351,7 +350,7 @@ Eksempel:
 
 ---
 
-## Del D — Nivå A/B-regelmotor (TODO 246, read-only mot repoet)
+## Del D — Nivå A/B-regelmotor (read-only mot repoet)
 
 Del D kjøres FØR «Del C» over evalueres inn i pause/fortsett-beslutningen (dvs. et rødt Del D-funn
 er samme klasse som Del A6 RØD — ⚠️ PAUSEPUNKT). Del D skriver INGENTING til repoet selv — kun til
@@ -385,23 +384,23 @@ python3 tasks/decision-level.py --event revise_gate_choice --context code_review
 python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=few
 ```
 
-Krav, i rekkefølge (TODO 455/472/483):
+Krav, i rekkefølge:
 
 1. exit 0 og `"rule": "B5"`. Den dokumenterte kalleformen virker.
 2. exit 0 og `"rule": "B1"`. En fix-runde der funnene går ned, er nivå B.
-3. exit 0 og `"rule": "B1"`. Gate-funnene går ikke ned (2→2) i §5b: nivå B etter eierens vedtak
-   2026-10-04 18:08. Gir det A0, er flyttingen borte.
+3. exit 0 og `"rule": "B1"`. Gate-funnene går ikke ned (2→2) i §5b: nivå B.
+   Gir det A0, er flyttingen borte.
 4. exit 1, `"rule": "A0"` og `no_convergence: blocking` i `violations`. Samme tall i §4: planrevisjon
    er ikke flyttet. Gir det B7, er vakten for §4 borte.
 5. exit 1, `"rule": "A0"` og `content='yes'` i `violations`. Innholdsfunn er nivå A også i §5b.
 6. exit 1, `"rule": "A0"` og `cost_brake` i `violations`. Kostnadsbremsen gjelder fra runde 1.
 7. exit 1, `"rule": "A0"` og `cost_over='few'` i `violations`. For få sammenlignbare todoer stopper
-   §5b fra runde 2 (TODO 483).
+   §5b fra runde 2.
 8. exit 0 og `"rule": "B7"`. Samme verdi i §4 stopper ikke. Gir det A0, er sperren blitt bredere
    enn vedtaket.
 
-Ett avvik ⇒ **RØD**. Gir kall 1–3 og 8 `"level": "A"`, er nivå B inert i drift uansett hva D1/D2 sier
-(samme feilklasse som ble reprodusert og rettet i kode-review r1 av TODO 246). Gir kall 4–7 nivå B,
+Ett avvik ⇒ **RØD**. Gir kall 1–3 og 8 `"level": "A"`, er nivå B inert i drift uansett hva D1/D2 sier.
+Gir kall 4–7 nivå B,
 bestemmer koordinatoren selv noe eieren skal spørres om.
 
 ### D2 — Regel-paritet (skript ↔ runbook-prosa)
@@ -414,9 +413,7 @@ diff /tmp/decision-rules-script.tsv /tmp/decision-rules-runbook.tsv
 ```
 
 Krav: `diff` tom, begge filer 15 linjer (8 A + 7 B). Ikke-tom diff ⇒ **RØD** — regeltabellen har
-driftet mellom kode og prosa etter merge av en senere PR (R3). *(Denne kommandoformen ble dry-run
-verifisert i planleggingen av TODO 246 — 15/15 rader, tom diff, mot den ferdig substituerte
-runbooken.)*
+driftet mellom kode og prosa etter merge av en senere PR (R3).
 
 ### D3 — Monoton decision-log (SEED_ONLY-beskyttelsen holder over tid)
 
@@ -431,7 +428,7 @@ Krav: `NÅ >= FØR`. `NÅ < FØR` ⇒ **RØD** (SEED_ONLY-beskyttelsen har svikt
 overskrevet eller forkortet). `2>/dev/null` dekker tilfellet der `<forrige_sha>` er FRA FØR
 `decision-log.md` ble opprettet (fila fantes ikke i den commiten) — uten den gir `git show` en
 `fatal:`-linje i output i stedet for et rent tall; `|| echo 0` dekker samme tilfelle for skall som
-ikke bruker `pipefail`. **En bevisst periode-splitt av decision-loggen (CF-246-3) gjør D3 rød ÉN
+ikke bruker `pipefail`. **En bevisst periode-splitt av decision-loggen gjør D3 rød ÉN
 GANG ved første helsesjekk etter splitten** (entry-tallet i den NYE fila starter på 0/lavt) — dette
 er IKKE en reell SEED_ONLY-svikt; splitt-todoen MÅ oppdatere `SEED_ONLY` (begge `setup.md`-
 tvillinger) OG dette D3-referansepunktet i SAMME PR, og den påfølgende røde helsesjekken kvitteres
@@ -466,8 +463,8 @@ med radtid ≥ oppføringstid. `venter på merge` (eieren har ingen rad ennå, e
 en todo som er åpnet igjen etter merge. Linja forsvinner når todoen får ny rad.
 
 Hver V16a/b-treffende rad MÅ ha en tilsvarende
-decision-log-entry (`[B7]` eller `[A0]`/`[A…]` for V16a, `[B1]` eller `[A0]`/`[A…]` for V16b — fast
-rundetak er fjernet i TODO 455, så runde 3+ kan være en B-runde). En V16c-treffende rad (`crr >= 4`) MÅ ha
+decision-log-entry (`[B7]` eller `[A0]`/`[A…]` for V16a, `[B1]` eller `[A0]`/`[A…]` for V16b — det
+finnes ikke noe fast rundetak, så runde 3+ kan være en B-runde). En V16c-treffende rad (`crr >= 4`) MÅ ha
 enten `[B1]` (lukking — den vanlige klassen: `merge_carry`/`stop` ved `crr>=4` er B1 uansett
 rundetall) eller `[A0]` (et forkastet nytt fix-runde-forsøk) — IKKE strengt `[A0]`. Rad uten NOEN
 av de tillatte entry-typene ⇒ **RØD**.
@@ -479,7 +476,7 @@ Del D4 verifiserer IKKE `Runde-SHA:` mekanisk i denne PR-en (ingen `git log`-avh
 til Del D — kun kommandoene over); det er en dokumentert, bevisst avgrensning, ikke en
 påstått lukket gate.
 
-### D5 — Treffsikkerhet per type (TODO 455)
+### D5 — Treffsikkerhet per type
 
 ```bash
 python3 tasks/decision-level.py --agreement

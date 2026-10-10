@@ -7,7 +7,7 @@
 
 Seks rapporttyper er definert i denne fila. Fire av dem — `plan`, `review`, `code_review`, `done` — binder koordinator og workers sammen. De to siste binder workers til hverandre og når aldri koordinatoren direkte: `lens_observation` (kode-revieweren og dens lenser, med en litt annen bevis-kontrakt — se § Lens-observasjon under) og `scout` (planner/implementer og lokaliserings-workeren — se § Scout-rapport under). Hver returneres som ETT JSON-objekt i workerens siste melding (sluttmeldingen ER returverdien — ingen prosa rundt). Bevis-sitater (se «Bevis-regel» under) bor INNI dette JSON-objektet, som et `evidence`-felt — aldri som prosa før eller etter.
 
-## Bevis-regel (gjelder alle seks rapporttyper — for `lens_observation` er `evidence`-nøkkelen PÅKREVD fra TODO 250B, se § Lens-observasjon)
+## Bevis-regel (gjelder alle seks rapporttyper — for `lens_observation` er `evidence`-nøkkelen PÅKREVD, se § Lens-observasjon)
 
 Enhver «bekreftet/verifisert X»-påstand i en rapport MÅ følges av kommandoen + ordrett output som beviser det. En prosa-bekreftelse uten kommando+output regnes som IKKE verifisert — koordinatoren skal behandle den slik (ikke stole på den). `evidence`-feltet under er en billig FØRSTELINJE-tripwire (spesielt for feil-cwd-tilfeller der workeren ikke lyver, men siterer fra feil sted); den erstatter IKKE koordinatorens egen uavhengige sjekk (`git status --porcelain`, `wc -l`/`tail`, `gh pr view/diff`, osv.).
 
@@ -19,7 +19,7 @@ Enhver «bekreftet/verifisert X»-påstand i en rapport MÅ følges av kommandoe
 `sikker`/`sannsynlig`/`mulig`); alle andre nøkler og verdier i loop-rapportene er ENGELSKE
 (`merged`, `e2e_green`, `report_type`, `source_agent`, …). Dette er IKKE et brudd på
 norsk-UI/engelsk-backend (CLAUDE.md) — feltene er verken UI-tekst eller Supabase-data — men regelen
-skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype (TODO 180B).
+skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype.
 
 ## Plan-rapport (planner → koordinator)
 
@@ -43,8 +43,8 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
 }
 ```
 
-- `technical_risk.flagged`: `true` hvis planen krever noe under pause-triggerne. `kind` ∈ `"migration"|"rls"|"prod_push"|"secrets"|"docs_selfmod"|"hook_selfmod"` (de to siste, TODO 246, dekker kit-selvmodifisering). `docs_selfmod` = `v3-agent-orchestrator/templates/`, `.claude/commands/setup.md` — IKKE prosjektets øvrige dokumentasjon. `hook_selfmod` = ikke-A-håndhevende hooks i `.claude/hooks/` (i dag: `typecheck-on-edit.sh`, `session-start-lint.sh`, `guard-reviewer-readonly.sh` + tilhørende test-script) — **eksplisitt UTENFOR scope:** hooks som håndhever en nivå-A-invariant (`guard-main-merge.sh` = A4 push/merge til `{{PROD_BRANCH}}`; `guard-supabase-ref.sh` = A1/A7 prod/dev-prosjektref-skille) forblir ALLTID nivå A uansett `executable_gate`, fordi B5s koordinator-selv-godkjenning ellers ville latt koordinatoren godkjenne endring av vakten som håndhever sin egen A-plikt. Tilpass ellers til prosjektets pause-triggere.
-- `technical_risk.executable_gate` (TODO 246, kun relevant når `kind` er `docs_selfmod`/`hook_selfmod`): `true` hvis planen har en KJØRBAR testtabell/differensial/mutasjonstest for endringen (ikke bare prosa-verifisering). `null` for de øvrige `kind`-verdiene. Koordinatoren klassifiserer `flagged: true` med `kind ∈ {docs_selfmod, hook_selfmod}` og `executable_gate: true` som **pausepunkt-regel B5** (`tasks/decision-level.py`) — bestemmer selv og logger i stedet for å spørre. Enhver annen `technical_risk` (inkludert ALT flagget av en REVIEWER, som aldri bærer `kind`/`executable_gate` — se «Kode-review-rapport» under) forblir nivå A.
+- `technical_risk.flagged`: `true` hvis planen krever noe under pause-triggerne. `kind` ∈ `"migration"|"rls"|"prod_push"|"secrets"|"docs_selfmod"|"hook_selfmod"` (de to siste dekker kit-selvmodifisering). `docs_selfmod` = `v3-agent-orchestrator/templates/`, `.claude/commands/setup.md` — IKKE prosjektets øvrige dokumentasjon. `hook_selfmod` = ikke-A-håndhevende hooks i `.claude/hooks/` (i dag: `typecheck-on-edit.sh`, `session-start-lint.sh`, `guard-reviewer-readonly.sh` + tilhørende test-script) — **eksplisitt UTENFOR scope:** hooks som håndhever en nivå-A-invariant (`guard-main-merge.sh` = A4 push/merge til `{{PROD_BRANCH}}`; `guard-supabase-ref.sh` = A1/A7 prod/dev-prosjektref-skille) forblir ALLTID nivå A uansett `executable_gate`, fordi B5s koordinator-selv-godkjenning ellers ville latt koordinatoren godkjenne endring av vakten som håndhever sin egen A-plikt. Tilpass ellers til prosjektets pause-triggere.
+- `technical_risk.executable_gate` (kun relevant når `kind` er `docs_selfmod`/`hook_selfmod`): `true` hvis planen har en KJØRBAR testtabell/differensial/mutasjonstest for endringen (ikke bare prosa-verifisering). `null` for de øvrige `kind`-verdiene. Koordinatoren klassifiserer `flagged: true` med `kind ∈ {docs_selfmod, hook_selfmod}` og `executable_gate: true` som **pausepunkt-regel B5** (`tasks/decision-level.py`) — bestemmer selv og logger i stedet for å spørre. Enhver annen `technical_risk` (inkludert ALT flagget av en REVIEWER, som aldri bærer `kind`/`executable_gate` — se «Kode-review-rapport» under) forblir nivå A.
 - `deps_ok`: `false` → `status: "blocked"`.
 - `planned_diff`: planens anslag for diffen, i linjer og filer. §4 sammenligner det med budsjettet fra §3-dispatchen (proporsjonalitet).
 - `canary`: stikkprøve på at filene faktisk ble lest. Koordinatoren oppgir et mål (fil + linje som IKKE er gjentatt i prompten); planneren returnerer linjenummeret den landet på og den eksakte teksten der. Mismatch = lesing hoppet over. NB: dette beviser at lesing *skjedde*, ikke at *alle* bootstrap-filer ble lest fullt.
@@ -81,7 +81,7 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
 - `severity` ∈ `"BLOKKERENDE"|"VIKTIG"|"MINDRE"`.
 - `verdict` ∈ `"go"` (ingen BLOKKERENDE) | `"no-go"` (≥1 BLOKKERENDE → koordinator sender tilbake til planner etter konvergensregelen i `coordinator-runbook.md` § Konvergensregel).
 - `evidence`: reviewer er IKKE symmetrisk med planner — revieweren SKRIVER ingenting, den LESER kun planfilen. `reviewed_head` er derfor PRIMÆRT bevis (beviser faktisk lesing av riktig artefakt); koordinatoren matcher den mot SIN EGEN kopi av planfilen (den reviewer ble dispatchet mot). `toplevel` beviser kun reviewerens egen cwd, ikke at riktig artefakt ble lest — merkes SVAKT/sekundært.
-- **Dette skjemaet har ingen `technical_risk`-nøkkel** (TODO 246). En reviewer som mener planen
+- **Dette skjemaet har ingen `technical_risk`-nøkkel**. En reviewer som mener planen
   bærer teknisk risiko, flagger det via `verdict: "no-go"` + `notes`, ikke via et strukturert felt.
   Koordinatorens `tasks/decision-level.py` klassifiserer ALL reviewer-initiert `technical_risk` som
   nivå A — **pausepunkt-regel B5 gjelder KUN plan-rapportens `technical_risk`**, aldri reviewerens.
@@ -90,7 +90,7 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
 
 Pluggbare tech-review-agenter (`tech_review_agents` i `loop.config.yaml`) leverer IKKE en
 severity-rangert rapport. De leverer **severity-frie observasjoner** — severity er
-kode-reviewerens (synthesizerens) ansvar alene, aldri lensens (TODO 180B).
+kode-reviewerens (synthesizerens) ansvar alene, aldri lensens.
 
 ```json
 {
@@ -98,7 +98,7 @@ kode-reviewerens (synthesizerens) ansvar alene, aldri lensens (TODO 180B).
   "agent": "rls-migration-reviewer",
   "scope": "hva som faktisk ble gransket",
   "observations": [
-    { "ref": "supabase/migrations/20260901_x.sql:42", "issue": "…", "fix": "…", "confidence": "sikker", "basis": "postgres-rls.md 2026-05-26" }
+    { "ref": "supabase/migrations/20260901_x.sql:42", "issue": "…", "fix": "…", "confidence": "sikker", "basis": "postgres-rls.md 2026-01-15" }
   ],
   "checked_ok": ["hva som ble sjekket og var i orden"],
   "evidence": { "toplevel": "<git rev-parse --show-toplevel — SVAKT, se under>", "reviewed_sha": "<SHA-en du faktisk gransket>" },
@@ -116,24 +116,24 @@ kode-reviewerens (synthesizerens) ansvar alene, aldri lensens (TODO 180B).
 - Kode-revieweren samler observasjoner fra alle dispatchede lenser inn i `code_review.findings[]`
   (se under) og setter `severity` + `source_agent` på hver av dem. Dette skjemaet er ALDRI
   koordinatorens eller implementerens returverdi direkte.
-- `toplevel` er **SVAKT**. Lensens worktree-topologi er nå MÅLT ÉN gang (TODO 250C, 2026-09-07, ÉN
-  harness): de fire lens-charterne har ingen `isolation`-nøkkel, og utfallet der var **arv av
+- `toplevel` er **SVAKT**. Lensens worktree-topologi er MÅLT i ÉN
+  harness: de fire lens-charterne har ingen `isolation`-nøkkel, og utfallet der var **arv av
   kode-reviewerens worktree** — konsistent med at nøkkelen er fraværende (fravær har minst to
   mulige utfall i prinsippet: arv av kode-reviewerens worktree, eller hovedsjekkuten; DENNE
   målingen viser det første). **Formuleringen skal fortsatt være betinget** — «kan være identisk med
   synthesizerens egen» — aldri en universell påstand om at den ALLTID ER det: målingen er
   HARNESS-AVHENGIG og generaliseres IKKE til andre prosjekter som bruker dette kit-et. Den daterte
   målingen (arkiv-stabil referanse — planfiler flyttes til `tasks/plans/archive/` ved `/todo-done`)
-  står i `steps/5b-kode-review.md` «Liveness-vakt (TODO 250C)» pkt. 7.
+  står i `steps/5b-kode-review.md` «Liveness-vakt» pkt. 7.
 - `reviewed_sha` er lensens PRIMÆRE bevis og kan kryss-sjekkes mot `code_review.evidence.pr_head_sha`
   (stale-diff-tripwire). `null` er lovlig og betyr «ikke oppgitt». **Oppgi FULL 40-tegns SHA, aldri
   kortform** — en kort SHA kan bli ikke-normaliserbar i mottakerens R10-sjekk.
-- **Overgangsregel:** `evidence` er **PÅKREVD fra TODO 250B**. Flippen ble gjort i TODO 250B; den
+- **Overgangsregel:** `evidence` er **PÅKREVD**. Kravet
   virker først i en koordinator-sesjon som oppfyller predikatet i `coordinator-runbook.md` §5b. I en
-  sesjon startet FØR mergen, eller i et kit-prosjekt uten flagget, er en `lens_observation` uten
+  sesjon som ikke oppfyller predikatet, eller i et kit-prosjekt uten flagget, er en `lens_observation` uten
   `evidence` fortsatt `legacy`, ikke et kontraktbrudd.
-- **`legacy`-stien finnes fortsatt, men kun i to tilstander:** (i) en koordinator-sesjon startet FØR
-  TODO 250Bs merge (skriptet kjøres da i form A, uten `--require-attestations`), og (ii) et
+- **`legacy`-stien finnes fortsatt, men kun i to tilstander:** (i) en koordinator-sesjon som ikke
+  oppfyller predikatet (skriptet kjøres da i form A, uten `--require-attestations`), og (ii) et
   kit-prosjekt som ikke gir flagget. Fixture F11 er den frosne, falsifiserbare formen for
   flagg-AV-stien; F19/F20 dekker flagg-PÅ.
 
@@ -221,7 +221,7 @@ går til oppdragsgiveren (planner eller implementer), aldri til koordinatoren.
   `source_agent`**, som er unikt for `code_review` (`severity`/`ref`/`issue`/`fix`/`source_agent`);
   for kode-review er `ref` = `file:line`. Plan-review-funn skal IKKE ha feltet. Ingen omdøping av
   de øvrige feltene.
-- `source_agent` (TODO 180B) er **påkrevd** på hvert funn, satt av kode-revieweren (aldri av
+- `source_agent` er **påkrevd** på hvert funn, satt av kode-revieweren (aldri av
   lensen) — ett av `tech_review_agents[].name` eller `"{{PROJECT_NAME}}-code-reviewer"` for
   kode-reviewerens egne funn. Aldri `null`, aldri utelatt. Feltet er limet som gjør
   `severity_floor`-gulvet håndhevbart i kode (`tasks/review-severity-floor.py`) i stedet for i
@@ -231,7 +231,7 @@ går til oppdragsgiveren (planner eller implementer), aldri til koordinatoren.
   ikke-tom `violations[]`) i stedet** — se `coordinator-runbook.md` §5b for hvordan koordinatoren
   skal lese denne exit-koden. Et funn som mangler `source_agent` her oppdages der, ikke i dette
   skjemaet alene.
-- `floor_exempt` (TODO 321) er **valgfritt** og settes av kode-revieweren, aldri av lensen. Utelatt
+- `floor_exempt` er **valgfritt** og settes av kode-revieweren, aldri av lensen. Utelatt
   eller `null` = ingen merking. Ellers nøyaktig `"comment_doc_wording"`, bare på funn fra en agent
   med «Gulvunntak» i kode-reviewer-charteret, med `ref` `fil:N`/`fil:N-M` på kommentarlinjer eller
   en linje i en `.md`-fil under `docs/` (også `docs/` krever `:N`). Merkingen senker aldri severity:
@@ -240,22 +240,20 @@ går til oppdragsgiveren (planner eller implementer), aldri til koordinatoren.
   (eneste kontroll av selve funnet) og sjekker fra r≥2 at forrige fix-runde bare endret ordlyd i
   ref-fila — rettelsen av det unntatte funnet selv verifiseres aldri (`coordinator-runbook.md`
   §5b). Enhver annen verdi gir `violations[]` og usignert rapport.
-- `fan_in` (TODO 180A — erstatter den tidligere `tech-review fan-in: n/n/n`-linja i `notes`, ikke en tilføyelse til den): et objekt med FEM felt (seks med `worktree_guard`, se under) — de fire PÅKREVDE arrayene pluss `attestations`, som er PÅKREVD når `returned` er ikke-tom (TODO 250B) — i rapporten din, PÅKREVD i full modus. **Mangler `fan_in` helt i en full-modus-rapport → kontraktbrudd, behandles som usignert** — samme prinsipp som 179s vakt (fravær er utvetydig bevis på at vakten ble ignorert, aldri stilltiende «alt er fint»).
+- `fan_in` (erstatter den tidligere `tech-review fan-in: n/n/n`-linja i `notes`, ikke en tilføyelse til den): et objekt med FEM felt (seks med `worktree_guard`, se under) — de fire PÅKREVDE arrayene pluss `attestations`, som er PÅKREVD når `returned` er ikke-tom — i rapporten din, PÅKREVD i full modus. **Mangler `fan_in` helt i en full-modus-rapport → kontraktbrudd, behandles som usignert** — samme prinsipp som 179s vakt (fravær er utvetydig bevis på at vakten ble ignorert, aldri stilltiende «alt er fint»).
   - `triggered` (reviewer-fylt): agenter kode-revieweren selv vurderer at `trigger:`-prosaen treffer for denne diffen.
   - `dispatched` (reviewer-fylt): agenter kode-revieweren faktisk sendte til som frisk sub-agent.
   - `returned` (reviewer-fylt): agenter som faktisk svarte.
   - `expected_by_selector` (**koordinator-fylt, ALDRI av revieweren**): revieweren SKAL levere dette feltet som en TOM array (`"expected_by_selector": []`, se eksempelet over) — ALDRI utelate nøkkelen. Koordinatorens egen utregning via `tasks/review-lens-select.py` (`trigger_globs`-gulvet i `loop.config.yaml`) fylles inn i feltet ETTER at rapporten er mottatt, ALDRI av revieweren selv. «Utfylt» betyr her en IKKE-TOM array: en `code_review`-rapport som ankommer med en ikke-tom `expected_by_selector` er et **kontraktbrudd** og behandles som usignert. En tom array er forventet og korrekt fra revieweren.
-  - `attestations` (**ATTESTASJONSPÅBUD, revieweren, TODO 250B**): for hver agent i `returned` — SKAL — en entry med `agent` (streng, påkrevd) + `toplevel`/`reviewed_sha` (streng eller `null`), sitert fra lensens egen `evidence`. Når nøkkelen finnes, gjelder form-regelen `{a.agent for a in attestations} == set(returned)`. Er session-predikatet i `coordinator-runbook.md` §5b usant (form A), er manglende nøkkel fortsatt `legacy` og ikke et kontraktbrudd — se `coordinator-runbook.md` §5b og `tasks/review-fan-in-verify.py`.
-  - `worktree_guard` (**revieweren, TODO 292** — sjette felt, PÅKREVD når `dispatched` er ikke-tom): `{ "before": "<ordrett>", "after": "<ordrett>" }` — utskriften av arbeidstre-snapshotet i kode-reviewer-charterets «Arbeidstre-vakt», tatt rett før og rett etter lens-fanouten. Ulike verdier (sammenlignet ord for ord) ⇒ arbeidstreet ble endret under lens-runden ⇒ rapporten behandles som usignert (`steps/5b-kode-review.md` «Arbeidstre-vakt (TODO 292)»). Manglende felt stopper ingenting, men logges (`wtguard=missing`).
+  - `attestations` (**ATTESTASJONSPÅBUD, revieweren**): for hver agent i `returned` — SKAL — en entry med `agent` (streng, påkrevd) + `toplevel`/`reviewed_sha` (streng eller `null`), sitert fra lensens egen `evidence`. Når nøkkelen finnes, gjelder form-regelen `{a.agent for a in attestations} == set(returned)`. Er session-predikatet i `coordinator-runbook.md` §5b usant (form A), er manglende nøkkel fortsatt `legacy` og ikke et kontraktbrudd — se `coordinator-runbook.md` §5b og `tasks/review-fan-in-verify.py`.
+  - `worktree_guard` (**revieweren** — sjette felt, PÅKREVD når `dispatched` er ikke-tom): `{ "before": "<ordrett>", "after": "<ordrett>" }` — utskriften av arbeidstre-snapshotet i kode-reviewer-charterets «Arbeidstre-vakt», tatt rett før og rett etter lens-fanouten. Ulike verdier (sammenlignet ord for ord) ⇒ arbeidstreet ble endret under lens-runden ⇒ rapporten behandles som usignert (`steps/5b-kode-review.md` «Arbeidstre-vakt»). Manglende felt stopper ingenting, men logges (`wtguard=missing`).
   - Alle fire PÅKREVDE arrayer skal finnes (kan være tomme) i **full modus**; hele `fan_in`-feltet utelates i **probe-modus**. `attestations` er PÅKREVD når session-predikatet i `coordinator-runbook.md` §5b er sant og `returned` er ikke-tom (manglende nøkkel ⇒ `attest=attestations-missing`, stoppende). Er predikatet usant, er manglende nøkkel `attest=legacy` og IKKE et kontraktbrudd — se `coordinator-runbook.md` §5b.
 - `evidence`: kode-revieweren leser PR-diffen via `gh`, ikke via workerens worktree-filer — `toplevel` beviser derfor kun egen cwd og merkes SVAKT. `pr_head_sha` (fra `gh pr view <pr> --json headRefOid`) er PRIMÆRT bevis og tetter stale-worktree-tech-review-funn (én PR kan bli oppdatert mellom dispatch og review). **Probe-modus (Step 0 i code-reviewer-charteret):** når prompten KUN ber om `{"ok": true}`, returneres bart `{"ok": true}` — ingen `evidence`, ingen `gh pr view`, ingen `fan_in`.
 - `severity` ∈ `"BLOKKERENDE"|"VIKTIG"|"MINDRE"`, satt av kode-revieweren (synthesizeren) ut fra hele
   diff-konteksten — ALDRI kopiert fra en lens, som per kontrakt ikke leverer severity i det hele
   tatt (se «Lens-observasjon» over). Koordinatoren håndhever et mekanisk MINSTEKRAV per agent,
-  `tech_review_agents[].severity_floor` i `loop.config.yaml` (`tasks/review-severity-floor.py`,
-  TODO 180B, erstatter den tidligere per-agent-mappingen) — kode-revieweren kan HEVE en observasjon
-  til gulvet, aldri levere et funn under det (unntak: et verifisert `floor_exempt`-funn heves ikke,
-  TODO 321).
+  `tech_review_agents[].severity_floor` i `loop.config.yaml` (`tasks/review-severity-floor.py`) — kode-revieweren kan HEVE en observasjon
+  til gulvet, aldri levere et funn under det (unntak: et verifisert `floor_exempt`-funn heves ikke).
 - `verdict` ∈ `"go"` (ingen BLOKKERENDE) | `"no-go"` (≥1 BLOKKERENDE). Identisk terskel som plan-review.
 - `verification.review_findings` i ferdig-rapporten er implementerens **selvgransking** (§5 / `/todo-finish-worker` steg 5). `code_review.findings[]` er den **uavhengige §5b-reviewen** og er en separat rapport. Disse er to distinkte kilder.
 
@@ -353,17 +351,16 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
   `run-log.md` for den fullstendige formelen (begge carve-outs).
 - Implementeren skriver `lessons`/`bugs_*` som DATA. Den skriver ALDRI til `tasks/lessons*`, `tasks/followups/`, `tasks/bugs.md` eller `tasks/todo_archive.md`, og rører ikke todo-frontmatteren — det gjør koordinatoren.
 
-## `run-log.md`s frittekst-notatfelt (kalt «felt 11» i `coordinator-runbook.md`, TODO 246)
+## `run-log.md`s frittekst-notatfelt (kalt «felt 11» i `coordinator-runbook.md`)
 
 `run-log.md` har et siste, ikke-navngitt frittekst-felt (den udokumenterte fritekstkolonnen
 `coordinator-runbook.md` refererer til flere steder) som bærer nøkkel=verdi-notater koordinatoren
-appender selv: `selector=<agenter>` (TODO 180A), `floor=<n> viol=<n>` (TODO 180B),
-`floor_exempt=<g>:godtatt,<a>:avvist` (TODO 321),
-`pipelined_from=<todo>` (§5c), `auto_decided=<rad-eier>:<antall>` (TODO 246), `attest=<verdi>`
-(TODO 250A), `vblock=<ok|stale|missing|legacy|stuck>` (TODO 252, med F5s valgte V-ID i parentes:
-`vblock=ok(F5:V4)`), `wtguard=<none|missing|ok|violation>` (TODO 292), og `scout=<dispatches>d/<KB>kb` (lokaliserings-workeren). Feltets EKSAKTE
-nummer i forhold til spec-tabellens navngitte kolonner er omstridt (nummereringen avklares i
-TODO 210, deferred) — denne setningen dokumenterer kun INNHOLDET, ikke posisjonen.
+appender selv: `selector=<agenter>`, `floor=<n> viol=<n>`,
+`floor_exempt=<g>:godtatt,<a>:avvist`,
+`pipelined_from=<todo>` (§5c), `auto_decided=<rad-eier>:<antall>`, `attest=<verdi>`
+, `vblock=<ok|stale|missing|legacy|stuck>` (med F5s valgte V-ID i parentes:
+`vblock=ok(F5:V4)`), `wtguard=<none|missing|ok|violation>`, og `scout=<dispatches>d/<KB>kb` (lokaliserings-workeren). Feltets EKSAKTE
+nummer i forhold til spec-tabellens navngitte kolonner er ikke fastsatt — denne setningen dokumenterer kun INNHOLDET, ikke posisjonen.
 
 **`scout=`-tokenet.** Formen er `scout=<dispatches>d/<KB>kb`, der begge tallene er summen over ALLE
 rollene som dispatchet en scout denne runden (plan-rapportens + ferdig-rapportens `scout_usage`,
@@ -394,7 +391,7 @@ FRAVÆR IKKE er et kontraktbrudd — i motsetning til `floor=`, `floor_exempt=`,
 | Token | Fravær = kontraktbrudd? | Betingelse |
 |---|---|---|
 | `floor=` | Ja | alltid, på ikke-`health`-rader |
-| `floor_exempt=` | Ja | på ikke-`health`-rader med `floor=`, skrevet etter TODO 321 |
+| `floor_exempt=` | Ja | på ikke-`health`-rader med `floor=` |
 | `auto_decided=` | Ja | alltid, på ikke-`health`-rader |
 | `scout=` | Ja | kun når `scout.enabled` er `true` |
 | `attest=` | Nei (`observe`) | — |

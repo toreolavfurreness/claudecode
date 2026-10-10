@@ -59,7 +59,7 @@ ikke en liste).
 ### Steg 3 — handle. Nøyaktig ett av tre utfall, alle logget
 
 Utfallet er nivå B (bestem selv, logg, mennesket kan vetoe). Rad i `decision-log.md`, format som
-presedensen `### 2026-09-17 03:10 — §6c/e2e [B]: …`:
+eksempelet `### 2026-01-15 03:10 — §6c/e2e [B]: …`:
 
 ```
 ### <dato> <tid> — §8c [B]: <klasse> — <gate innført | todo NN | ikke gatebar: grunn>
@@ -86,7 +86,7 @@ handlet på faktisk har falt. To kilder, begge mekaniske:
 
 ```bash
 # Hvor ofte gaten faktisk fyrer. `log_run()` skriver nøkkelen `hard` (ikke `level`) —
-# verifisert mot en ekte loggrad 2026-09-17. Feiler kommandoen med «No such file»,
+# verifisert mot en ekte loggrad. Feiler kommandoen med «No such file»,
 # har linteren aldri kjørt med `--log`, og svaret er «ukjent», ikke «null».
 # Tallet teller HARD-FUNN, ikke bekreftede defekter — en falsk positiv teller likt.
 # Les det sammen med `rules`-feltet i samme loggrad og med klassens fall i

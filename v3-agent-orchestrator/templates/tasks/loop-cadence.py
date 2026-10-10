@@ -9,8 +9,7 @@ alltid i tidsrekkefølge (parallelle implementere, re-kjørte §6-haler), så en
 på «siste health-rad i fila» kan nullstille på en eldre rad.
 Exit 0 = ikke forfalt. Exit 1 = forfalt: kjør §6c før neste dispatch. Exit 2 = fant ikke run-loggen.
 
-Hvorfor en gate og ikke en huskeregel: målt i opphavsprosjektet kom helsesjekkene etter 44, 13, 11,
-9 og 7 merger med intervall 5. Glipper §6c, kjører heller ikke §8b/§8c.
+Hvorfor en gate og ikke en huskeregel: uten gaten glipper intervallet. Glipper §6c, kjører heller ikke §8b/§8c.
 """
 import re, sys
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TODO 453 — målt tilstand for /handover. Skriver markdown på stdout; vurderer ingenting.
+# målt tilstand for /handover. Skriver markdown på stdout; vurderer ingenting.
 # Bruk: bash tasks/handover-state.sh --since <YYYY-MM-DDTHH:MM> [--base <branch>]
 # Exit 1 hvis en måling feilet (seksjonen viser da «FEIL: …») — en tom seksjon er «(ingen)», aldri blank.
 set -u

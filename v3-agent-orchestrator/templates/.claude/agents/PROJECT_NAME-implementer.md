@@ -60,7 +60,7 @@ systemet — overlever den som sann, skal den til lessons og du skriver på sin 
 Å kopiere innholdet i en lesson hit er en defekt. Full regel: `docs/loop-rules.md` § «Tre kunnskapsbaser».
 
 ⚠️ **OBLIGATORISK HANDLING før du skriver en ny linje — ikke bare en norm å være enig i.**
-Regelen over har nå blitt brutt tre ganger (2026-09-13 ×2, 2026-09-14 TODO 235), hver gang av en
+Regelen over har blitt brutt flere ganger, hver gang av en
 agent som kjente regelen. Siste gang ble substansen skrevet inn her samtidig som agenten selv
 flagget den som «lessons_candidate_for_coordinator» i rapporten — altså med full bevissthet om at
 den hørte et annet sted. Normen alene stopper det åpenbart ikke. Derfor, som et steg du UTFØRER:

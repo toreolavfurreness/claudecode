@@ -63,7 +63,7 @@ ellers er arbeidstreet koden du skal granske — avgrens med `git diff`/`git sta
 worktree-registeret — `checkout`, `switch`, `reset`, `restore`, `stash`, `merge`, `rebase`,
 `commit`, `clean`, `branch`/`tag` som oppretter eller sletter, `fetch` med `<fra>:<til>` eller
 `-f`, og `worktree add`/`remove`. Kode-revieweren sammenligner arbeidstreet før og etter
-lens-runden; et avvik gjør hele reviewen usignert (TODO 292).
+lens-runden; et avvik gjør hele reviewen usignert.
 
 **Rapportformat:**
 
@@ -97,9 +97,9 @@ rundt, ingen severity-rangerte overskrifter fra det gamle tekst-formatet:
 - **Ett funn per mekanisme.** Navngir en observasjon mer enn én mekanisme, skriv den som flere
   observasjoner — én per mekanisme, hver med egen `ref` og egen `fix`. Slår du dem sammen, kan
   fiksrunden lukke posten ved å rette bare den ene.
-- `evidence` (PÅKREVD, TODO 250B): `reviewed_sha` er ditt PRIMÆRE bevis, FULL 40-tegns SHA;
+- `evidence` (PÅKREVD): `reviewed_sha` er ditt PRIMÆRE bevis, FULL 40-tegns SHA;
   `toplevel` er SVAKT og betinget formulert. `evidence` er PÅKREVD som kontrakt, men er i denne
-  releasen IKKE mekanisk håndhevet (CF-250B-6) — utelatelse gir ingen automatisk avvisning;
+  releasen IKKE mekanisk håndhevet — utelatelse gir ingen automatisk avvisning;
   kode-revieweren fyller da `toplevel`/`reviewed_sha` med `null`.
 
 Vær spesifikk — pek på eksakt fil og linje. Ikke rapporter hypotetiske problemer som ikke er tilstede i koden.

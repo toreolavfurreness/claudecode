@@ -53,8 +53,8 @@ ikke bare for dispatch-forsøket som til slutt lyktes.
 
 **Bevis-sjekk (`evidence`, se `report-schema.md`):** verifiser `evidence.toplevel` mot et **a-priori-kjennbart predikat** (du kjenner IKKE den harness-genererte worktree-stien på forhånd): stien MÅ inneholde `.claude/worktrees/` OG MÅ IKKE være hovedsjekkut-roten. Brudd → workeren skrev sannsynligvis planfilen til feil sted (2026-07-11-bug-klassen) — re-dispatch eller eskalér. `evidence` erstatter IKKE din egen uavhengige sjekk (`git status --porcelain` + `wc -l`/`tail` i workerens oppgitte worktree) — den er en billig førstelinje-tripwire, ikke et substitutt.
 
-**Overlevering + commit + §0b-kall (eies av rydde-kontrakten, TODO 194 — TODO 219 punkt 1 skal
-UTVIDE denne blokken, ikke legge til en ny).** Gjelder HVER runde, inkludert hver revisjonsrunde.
+**Overlevering + commit + §0b-kall (eies av rydde-kontrakten — utvid
+denne blokken, ikke legg til en ny).** Gjelder HVER runde, inkludert hver revisjonsrunde.
 Kjøres HELT SIST i denne seksjonen, i rekkefølge:
 
 (a) **Overlevering:** kopier `<wt_path>/<plan_path>` til `tasks/plans/<fil>`, verifiser med
@@ -63,7 +63,7 @@ mellom rapport og sti for planner-rollen (§0b vakt 5b):** fila vi kopierte kom 
 `<wt_path>`. §0b MÅ nekte hvis kilden ikke fantes. **(a) kjøres ALLTID, på begge stier** — også når
 (b) er en no-op for en pipelinet B (se under).
 
-**Planfil-eierskap ved §3-overleveringen (TODO 252).** Etter at §5-implementeren er dispatchet er
+**Planfil-eierskap ved §3-overleveringen.** Etter at §5-implementeren er dispatchet er
 planfila BRANCH-EID. Koordinatoren `cp`-er da ALDRI over `tasks/plans/todo-<nr>-<slug>.md` —
 implementeren skriver fix-runde-seksjoner der (se Gate F, §5b), og en `cp` ville slette dem.
 §6-arkiveringen av planfila skjer FØRST etter merge. Er en re-plan-runde nødvendig mens en PR er

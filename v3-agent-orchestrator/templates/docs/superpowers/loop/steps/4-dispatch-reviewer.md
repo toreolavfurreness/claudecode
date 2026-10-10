@@ -42,8 +42,8 @@ kaller §0b én gang per deduplisert sti — dedupliser på STIEN og behold den 
 snapshot-fil for stien (samme regel som §6 steg 4(i)) — i `go`-grenen, i
 `technical_risk`-grenen og ved TERMINERING av revisjons-løkka (A0 fra konvergensregelen).
 **ALDRI i no-go-grenen** som sender funnene tilbake til planneren: reviewer-agenten skal leve
-videre gjennom revisjonsrunden (TODO 244s kontinuitet). Eies av rydde-kontrakten (TODO 194) — TODO
-244 skal utvide DENNE regelen, ikke legge til en ny. **Hvorfor paret og ikke bare stien (R21):**
+videre gjennom revisjonsrunden (kontinuitet). Eies av rydde-kontrakten — utvid
+DENNE regelen, ikke legg til en ny. **Hvorfor paret og ikke bare stien (R21):**
 runde 2s snapshot inneholder runde 1s worktree, så et felles snapshot ville avvist runde 1s sti som
 `preexisting` og gjort vakt 5 til en permanent blokkering nettopp i akkumulerings-tilfellet.
 **Akkumuleringen er per DISPATCH-FORSØK, ikke per runde:** en re-dispatch etter bevis-mismatch

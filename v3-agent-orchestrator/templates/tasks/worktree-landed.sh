@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 # Innholdsbasert "er dette landet i {{BASE_BRANCH}}?"-klassifikator for én agent-worktree.
-# Se tasks/plans/todo-380-loopen-rydder-aldri-worktrees.md § 4a for design og § 9 for
-# hvilket spørsmål hver vakt IKKE kan svare på.
 #
 # Bruk:  tasks/worktree-landed.sh <wt_path> [--ref origin/{{BASE_BRANCH}}] [--ignored-only]
 #

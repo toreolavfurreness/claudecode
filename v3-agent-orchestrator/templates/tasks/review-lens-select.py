@@ -3,7 +3,7 @@
 # Endre loop.config.yaml og kjør /setup på nytt.
 """review-lens-select.py — beregner hvilke tech-review-agenter en filliste
 UTLØSER, som et mekanisk GULV for koordinatorens fan-in-verifisering
-(TODO 180A).
+.
 
 Leser IKKE loop.config.yaml. Globene under (TRIGGER_GLOBS) er substituert inn
 av /setup på SETUP-TID, ikke lest ved kjøring — samme kontrakt som resten av
@@ -37,8 +37,7 @@ er tom liste hvis ingen fil traff noen glob, og duplikatfri.
 
 All diagnostikk går til stderr. Uleselig input (manglende fil, lesefeil)
 FEILER HØYT (exit != 0) — et tomt gulv ved feil ville vært en fail-open
-sikkerhetsvakt (TODO 176s BLOKKERENDE B2-klasse / TODO 181s leftover-regex-
-klasse). En TOM filliste (0 linjer — f.eks. en diff uten filer) er derimot
+sikkerhetsvakt. En TOM filliste (0 linjer — f.eks. en diff uten filer) er derimot
 lovlig input og gir triggered=[] med exit 0, ikke en feil.
 """
 import argparse

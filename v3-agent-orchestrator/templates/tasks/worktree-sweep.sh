@@ -17,20 +17,19 @@
 #   5. ingen ÅPEN PR bærer denne worktreens HEAD (verken via branch-navn eller commit-ancestry)
 #   6. worktreens filer er ikke rørt de siste $AGE_MIN minuttene (default 1440 — se planens § 0b
 #      om hvorfor IKKE 60: en levende, TENKENDE agent kan gå 60+ min uten å skrive) — hoppes over
-#      i navngitt kjøring (TODO 401)
+#      i navngitt kjøring
 #
 # Moduser:
 #   (ingen flagg)     destruktiv kjøring — fjerner kvalifiserte trær
 #   --dry-run         rapporterer uten å fjerne noe
 #   --gate            verifiserer at sweepen har kjørt siden forrige §6-rad; sletter ALDRI
-#   agent-<id> …      (TODO 401) navngitt kjøring: KUN de oppgitte trærne vurderes, og
+#   agent-<id> … navngitt kjøring: KUN de oppgitte trærne vurderes, og
 #                     aldersvakten (kriterium 6) hoppes over for dem — alle andre vakter og
 #                     redningen gjelder uendret. Et navn uten tre gir «IKKE FUNNET <navn>».
 #                     Oppsummeringslinja bruker `wtsweep_named=`/`wtsweep_named_dry=`, ALDRI
 #                     `wtsweep=` — kan kombineres med --dry-run, ikke med --gate.
 #
-# Denne fila skal ALDRI omdirigere stderr til null-enheten — se
-# tasks/plans/todo-380-loopen-rydder-aldri-worktrees.md, dispatch-regelen. En kommandofeil skal
+# Denne fila skal ALDRI omdirigere stderr til null-enheten. En kommandofeil skal
 # være SYNLIG som feil, aldri en stille "ingen treff".
 set -uo pipefail
 
@@ -42,7 +41,7 @@ for arg in "$@"; do
     --dry-run) DRY=1 ;;
     --gate) GATE=1 ;;
     agent-|agent-*[!A-Za-z0-9_-]*)
-      # Fix-runde 1 (VIKTIG, PR #980 kode-review r1): `agent-*` er et GLOB-mønster og matcher
+      # `agent-*` er et GLOB-mønster og matcher
       # derfor ALT som starter med «agent-», inkludert ETT argument som inneholder mellomrom
       # (f.eks. "agent-x graphify-…") eller en bokstavelig «*» (uekspandert p.g.a. sitering). Et
       # slikt argument delte seg opp i flere "navn" i NAMES-listen og kunne la et ikke-agent-tre
@@ -59,7 +58,7 @@ for arg in "$@"; do
   esac
 done
 
-# Fix-runde 1 (MINDRE, PR #980 kode-review r1): `--gate` sletter aldri noe og leser KUN
+# `--gate` sletter aldri noe og leser KUN
 # `wtsweep=` — å kombinere den med agent-<id> ville stille antyde at gaten også dekker den
 # navngitte kjøringen (den gjør aldri det, se `tok`-beregningen under). Avvis kombinasjonen
 # høylytt i stedet for å la den stille ignorere navnene.
@@ -191,7 +190,7 @@ while IFS= read -r p; do
   case "$p" in *"/.claude/worktrees/"*) ;; *) continue ;; esac
   n=$(basename "$p")
 
-  # Navngitt kjøring (§6 steg 4b, TODO 401): KUN de navngitte trærne vurderes.
+  # Navngitt kjøring (§6 steg 4b): KUN de navngitte trærne vurderes.
   if [ -n "$NAMES" ]; then
     case "$NAMES" in *" $n "*) seen="$seen$n " ;; *) continue ;; esac
   fi
@@ -225,7 +224,7 @@ while IFS= read -r p; do
     continue
   fi
   # OID-ancestry-grenen under skal KUN telle som treff når wt_head IKKE allerede er
-  # forgjenger til $REF (oppfølging 2, TODO 380): er wt_head inneholdt i {{BASE_BRANCH}}, er `git
+  # forgjenger til $REF (oppfølging 2): er wt_head inneholdt i {{BASE_BRANCH}}, er `git
   # merge-base --is-ancestor "$wt_head" "$proid"` sann for ENHVER åpen PR laget fra {{BASE_BRANCH}} —
   # en hvilken som helst {{BASE_BRANCH}}-basert PR "inneholder" enhver {{BASE_BRANCH}}-commit i sin historikk. Det
   # gir et falskt treff (treet fremstår som «bærer HEAD for en åpen PR») så lenge minst
@@ -416,7 +415,7 @@ done
 echo "---"
 # wtsweep= (ekte kjøring) vs. wtsweep_dry= (--dry-run) — fix-runde 3, mikro, punkt 4: gaten skal
 # ALDRI kunne forveksle et dry-run-tall med bevis på at sweepen faktisk fjernet noe.
-# wtsweep_named= (navngitt kjøring, TODO 401) er en egen understreng som ALDRI inneholder
+# wtsweep_named= (navngitt kjøring) er en egen understreng som ALDRI inneholder
 # `wtsweep=` — gaten (som leser KUN `wtsweep=`) kan derfor verken bli grønn eller rød av den.
 tok=wtsweep
 [ -n "$NAMES" ] && tok=wtsweep_named

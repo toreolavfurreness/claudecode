@@ -18,7 +18,7 @@ Argument: hva som skjedde, kort (tomt: spør eieren).
 
 Splitt først setningen i atomiske påstander. Så, per påstand (detaljer i `CLAUDE.md` § «Tre kunnskapsbaser»):
 
-- **Samarbeidspreferanse** («Tore Olav vil ha …») → `MEMORY.md`, ikke lessons. Stopp.
+- **Samarbeidspreferanse** («eieren vil ha …») → `MEMORY.md`, ikke lessons. Stopp.
 - **Statistikk om egen atferd** (signalord «de siste N rundene», «gir oftest», «pleier å») → agent-minne. Stopp.
 - **Sann påstand om kodebasen, plattformen eller verktøyet** → lessons. Fortsett.
 - **Uavgjort** → lessons.
@@ -43,7 +43,7 @@ Temaet er mappen (`ls tasks/lessons/`). Velg det som eier mekanismen; relevans f
 python3 tasks/lesson-path.py <tema> "<tittel>"
 ```
 
-Skriptet gir stien med samme slug som TODO 275-migreringen og legger til `-2` ved kollisjon.
+Skriptet gir stien med en fast slug-algoritme og legger til `-2` ved kollisjon.
 Exit 2 betyr ukjent tema: velg et som finnes, eller bruk `--new-tema` når et nytt tema faktisk trengs.
 
 ## 4. Fila

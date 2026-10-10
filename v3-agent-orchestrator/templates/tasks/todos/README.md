@@ -4,7 +4,7 @@
 -->
 # tasks/todos/ — Én fil per todo
 
-Hver aktiv todo har én fil: `todo-NN-slug.md` (f.eks. `todo-66-todos-one-file-per-todo.md`).
+Hver aktiv todo har én fil: `todo-NN-slug.md` (f.eks. `todo-12-kort-beskrivelse.md`).
 
 Ferdige todos flyttes ikke hit — de arkiveres i `tasks/todo_archive.md` (append-only).
 
@@ -28,8 +28,8 @@ plan: null                        # tasks/plans/todo-NN-slug.md (settes når en 
 effort: M                         # valgfri — S | M | L, implementeringskost (se Verdifelter)
 saves: "≈2 opus-dispatcher per todo"   # valgfri — hva den sparer, i loopens egne enheter
 observed: "run-log: 22/49 pause_event" # valgfri — observasjonen som motiverer todoen
-bugs:    ["BUG-083", "BUG-089"]   # valgfri — kantbærende, se «Kantbærende felt» (TODO 176)
-files:   ["components/AddRecipeModal.tsx"]     # valgfri — repo-relativ sti, kantbærende
+bugs:    ["BUG-001", "BUG-002"]   # valgfri — kantbærende, se «Kantbærende felt»
+files:   ["components/AddItemModal.tsx"]     # valgfri — repo-relativ sti, kantbærende
 lessons: ["react-native-web", "postgres-rls"]  # valgfri — tema-basenavn uten .md, kantbærende
 pr:      ["465"]                  # valgfri — LISTE (ikke skalar), kantbærende
 release: "1.4.0"                  # valgfri — versjonen i tasks/releases/<versjon>.md
@@ -81,16 +81,16 @@ release_blocker: true             # valgfri — kom inn etter cut-off fordi den 
 
 ### Verdifelter (valgfrie)
 
-`effort`, `saves` og `observed` er alle **valgfrie** (opphav: TODO 174). De finnes for at et
+`effort`, `saves` og `observed` er alle **valgfrie**. De finnes for at et
 menneske skal kunne rangere loop-forbedringer mot hverandre og for §7-grooming-triagen — ikke
 for automatisk sortering. Ingen kø-skript skal bygge auto-prioritering på dem.
 
 - **`effort`** — `S | M | L`, eller den sammensatte formen `<kode>/<verifisering>` (f.eks. `S/M`).
   - **Enkel form** (`S`) = grovt anslag skrevet ved opprettelsen, før noen har lest koden. Det er en
-    **påstand, ikke en måling** (lesson 2026-09-10).
+    **påstand, ikke en måling**.
   - **Sammensatt form** (`S/M`) = MÅLT mot en ferdig plan som har fått `go` i §4, og skrevet av
     koordinatoren der. Venstre halvdel er kodekost, høyre er verifiseringskost. De to divergerer
-    ofte: TODO 289 er ~28 linjer i én fil (`S`) med ny e2e-spec, suite-kjøring og en iOS-runde
+    ofte: en todo kan være ~28 linjer i én fil (`S`) med ny e2e-spec, suite-kjøring og en iOS-runde
     (`M`). Ett tall kan ikke bære begge.
   - Ved oppdatering: behold det opprinnelige anslaget i brødteksten («opprettet som `S`»), så
     driften er synlig og kan kalibreres mot `todo_archive.md`.
@@ -112,7 +112,7 @@ i prosa. De skal ALDRI brukes som kilde for automatisk utledede kanter (f.eks. e
 tilfeldig omtale i prosa. Enhver ekte referanse til en annen todo/bug/PR/fil hører hjemme i et
 eget, typet felt (`deps`, eller tilsvarende), ikke i disse to.
 
-### Kantbærende felt (valgfrie) — graf-integrasjon (TODO 176)
+### Kantbærende felt (valgfrie) — graf-integrasjon
 
 `bugs`, `files`, `lessons` og `pr` speiler kanter som ellers kun står skrevet i prosa. De leses av
 `tasks/graph-build.py` (generert av `/setup`, se `docs/orchestration-loop.md` for eierskap) og gjøres
@@ -123,18 +123,18 @@ oppslåbare via `tasks/graph-query.py` — se `docs/superpowers/loop/coordinator
 2. **De er kantbærende** — i skarp kontrast til `saves`/`observed` rett over, som ALDRI skal brukes
    som kantkilde. Skriv en ekte todo-/bug-/PR-/fil-referanse i ett av disse fire feltene, ikke i fri
    tekst, hvis den skal være maskinlesbar.
-3. **Inline-listeform er påkrevd** — `bugs: ["BUG-083", "BUG-089"]`, én linje, doble anførselstegn.
+3. **Inline-listeform er påkrevd** — `bugs: ["BUG-001", "BUG-002"]`, én linje, doble anførselstegn.
    En YAML-blokkliste (`files:` på egen linje + `  - sti` under) brekker ikke §1-køskriptet, men
    `graph-build.py` ser den ikke — feltet rapporteres i `stats.blocklist_form_fields` i stedet for å
    tapes stille.
    - `bugs` — liste av `BUG-nnn`-strenger.
    - `files` — liste av repo-relative stier (samme form som `git ls-files`, f.eks.
-     `components/AddRecipeModal.tsx`).
+     `components/AddItemModal.tsx`).
    - `lessons` — liste av tema-basenavn UTEN `.md` (f.eks. `react-native-web`, ikke
      `react-native-web.md`).
    - `pr` — **liste**, ikke skalar (`pr: ["465"]`, ikke `pr: 465`) — en todo kan lande som flere PR-er.
 4. `nr` er global nøkkel på tvers av `tasks/todos/`, `tasks/todo_archive.md` **og** åpne, umergede
-   PR-er (lesson 2026-09-02). Duplikate `nr:` gir tvetydige node-ID-er i grafen.
+   PR-er. Duplikate `nr:` gir tvetydige node-ID-er i grafen.
 5. **Hvem fyller dem:** den som **oppretter** todoen fyller `files:` og `lessons:` når de er kjent —
    det er de to feltene ingen annen kilde (frontmatter, git, arkiv, bug-fil) kan produsere for en
    todo som verken er arkivert eller har commits ennå. `bugs:` og `pr:` er valgfri berikelse:
@@ -188,7 +188,7 @@ Se CLAUDE.md for kanonisk dokumentasjon av kommando-protokollen.
 
 Koordinatoren setter `phase` på en claimet todo ved hvert steg, i samme commit som resten av delt
 state. Køsiden (`tasks/queue-status.py`) viser fasen i stedet for plan-status. Første ord er nøkkelen,
-resten er fritekst: `phase: kode-review r2 PR 1112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`. Feltet gjelder bare mens todoen er `in_progress`.
+resten er fritekst: `phase: kode-review r2 PR 112`. ` #` i en ukvotert verdi kutter resten: sett verdien i doble anførselstegn for å bruke `#`. Feltet gjelder bare mens todoen er `in_progress`.
 
 | `phase`          | Vises som         | Settes når                                    |
 | ---------------- | ----------------- | --------------------------------------------- |

@@ -27,6 +27,6 @@ grep -qF "## $TS —" docs/superpowers/loop/retro-log.md \
 
 Deretter **Delt-state-git-halen** (§6, steg 6), `$MSG="chore(loop): mini-retro — <kontekst>"`.
 `retro-log.md` dekkes av `git add -A … docs/superpowers/loop/` i halen — ingen egen commit
-nødvendig. `retro-log.md` er runtime-state (seed-only, samme vern som run-log.md — se lesson
-2026-06-30): filen seedes av `/setup` én gang og regenereres ALDRI (kun appendes av
+nødvendig. `retro-log.md` er runtime-state (seed-only, samme vern som run-log.md):
+filen seedes av `/setup` én gang og regenereres ALDRI (kun appendes av
 koordinatoren, akkurat som run-log.md).

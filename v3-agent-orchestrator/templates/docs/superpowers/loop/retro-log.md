@@ -4,8 +4,7 @@
   MERK: Loggen nederst er append-only data som koordinatoren skriver under
   kjøring — /setup SEEDER denne filen kun ved første generering (finnes den
   ikke fra før). Ved re-kjøring bevares den uendret (samme seed-only-vern som
-  run-log.md, lesson 2026-06-30 — run-log ble klobbet før den beskyttelsen
-  fantes). Ved første generering er den tom (kun header + format-spec).
+  run-log.md). Ved første generering er den tom (kun header + format-spec).
 -->
 
 # Loop retro-log (koordinator mini-retro)
@@ -15,7 +14,7 @@ kø-tom (§7/§8 i `coordinator-runbook.md`) eller ved ethvert pausepunkt-stopp.
 ALDRI retro-log.md.
 
 **Formål:** loop-evaluering blir en del av loopen selv, ikke noe som skjer først når mennesket
-spør (opphav: TODO 158, loop-evaluering 2026-07-12).
+spør.
 
 ---
 

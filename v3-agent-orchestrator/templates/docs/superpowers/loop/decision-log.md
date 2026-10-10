@@ -7,7 +7,7 @@
   vern som run-log.md/retro-log.md/retro-triage.md (`.claude/commands/setup.md`).
 -->
 
-# Beslutningslogg (koordinator, TODO 246)
+# Beslutningslogg (koordinator)
 
 **Single-writer-kontrakt:** Kun koordinatoren skriver til denne filen. Workers rører den ALDRI.
 
@@ -25,7 +25,7 @@ IKKE den lista (ingen-kopi-regelen, `docs/loop-rules.md` § «Tre kunnskapsbaser
 `{{PROD_BRANCH}}`, secrets og destruktive/irreversible operasjoner — se runbooken (peker over) for
 den fulle, autoritative A1–A8/B1–B7-lista.
 
-Entries **UNDER** `<!-- FORMAT-V2 (TODO 246) -->`-markøren følger dette frosne formatet:
+Entries **UNDER** `<!-- FORMAT-V2 -->`-markøren følger dette frosne formatet:
 
 ```
 ### <YYYY-MM-DD HH:MM> — TODO <nr> [<regel-id>]: <kort valg>
@@ -38,7 +38,7 @@ Entries **UNDER** `<!-- FORMAT-V2 (TODO 246) -->`-markøren følger dette frosne
 
 Overskriften limes inn ordrett fra `header`-feltet i svaret fra `decision-level.py --event … --todo <nr> --title <tekst>`.
 
-- **Nivå A-entries (TODO 455)** får i tillegg tre linjer, som `decision-level.py --agreement` leser:
+- **Nivå A-entries** får i tillegg tre linjer, som `decision-level.py --agreement` leser:
   `- **Type:** <--event, ellers kort kebab-navn>`, `- **Anbefaling:** <koordinatorens anbefaling>` og
   `- **Eierens svar:** fulgt | avvek: <hva> | venter`. Å bytte ut `venter`-linja når svaret kommer
   er den ENESTE tillatte redigeringen av en eksisterende entry.
@@ -64,7 +64,7 @@ Overskriften limes inn ordrett fra `header`-feltet i svaret fra `decision-level.
   PR, ellers seeder neste `/setup` en tom fil stille. `loop-health-check.md` Del D3 (monoton
   entry-telling) fanger tapet hvis det likevel skjer.
 
-Entries **OVER** markøren (fantes før TODO 246, skrevet i et annet, eldre format) er legacy —
+Entries **OVER** markøren (skrevet i et annet, eldre format) er legacy —
 **rettes ikke**, samme behandling som `run-log.md`s legacy-rader (`auto_decided=<nr>` uten kolon).
 
-<!-- FORMAT-V2 (TODO 246) — entries UNDER denne linja følger det frosne formatet i § Format. Entries OVER linja er legacy (pre-246) og rettes ikke. -->
+<!-- FORMAT-V2 — entries UNDER denne linja følger det frosne formatet i § Format. Entries OVER linja er legacy og rettes ikke. -->

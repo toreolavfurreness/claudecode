@@ -153,12 +153,12 @@ release:
 pipelining:
   max_in_flight: 0
 
-# --- Parallelle implementere (koordinator-runbook §5d, TODO 233) ----------
+# --- Parallelle implementere (koordinator-runbook §5d) ----------
 # Valgfri nøkkel. Mangler `parallel_implementers` helt → max = 1 → dagens
 # sekvensielle atferd (samme mønster som `pipelining`). Kit-ets standardverdi
 # er `1` (av) — sett `2` for å slå på parallelle implementere av trinn 2.
 # Hever IKKE `pipelining.max_in_flight` — de to nøklene teller forskjellige
-# ting (todo-233-planen § 1.5).
+# ting.
 parallel_implementers:
   max: 1
 

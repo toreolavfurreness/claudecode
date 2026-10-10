@@ -67,7 +67,7 @@ sammendraget er tapsbeheftet.
 
 ## Før du slår på i et nytt prosjekt: mål
 
-Mekanismen ble målt i opphavsprosjektet på en eldre runtime. Mål den på din runtime før du stoler
+Mekanismen er målt på en eldre runtime. Mål den på din runtime før du stoler
 på den:
 1. Slå på `hooks.compaction_checkpoint`, kjør `/setup` og start en fersk sesjon.
 2. Kjør loopen til en auto-komprimering skjer.

@@ -108,7 +108,7 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
 13b. **Worktree-sweep (rapporterende, aldri destruktivt herfra):**
     - Kjør: bash ./tasks/worktree-sweep.sh --dry-run
     - Kjør: bash ./tasks/worktree-sweep.sh --gate
-    - Denne kommandoen sletter ALDRI noe selv (TODO 380, R2-B1) — kun --dry-run og --gate. Rapporter
+    - Denne kommandoen sletter ALDRI noe selv (R2-B1) — kun --dry-run og --gate. Rapporter
       utfallet av begge; en RØD gate betyr at siste ikke-helse-§6-rad i run-log.md mangler
       `wtsweep=<n>/<n>`-tokenet eller bærer et feil-formet ett, altså at den faktiske sweepen
       (§6 steg 4b, beskrevet i §6d i coordinator-runbook.md) ikke har kjørt siden forrige syklus —

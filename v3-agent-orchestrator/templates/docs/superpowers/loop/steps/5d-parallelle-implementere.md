@@ -3,7 +3,7 @@
   Endre loop.config.yaml og kjør /setup på nytt.
 -->
 
-# 5d. Parallelle implementere (fil-disjunkt-gate — TODO 233)
+# 5d. Parallelle implementere (fil-disjunkt-gate)
 
 → Kjerne: `coordinator-runbook.md` § 5d · Begrunnelser: `runbook-hvorfor.md` § 5d
 
@@ -61,7 +61,7 @@ python3 tasks/parallel-disjoint.py --a <scratch>/gate-a-<runde>.txt \
 `ok` (exit 0) ⇒ fortsett. `overlap` / `empty-a` / `empty-b` / `missing-section`
 (exit 1) ⇒ ingen parallellitet denne runden; B beholder planen sin og claimes normalt via §1 i en
 SENERE runde (samme fail-safe-retning som §5cs ferskhets-gate). Klientkode (`app/`, `components/`, `lib/`) er tillatt på begge sider: egen port
-og e2e-låsen fra TODO 184 serialiserer e2e-kjøringene, og regelen «B etter A, begge med klientkode»
+og e2e-låsen serialiserer e2e-kjøringene, og regelen «B etter A, begge med klientkode»
 under dekker samspillet som felles filer ikke viser.
 
 **Gate M sin fail-retning er «drop til serielt», ikke pausepunkt.** Ikke-tomt snitt i gate M betyr
@@ -99,7 +99,7 @@ python3 tasks/parallel-disjoint.py --a <scratch>/gate-m-a-<runde>.txt --b <scrat
   konfliktløses** — en ren merge endrer ingen linje B har skrevet, og §5b sitt trigger-sett er
   «nye commits som endrer B sin diff». Måles: rapporterte merge-en konflikt? ja ⇒ §5b `r_{n+1}`;
   nei ⇒ rett til MERGEABLE-sjekken.
-- **B etter A, begge med klientkode (TODO 184-oppfølging, 2026-10-02).** Rører BÅDE A sin og B sin
+- **B etter A, begge med klientkode .** Rører BÅDE A sin og B sin
   PR-diff `app/`, `components/` eller `lib/` (`grep -E '^(app|components|lib)/'` på de to
   `gh pr diff --name-only`-listene over), kan B bryte mot A uten felles fil, for eksempel når A
   endrer en hook B bruker. CI kjører ingen e2e, så B synker mot base som i `overlap`-grenen og
@@ -111,7 +111,7 @@ python3 tasks/parallel-disjoint.py --a <scratch>/gate-m-a-<runde>.txt --b <scrat
   `git merge-base --is-ancestor origin/{{BASE_BRANCH}} <B-head>` ⇒ exit `0` (B inneholder A).
   Ikke-null der er et ekte signal om at re-synken ikke skjedde.
 
-### Sekvensen skrevet som ÉN linje (obligatorisk tørrkjøring, lesson 2026-09-05)
+### Sekvensen skrevet som ÉN linje (obligatorisk tørrkjøring)
 
 For `parallel_implementers.max = 2`:
 
@@ -164,12 +164,12 @@ invokasjons egen delmengde: dedupliser på STIEN, behold FØRSTE rundes snapshot
 
 ### Par-dispatch-maltillegg for parallelle implementere
 
-Legges i dispatch-prompten til BEGGE implementere når §5d er armet (samme mønster som TODO 231s
-tillegg for pipelinede par):
+Legges i dispatch-prompten til BEGGE implementere når §5d er armet (samme mønster som
+tillegget for pipelinede par):
 
 - **Ref-lock (delt `.git`):** koordinatorens egen `git fetch origin {{BASE_BRANCH}}` FØR paret
   dispatches, PLUSS `git merge-base --is-ancestor origin/{{BASE_BRANCH}} HEAD` etter Steg 0 i
-  BEGGE prompter (TODO 231-tiltaket, bevist i drift).
+  BEGGE prompter.
 - **Stash-forbud (delt stash-stack):** bar `git stash`/`git stash pop` er FORBUDT for begge
   implementere denne runden; bruk en midlertidig WIP-commit i stedet. Koordinatoren tar
   `git stash list | wc -l` som baseline FØR par 1 og sammenligner etter hvert par; avvik ⇒
@@ -178,8 +178,8 @@ tillegg for pipelinede par):
   («Commit + PR mot dev»), kjør `git fetch origin {{BASE_BRANCH}} && git diff origin/{{BASE_BRANCH}} --stat`;
   ikke-tom med filer implementeren ikke selv rørte ⇒ merge FØR commit.
 - **e2e:** steg 2 og 2a kjøres som normalt når egen diff rører `app/`, `components/` eller `lib/`,
-  med egen port og e2e-låsen fra `todo-finish-worker.md` steg 2 (TODO 184). Låsen serialiserer
-  kjøringene, så de delte testbrukerne brukes aldri samtidig (lukker CF-233-1).
+  med egen port og e2e-låsen fra `todo-finish-worker.md` steg 2. Låsen serialiserer
+  kjøringene, så de delte testbrukerne brukes aldri samtidig.
 
 **Release claim med to claimede todos.** «Release claim» i §3/§4/§5b refererer normalt til DEN ENE
 claimede todoen. Med §5d armet er BÅDE A og B claimet samtidig — et pausepunkt som rammer ÉN av dem
@@ -212,7 +212,7 @@ B4 dekker også arming av parallellitet, ikke bare selve pipeline-valget. B4s fo
 (decision-log-entry, `auto_decided=`, sluttmeldings-linje) er nøyaktig de riktige; ingen ny regel
 (B8) er innført.
 
-**Hygiene-carve-out (speiler TODO 246-avsnittet i §5c):** en NEKTELSE av å parallellisere
+**Hygiene-carve-out (speiler hygiene-avsnittet i §5c):** en NEKTELSE av å parallellisere
 (§1-filter-avvisning, gate P `overlap`/`empty-*`, `technical_risk`-leddet) er **hygiene, ikke et
 nivå-B-valg** — den logges aldri. Det samme gjelder **«drop til serielt» ved gate M `overlap`**:
 degraderingen er tvungen av gaten, ikke valgt av koordinatoren. Kun det POSITIVE valget (arm
@@ -221,5 +221,4 @@ degraderingen er tvungen av gaten, ikke valgt av koordinatoren. Kun det POSITIVE
 **Mekanismen kan være inert på dagens kø, og det er forventet, ikke en defekt.** Er alle
 `elig=YES`-kandidatene loop-/lessons-/docs-arbeid, vil gate P typisk gi `overlap` mot A (begge
 rører `coordinator-runbook.md`/`orchestration-loop.md`) — fravær av `parallel_with=`-rader i
-run-loggen over flere runder betyr da at gaten gjør jobben sin, ikke at maskineriet er ødelagt. Se
-CF-233-6 (`tasks/followups/`) for driftsbeviset dette venter på.
+run-loggen over flere runder betyr da at gaten gjør jobben sin, ikke at maskineriet er ødelagt.

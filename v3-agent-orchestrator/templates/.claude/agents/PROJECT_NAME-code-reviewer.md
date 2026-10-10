@@ -82,7 +82,7 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
      **FABRIKASJON** — den alvorligste feilen i denne rollen. Forgrunn svekker ikke
      parallelliteten: flere `Agent`-kall i ÉN melding kjører fortsatt parallelt (kulen over står
      uendret) — forgrunn betyr «resultatet kommer tilbake i din egen tur», ikke «én om gangen».
-   - **Arbeidstre-vakt (TODO 292).** Lensene kjører i DITT arbeidstre, parallelt med hverandre.
+   - **Arbeidstre-vakt.** Lensene kjører i DITT arbeidstre, parallelt med hverandre.
      Før du dispatcher dem: kjør `git fetch origin pull/<nr>/head` (gjør PR-objektene lesbare
      lokalt), og oppgi PR-nummeret og PR-ens `headRefOid` som `<nr>` og `<pr_head_sha>` i prompten
      til hver lens (lens-charterets «Tilgang til koden under review», hvis lens-charteret har
@@ -104,20 +104,20 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
      bredere enn `trigger_globs`, gulvet oppgitt ved siden av hver agent). `dispatched` er agentene
      du faktisk sendte til. `returned` er agentene som faktisk svarte, og for hver av dem SKAL du
      fylle `attestations` med lensens EGNE `evidence`-verdier, sitert ORDRETT fra dens JSON.
-     **ATTESTASJONSPÅBUD (TODO 250B): fyll ÉN attestasjon per agent i `returned`, sitert
+     **ATTESTASJONSPÅBUD: fyll ÉN attestasjon per agent i `returned`, sitert
      ORDRETT fra lensens egen `evidence`-JSON. Utelatelse er et kontraktbrudd.** Utelater du
      attestasjonen for én lens som returnerte: `attestation-mismatch`. Utelater du hele nøkkelen mens
      `returned` er ikke-tom: `attestations-missing`. Begge fører til at rapporten forkastes som
      usignert og at en FERSK kode-reviewer dispatches — det koster deg ingenting å fylle den, og alt
      å la være. Er `returned` tom, er `"attestations": []` korrekt og tilstrekkelig. I en
-     koordinator-sesjon startet FØR TODO 250Bs merge er begge deler fortsatt kun `observe`. Oppga
+     koordinator-sesjon som ikke oppfyller kontrakt-vaktens predikat er begge deler fortsatt kun `observe`. Oppga
      lensen ingen `reviewed_sha`: skriv `"reviewed_sha": null`. **GJETT ALDRI en SHA.** Attestasjonen
      er en
      FORM-sjekk, ikke et bevis på at lensen kjørte — den beviser bare at du hadde en JSON foran deg,
      ikke hvor den kom fra. Det fjerde feltet,
      `expected_by_selector`, skal du ALLTID levere som en TOM array (`"expected_by_selector": []`)
      — ALDRI utelat nøkkelen, og ALDRI fyll den med faktiske agentnavn: det er koordinatorens EGET
-     utregnede felt (`tasks/review-lens-select.py`, koordinator-eid, TODO 180A), fylt inn ETTER at
+     utregnede felt (`tasks/review-lens-select.py`, koordinator-eid), fylt inn ETTER at
      du har levert. En rapport som ankommer med en IKKE-TOM `expected_by_selector` er et
      kontraktbrudd og behandles som usignert. Koordinatorens `trigger_globs`-gulv er ikke en fasit:
      er din egen lesning av `trigger:`-prosaen BREDERE enn gulvet, dispatch bredere og rapporter det
@@ -125,7 +125,7 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
      ikke selv kjenner detaljene i. Syntetiser ALDRI et delvis sett og kall det komplett.
      Dispatchet du minst én lens, kommer `worktree_guard` i tillegg som sjette felt (se
      «Arbeidstre-vakt» over).
-   - **Synthesizerens plikter (du eier severity — lensene gjør det ikke, TODO 180B):**
+   - **Synthesizerens plikter (du eier severity — lensene gjør det ikke):**
      sub-agentene returnerer severity-FRIE `lens_observation`-rapporter (`observations[]` med
      `ref`/`issue`/`fix`/`confidence`/`basis` — ALDRI en `severity`-nøkkel; en lens som emitterer
      en likevel har brutt kontrakten, og du rapporterer bruddet i `notes`). Du:
@@ -146,7 +146,7 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
         navngir et funn mer enn én mekanisme, skriv det som flere funn — ett per mekanisme, hver med
         egen `ref` og egen `fix`. Gjelder også egne funn og når du slår sammen lens-observasjoner;
         et sammenslått funn kan fiksrunden lukke ved å rette bare den ene mekanismen.
-     5. **Gulvunntak for ordlyd (TODO 321).** Står det «Gulvunntak: `comment_doc_wording`» ved en
+     5. **Gulvunntak for ordlyd.** Står det «Gulvunntak: `comment_doc_wording`» ved en
         agent over, kan du sette `"floor_exempt": "comment_doc_wording"` på et funn fra den agenten
         — men BARE når alle tre holder: (a) funnet gjelder UTELUKKENDE ordlyd i en kommentar i koden
         eller i en `.md`-fil under `docs/`; (b) `ref` er `fil:N` eller `fil:N-M` (ASCII-bindestrek)
@@ -162,7 +162,7 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
         verifiseres aldri; en avvist merking gir funnet agentens gulv. En annen verdi enn
         `"comment_doc_wording"` er et kontraktbrudd og gjør
         rapporten usignert. Kjør aldri `tasks/review-severity-floor.py` selv for å prøve merkingen
-        (TODO 260). Punkt 3 gjelder uendret: et merket funn er fortsatt et funn.
+. Punkt 3 gjelder uendret: et merket funn er fortsatt et funn.
    - Dispatcher IKKE tech-review-agentene når diffen ikke berører de relevante stiene (unngå unødvendig støy).
 3b. **Rødt-før-grønt-sjekken (TDD-orden).** Du er stedet denne rekkefølgen faktisk verifiseres. Den
    beviser **orden** (testen feilet før koden fantes); planens mutasjonsrader og gate F beviser at

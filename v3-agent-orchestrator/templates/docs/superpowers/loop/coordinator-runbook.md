@@ -7,7 +7,7 @@
 
 Du er koordinatoren. Du er eneste skriver til delt state. Workers gjør tungt arbeid i isolerte worktrees og returnerer rapporter (`report-schema.md`).
 
-> ⚠️ **Forutsetning:** koordinatoren MÅ kjøre i en sesjon som ble startet ETTER at `.claude/agents/{{PROJECT_NAME}}-*.md` finnes på disk. Claude Code snapshotter agent-registeret ved sesjonsstart — nyopprettede custom agenter er ikke tilgjengelige i en allerede kjørende sesjon. Verifiser med to trivielle probe-dispatcher (`subagent_type: {{PROJECT_NAME}}-planner`, prompt: «Svar kun: {"ok": true}. Ikke les filer.» — ordrett identisk med preflight-proben i `run-loop.md`, som utløser planner-charterets probe-modus-unntak; og `subagent_type: {{PROJECT_NAME}}-code-reviewer`, prompt: «Svar kun: {"ok": true}. Ikke synk, ikke les filer.» — dekker §5b sitt register-oppslag for hele sesjonen, se §5b) før du starter en runde; «Agent type not found» betyr at du må starte en fersk sesjon. **Sesjonsstart-epoch (TODO 250B):** rett etter probe-dispatchene kjører du `date -u +%s` ÉN gang og noterer tallet som sesjonens `T_start`; umiddelbart etter kjører du i tillegg de tre kommandoene i «Kontrakt-vakt (TODO 250B)»s session-predikat (ledd (a)–(c)) og noterer resultatet HER — ikke først når §5b nås. `T_start` er ledd (b) i predikatet og re-måles ALDRI senere i sesjonen. Finnes ingen registrert `T_start`, er predikatet USANT og form A kjøres.
+> ⚠️ **Forutsetning:** koordinatoren MÅ kjøre i en sesjon som ble startet ETTER at `.claude/agents/{{PROJECT_NAME}}-*.md` finnes på disk. Claude Code snapshotter agent-registeret ved sesjonsstart — nyopprettede custom agenter er ikke tilgjengelige i en allerede kjørende sesjon. Verifiser med to trivielle probe-dispatcher (`subagent_type: {{PROJECT_NAME}}-planner`, prompt: «Svar kun: {"ok": true}. Ikke les filer.» — ordrett identisk med preflight-proben i `run-loop.md`, som utløser planner-charterets probe-modus-unntak; og `subagent_type: {{PROJECT_NAME}}-code-reviewer`, prompt: «Svar kun: {"ok": true}. Ikke synk, ikke les filer.» — dekker §5b sitt register-oppslag for hele sesjonen, se §5b) før du starter en runde; «Agent type not found» betyr at du må starte en fersk sesjon. **Sesjonsstart-epoch:** rett etter probe-dispatchene kjører du `date -u +%s` ÉN gang og noterer tallet som sesjonens `T_start`; umiddelbart etter kjører du i tillegg de tre kommandoene i «Kontrakt-vakt»s session-predikat (ledd (a)–(c)) og noterer resultatet HER — ikke først når §5b nås. `T_start` er ledd (b) i predikatet og re-måles ALDRI senere i sesjonen. Finnes ingen registrert `T_start`, er predikatet USANT og form A kjøres.
 
 ## Slik leser du denne fila (kjerne, stegfiler, hvorfor)
 
@@ -99,7 +99,7 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 - [ ] Vakt/kommando: `pipelining.max_in_flight`; `tasks/review-lens-select.py`
 - [ ] Pausepunkt: Ferskhets-gaten for en pipelinet plan er fortsatt ikke-tom etter én re-plan-runde (§5c); B4
 
-## 5d. Parallelle implementere (fil-disjunkt-gate — TODO 233)
+## 5d. Parallelle implementere (fil-disjunkt-gate)
 → `steps/5d-parallelle-implementere.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: når B er `go`: §1-filter (kan kun avvise) → gate P (fil-disjunkt) → claim B og dispatch implementer(B) sammen med A; in-flight-tabell; gate M før B sin merge; B eskalert til nivå A etter claim ⇒ frys B.
 - [ ] Vakt/kommando: `tasks/parallel-disjoint.py`; `parallel_implementers.max`
@@ -159,7 +159,7 @@ pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort m
 - [ ] Vakt/kommando: `sh scripts/check-todo-nr-collisions.sh --next`; `sh scripts/check-todo-nr-premerge.sh <branch>`
 - [ ] Pausepunkt: ingen egen rad — kollisjon før merge stopper i §6 steg 4
 
-## Pausepunkter (nivå A — spør + eskalér; nivå B — bestem selv, logg, mennesket kan vetoe, TODO 246)
+## Pausepunkter (nivå A — spør + eskalér; nivå B — bestem selv, logg, mennesket kan vetoe)
 
 **Klassifiser ALLTID mekanisk, aldri fra hukommelsen:**
 ```bash
@@ -239,7 +239,7 @@ unngå at D2s ordrette paritet-diff (tabellrad ↔ `TRIGGER_BY_ID`) driver fra s
 
 ### Konvergensregel
 
-Erstatter fast rundetak (fjernet i TODO 455). Evalueres FØR alt annet i `decision-level.py`, for
+Det finnes ikke noe fast rundetak. Evalueres FØR alt annet i `decision-level.py`, for
 `revise_gate_choice` + `action=fix_round` og `plan_review_choice` + `action=revise`. Å LUKKE gaten
 (`merge_carry`/`stop`/`drop`) er alltid B1/B7, uansett rundetall.
 
@@ -256,15 +256,15 @@ Erstatter fast rundetak (fjernet i TODO 455). Evalueres FØR alt annet i `decisi
   `decision-level.py` med `cost_over=<over>`. Verdien sendes ordrett slik bremsen skrev den.
   `over=yes` betyr at todoens kost er over 2× medianen for effort-klassen, og gir A0. `over=few`
   betyr at effort-klassen har færre enn 5 andre todoer med målt kost, så bremsen har ingen median
-  å måle mot. `over=few` gir A0 for en ny fix-runde i §5b fra runde 2 (eierens vedtak i
-  decision-log 2026-10-09 18:40, TODO 483), og teller som `no` i §4 og i runde 1. Alt annet enn
+  å måle mot. `over=few` gir A0 for en ny fix-runde i §5b fra runde 2,
+  og teller som `no` i §4 og i runde 1. Alt annet enn
   `no` og `few`, også manglende verdi, gir A0 (fail-closed). `class=?` (todoen mangler `effort:`)
   gir `over=unknown` og dermed A0; løsningen er at koordinatoren setter `effort` i todo-fila før §4.
 - **Fra runde 2** kreves i tillegg konvergensdata: `blocking_prev`, `blocking_now`, `new_class` og
   `content`. Manglende eller ugyldig verdi gir A0 i begge gater.
   - **§4 (`plan_review_choice`):** antall gate-funn må gå ned, `new_class=no` og `content=no` (bare
     form). Brudd gir A0. §4 krever fortsatt alle kravene for B7.
-  - **§5b (`revise_gate_choice`), eierens vedtak i decision-log 2026-10-04 18:08:** At gate-funnene
+  - **§5b (`revise_gate_choice`):** At gate-funnene
     ikke går ned, eller at en ny feilklasse dukker opp (`new_class=yes`), er nivå B. Koordinatoren
     velger selv og logger. `content` annet enn `no` (innholdsfunn) gir fortsatt A0, og
     kostnadsbremsen er fortsatt nivå A.

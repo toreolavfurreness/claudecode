@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Harness for tasks/worktree-landed.sh — fjorten konstruerte tilfeller (§ 7 V1) og et
-# mutasjonskrok-punkt (§ 8 M1-M4, M9, M10). Se tasks/plans/todo-380-loopen-rydder-aldri-worktrees.md.
+# mutasjonskrok-punkt (§ 8 M1-M4, M9, M10).
 #
 # Hver case bygger sitt EGET, disjunkte git-repo under mktemp -d — ingen delt tilstand mellom
 # casene, og ALDRI mot dette prosjektets egne worktrees. C10a/b/c/d (env-delmengde, 380-
@@ -147,7 +147,7 @@ fi
 
 WORKROOT_RAW=$(mktemp -d) || { echo "HARNESS-FEIL:oppsett:mktemp"; exit 2; }
 trap 'rm -rf "$WORKROOT_RAW" "$MUT_WORKROOT"' EXIT
-# Fysisk sti, ikke literal /tmp/... — macOS /tmp er en symlink (lesson 2026-07-12).
+# Fysisk sti, ikke literal /tmp/... — macOS /tmp er en symlink.
 WORKROOT=$(cd "$WORKROOT_RAW" && pwd -P)
 
 git_ok() {

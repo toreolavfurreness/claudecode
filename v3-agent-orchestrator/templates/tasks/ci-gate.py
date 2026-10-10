@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
 # Endre loop.config.yaml og kjør /setup på nytt.
-"""ci-gate.py — CI-gaten før merge (coordinator-runbook §6 steg 0, TODO 216).
+"""ci-gate.py — CI-gaten før merge (coordinator-runbook §6 steg 0).
 
   python3 tasks/ci-gate.py <pr-nummer> [--timeout-s N]
   python3 tasks/ci-gate.py --self-test

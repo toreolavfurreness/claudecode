@@ -90,7 +90,7 @@ Du har sluttet å godkjenne planer per todo — så kvaliteten sikres i tre lag,
 - Uavhengig plan-reviewer (devil's advocate) før implementering
 - Uavhengig kode-review på PR-diffen etter implementering, før merge (`{{PROJECT_NAME}}-code-reviewer`; adversariell, read-only, revise-runder etter konvergensregelen)
 - Implementer-selvgransking + CI (build/type-check/lint/test) på hver PR
-- **Periodisk helsesjekk** (`/loop-health-check`): koordinatoren kjører tester, type-check, lint, web-smoke (A5b — minste web-lastings-/login-gate, tetter BUG-076-blindsonen) og tech-sweep (pluggbar; f.eks. RLS-sweep via rls-auditor hvis konfigurert) mot integrert `origin/{{BASE_BRANCH}}` — enten etter {{HEALTH_CHECK_INTERVAL}} merges eller når køen tømmes. Resultatet skrives som en `outcome=health`-rad i run-loggen. Rød helsesjekk er et pausepunkt (se under).
+- **Periodisk helsesjekk** (`/loop-health-check`): koordinatoren kjører tester, type-check, lint, web-smoke (A5b — minste web-lastings-/login-gate, tetter blindsonen) og tech-sweep (pluggbar; f.eks. RLS-sweep via rls-auditor hvis konfigurert) mot integrert `origin/{{BASE_BRANCH}}` — enten etter {{HEALTH_CHECK_INTERVAL}} merges eller når køen tømmes. Resultatet skrives som en `outcome=health`-rad i run-loggen. Rød helsesjekk er et pausepunkt (se under).
 - **Release-rådgiver**: som del av helsesjekken sammenlignes `origin/{{BASE_BRANCH}}` mot `origin/{{PROD_BRANCH}}`, brukervendte endringer oppsummeres, og en go/no-go-anbefaling produseres. Selve releasen utføres aldri av loopen — kun av deg via `{{RELEASE_COMMAND}}`.
 
 **NB (B1 — sesjonsstart-krav):** §5b kode-review er aktiv i koordinator-sesjoner startet ETTER at `.claude/agents/{{PROJECT_NAME}}-code-reviewer.md` ble merget til `{{BASE_BRANCH}}`. Sesjoner startet FØR merge vil ikke ha agenten i registeret — preflight-proben i `/run-loop` fanger dette og eskalerer til deg.
@@ -109,10 +109,10 @@ Review-kadansen din går altså fra *per plan* til *per release* + stikkprøver.
 
 | Pausepunkt | Hvorfor |
 |---|---|
-| **Teknisk risiko (nivå A)** — migrasjon, RLS-endring, prod-/{{PROD_BRANCH}}-push, secrets, native/EAS/iOS-Modal, Edge Function-deploy | Uopprettelig — krever din godkjenning. Unntak: `technical_risk` fra PLAN-rapporten klassifisert som **pausepunkt-regel B5** (docs-/hook-selvmodifisering med kjørbar testgate, TODO 246) — koordinatoren avgjør selv og logger i `decision-log.md`. `technical_risk` flagget av en REVIEWER er alltid nivå A. |
+| **Teknisk risiko (nivå A)** — migrasjon, RLS-endring, prod-/{{PROD_BRANCH}}-push, secrets, native/EAS/iOS-Modal, Edge Function-deploy | Uopprettelig — krever din godkjenning. Unntak: `technical_risk` fra PLAN-rapporten klassifisert som **pausepunkt-regel B5** (docs-/hook-selvmodifisering med kjørbar testgate) — koordinatoren avgjør selv og logger i `decision-log.md`. `technical_risk` flagget av en REVIEWER er alltid nivå A. |
 | **Brainstorm-påkrevd todo** | Krever designvalg bare du kan ta — hoppes over, rapporteres |
 | **Reviewer-no-go som ikke løses** | Gate-funnene konvergerer ikke, eller kostnaden er over taket (se `coordinator-runbook.md` § Konvergensregel) |
-| **Kode-reviewer revise-gate — pausepunkt-regel B1 (TODO 246/455)** | Koordinatoren velger selv (ny fix-runde, merge m/carry-forwards, eller stopp) og logger valget i `decision-log.md`; eskalerer til deg (nivå A) ved innholdsfunn, manglende konvergensdata eller kostnad over taket (se `coordinator-runbook.md` § Konvergensregel) |
+| **Kode-reviewer revise-gate — pausepunkt-regel B1** | Koordinatoren velger selv (ny fix-runde, merge m/carry-forwards, eller stopp) og logger valget i `decision-log.md`; eskalerer til deg (nivå A) ved innholdsfunn, manglende konvergensdata eller kostnad over taket (se `coordinator-runbook.md` § Konvergensregel) |
 | **Agent-probe i preflight feiler («Agent type not found», dekker §5b)** | Start en fersk koordinator-sesjon (se sesjonsstart-noten (B1) over) |
 | **Release: scope tomt eller blokkert** | Med en aktiv release stopper loopen når scopet er tomt (`MÅL NÅDD` → prod-release-todoen er din; `MÅL IKKE NÅDD` → legg til todoer eller juster `done_when`), eller når åpne todoer i scope ikke kan velges. Den henter ikke arbeid utenfor releasen uten ditt ord. |
 | **Helsesjekk rød** | Regresjon eller infra-feil i integrert `{{BASE_BRANCH}}` — koordinatoren eskalerer med detaljer, du bestemmer neste steg |
@@ -120,7 +120,7 @@ Review-kadansen din går altså fra *per plan* til *per release* + stikkprøver.
 
 **Plan-godkjenning er IKKE et pausepunkt.** Den uavhengige reviewer-agenten erstatter deg som plan-port, så du slipper å godkjenne hver enkelt plan. Du trekkes kun inn hvis reviewen ikke konvergerer.
 
-## Nivå B (TODO 246) — koordinatoren bestemmer selv, du kan vetoe
+## Nivå B — koordinatoren bestemmer selv, du kan vetoe
 
 Et mindretall av pausepunktene (merket **pausepunkt-regel B1–B7** i `coordinator-runbook.md` §
 Pausepunkter — f.eks. B1 over) er nivå B: koordinatoren tar valget selv, logger det i
@@ -147,15 +147,15 @@ Loopen og du kan jobbe «samtidig» så lenge dere holder dere til hver deres fi
 | `claimed_by`, `status: in_progress/done` | Koordinator | ❌ ikke rør (= «in-flight»-signal) |
 | `plan:` på en **u-claimet** todo (pipelinet plan) | Koordinator | ❌ ikke rør — men todoen er IKKE under arbeid: `priority`/`order`/`deferred` er fortsatt trygt |
 | `lessons*`, `followups/`, `todo_archive.md`, `bugs.md` | Koordinator | ❌ ikke rør manuelt |
-| `.claude/worktrees/agent-*` | Koordinator (rydder etter hver worker-dispatch; beholder ved abort for forensikk) | ❌ ikke rydd manuelt mens loopen kjører; ✅ trygt når den står stille (det er TODO 245s modus) |
+| `.claude/worktrees/agent-*` | Koordinator (rydder etter hver worker-dispatch; beholder ved abort for forensikk) | ❌ ikke rydd manuelt mens loopen kjører; ✅ trygt når den står stille |
 | `.claude/agent-memory/<agent>/MEMORY.md` | Agenten selv, committes av implementeren i dens egen PR | ❌ ikke rediger manuelt |
 | `tasks/graph.json` | Ingen — genereres on-demand, committes aldri | ❌ ikke opprett |
 | `tasks/graph-build.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/graph-build.py`) |
 | `tasks/graph-query.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/graph-query.py`) |
 | `tasks/review-lens-select.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/review-lens-select.py`) — kjøres av koordinatoren i §5b, aldri av kode-revieweren |
 | `tasks/review-severity-floor.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/review-severity-floor.py`) — håndhever `severity_floor` per agent, kjøres av koordinatoren i §5b, aldri av kode-revieweren |
-| `tasks/decision-level.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/decision-level.py`) — klassifiserer nivå A/B per hendelse (TODO 246), kjøres av koordinatoren OG implementeren, aldri av kode-revieweren |
-| `tasks/review-fan-in-verify.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/review-fan-in-verify.py`) — mekanisk `observe`-logg for `fan_in`-rapporten (TODO 250A), kjøres av koordinatoren i §5b, aldri av kode-revieweren |
+| `tasks/decision-level.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/decision-level.py`) — klassifiserer nivå A/B per hendelse, kjøres av koordinatoren OG implementeren, aldri av kode-revieweren |
+| `tasks/review-fan-in-verify.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/review-fan-in-verify.py`) — mekanisk `observe`-logg for `fan_in`-rapporten, kjøres av koordinatoren i §5b, aldri av kode-revieweren |
 | `docs/superpowers/loop/decision-log.md` | Koordinator (seed-only, samme vern som `run-log.md`) | ❌ ikke rør manuelt — koordinatoren appender nivå-B-entries; se `decision-log.md` § Format |
 | `tasks/plans/todo-NN-*.md` | Koordinator til §5-dispatch; deretter branch-eid av implementeren (fix-runde-seksjoner) til merge | ❌ ikke rediger manuelt mens todoen er in-flight |
 
@@ -256,7 +256,7 @@ Vurder hvert forslag mot disse fire spørsmålene:
 | Plan-review | {{MODEL_REVIEWER}} (effort {{EFFORT_REVIEWER}}) | Uavhengig kritikk trenger sterkest resonnering |
 | Implementering | {{MODEL_IMPLEMENTER}} (effort {{EFFORT_IMPLEMENTER}}) | Følger en ferdig plan; raskere/billigere |
 | Kode-review (§5b) | {{MODEL_CODE_REVIEWER}} (effort {{EFFORT_CODE_REVIEWER}}) | Adversariell diff-review trenger sterk resonnering |
-{{SCOUT_MODEL_ROW}}| Fix-runde 3+ (eskalering, TODO 252) | {{MODEL_CODE_REVIEWER}} (effort {{EFFORT_CODE_REVIEWER}}) | Sene fix-runder krever re-verifisering av planens V-blokk — samme resonneringskrav som kode-review |
+{{SCOUT_MODEL_ROW}}| Fix-runde 3+ (eskalering) | {{MODEL_CODE_REVIEWER}} (effort {{EFFORT_CODE_REVIEWER}}) | Sene fix-runder krever re-verifisering av planens V-blokk — samme resonneringskrav som kode-review |
 
 ---
 
@@ -278,10 +278,10 @@ In-repo-agenter er den eneste avhengigheten der manglende tilgjengelighet STOPPE
 
 ## Status og faser
 
-| Fase | Hva | Status (per 2026-09-06) |
+| Fase | Hva | Status |
 |---|---|---|
-| **0** | Valider mønsteret i en live-sesjon på 1–2 ekte todos | **Validert** — i ordinær drift siden 2026-06-19, med 68 merget runder i opphavsprosjektets run-logg (`docs/superpowers/loop/run-log.md`) |
+| **0** | Valider mønsteret i en live-sesjon på 1–2 ekte todos | **Validert** — i ordinær drift |
 | **1** | Port til et Workflow-script (bakgrunnskjøring + resume) | **Ikke planlagt** — fase 1 er ingen forutsetning for fase 2, og pipelining (fase 2 trinn 1) ble prioritert foran |
-| **2** | Parallelle workers (flere todos samtidig) | **Trinn 1 (pipelining) levert OG kjørt i drift** (to runder: 246→250, 250→195B) — `coordinator-runbook.md` §5c; en pipelinet runde kjennes igjen på `pipelined_from=` i run-loggen. **Trinn 2 (parallelle implementere) levert (TODO 233), ikke kjørt i drift ennå** — `coordinator-runbook.md` §5d + `tasks/parallel-disjoint.py`; armet via `parallel_implementers.max` i `loop.config.yaml`. Første parallelle runde kjennes igjen på `parallel_with=` i run-loggen (CF-233-6, forventet inert inntil køen blander loop- og app-arbeid, jf. § 1.3.2 i planen) |
+| **2** | Parallelle workers (flere todos samtidig) | **Trinn 1 (pipelining) levert OG kjørt i drift** (to runder: 246→250, 250→195B) — `coordinator-runbook.md` §5c; en pipelinet runde kjennes igjen på `pipelined_from=` i run-loggen. **Trinn 2 (parallelle implementere) levert, ikke kjørt i drift ennå** — `coordinator-runbook.md` §5d + `tasks/parallel-disjoint.py`; armet via `parallel_implementers.max` i `loop.config.yaml`. Første parallelle runde kjennes igjen på `parallel_with=` i run-loggen (forventet inert inntil køen blander loop- og app-arbeid, jf. § 1.3.2 i planen) |
 
 Statuskolonnen er en **datert observasjon**, ikke en løpende sannhet. Skifter en fase tilstand, oppdateres cellen — og datoen i kolonneoverskriften — i templaten `v3-agent-orchestrator/templates/docs/orchestration-loop.md` etterfulgt av `/setup`, aldri i denne genererte fila (headeren øverst gjelder tokeniserte verdier i `loop.config.yaml`; narrativt innhold ligger i templaten).

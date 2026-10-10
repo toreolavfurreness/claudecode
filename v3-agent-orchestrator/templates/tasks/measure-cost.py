@@ -9,13 +9,13 @@ Bruk: python3 tasks/measure-cost.py [<since-iso>] [<session-dir>...] [--html <st
                    avslutter med exit 1 hvis minst én måling har gått i feil retning.
   --cutover <iso>  skillet før/etter kostnadsgrepene (standard 2026-09-15T18:30Z).
   --release <ver>  bare todoene i releasens scope (`tasks/release.py scope <ver>`): kost per release.
-  --brake <nr>     kostnadsbrems (TODO 455): én linje `brake todo=… class=… usd=… median=… n=… over=…`.
+  --brake <nr>     kostnadsbrems: én linje `brake todo=… class=… usd=… median=… n=… over=…`.
                    over=yes når todoens kost > 2× medianen for arkiverte todoer i samme effort-klasse.
                    over=few når klassen har færre enn 5 andre todoer med målt kost (ingen median).
   --pr <n>         (med --brake) todoens åpne PR: rader tilskrevet `PR<n>` (review/fix før merge-raden
                    finnes i run-loggen) legges til todoens sum. Uten --pr teller de ikke med.
   --brake-self-test  6 asserts mot brake_verdict/fold_pr.
-  --calibrate      egen sum (hovedfil + underagenter) mot harnessens `cost-state.totalCostUSD` per økt (TODO 457):
+  --calibrate      egen sum (hovedfil + underagenter) mot harnessens `cost-state.totalCostUSD` per økt:
                    `calibrate session=… harness=… own=… diff=…% final=…% over=…`, vindu `startTime`–slutt.
                    Exit 1 ved minst én over=yes uten KJENT HULL, exit 2 når ingen økt ble målt.
   --calibrate-self-test  9 tilfeller, kjører CLI-en mot konstruerte økter.
@@ -168,7 +168,6 @@ cutover = _opt('--cutover', '2026-09-15T18:30')
 # cwd-varianten var en vakuøs vakt: alle loop-agenter jobber i worktrees, og derfra
 # ga den `…-<repo>--claude-worktrees-agent-xxxx`, en katalog som ikke finnes.
 # Resultatet var `dirs = []` → `rows = []` → «SUM: $0.00» med exit 0, uten én advarsel.
-# (Kode-review PR #852 runde 2, 2026-09-17.)
 def _project_dir():
     """Kanonisert sesjonskatalog for repoet vi står i, sett fra hvilken som helst worktree."""
     try:
@@ -183,14 +182,13 @@ def _project_dir():
 
 # Alle prosjektmapper som inneholder repo-stien, ikke bare hovedsjekkoutens: en koordinator som
 # kjører fra en worktree eller scratchpad får egen mappe (`…-<repo>--claude-worktrees-…`,
-# `…-<repo>-…-scratchpad-…`). Med bare hovedmappa var 64 % av én release usynlig i
-# opphavsprosjektet (målt 2026-09-27).
+# `…-<repo>-…-scratchpad-…`). Med bare hovedmappa blir mye av en release usynlig.
 PROJECT_DIR = os.path.join(os.path.dirname(_project_dir()), '*' + os.path.basename(_project_dir()) + '*')
 since = args[0] if args else (datetime.now(timezone.utc) - timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
 dirs = args[1:] or sorted(d for d in glob.glob(os.path.join(PROJECT_DIR, '*')) if os.path.isdir(os.path.join(d, 'subagents')))
 
 # Et tomt `dirs` skal ALDRI kunne leses som en måling: uten denne vakten rapporterer
-# scriptet «SUM: $0.00» med exit 0 når PROJECT_DIR peker feil. (Kode-review PR #852.)
+# scriptet «SUM: $0.00» med exit 0 når PROJECT_DIR peker feil.
 if not dirs and not prices_check:
     sys.exit(f'ingen sesjonskataloger med subagents under {PROJECT_DIR}\n'
              f'  cwd = {os.getcwd()}\n'
@@ -201,7 +199,7 @@ def weight(u):
     return (u['in'] + 1.25 * u['cc'] + 0.1 * u['cr'] + 5 * u['out'])
 
 # USD per MTok, (input, cache-write 5m, cache-write 1h, cache-read, output) — samme kolonnerekkefølge
-# som https://platform.claude.com/docs/en/about-claude/pricing (hentet 2026-10-04). Etterprøv med:
+# som https://platform.claude.com/docs/en/about-claude/pricing. Etterprøv med:
 #   curl -sL https://platform.claude.com/docs/en/about-claude/pricing.md -o <fil>
 #   python3 tasks/measure-cost.py --prices-check <fil>
 # Halekommentaren er radnavnet på siden. Cache-lesing er 0,1x input, unntatt fotnotene: Fable 5.1
@@ -251,7 +249,7 @@ def usd(u, model):
     return ((u.get('input_tokens') or 0) * pi + (c5 or 0) * p5 + (c1 or 0) * p1
             + (u.get('cache_read_input_tokens') or 0) * pr + (u.get('output_tokens') or 0) * po) / 1e6
 
-# Kalibrering (TODO 457). Terskel 10 %: økter fra før Claude Code 2.1.281 avviker høyst 3,5 % fra
+# Kalibrering. Terskel 10 %: økter fra før Claude Code 2.1.281 avviker høyst 3,5 % fra
 # harnessens tall. Fra 2.1.281 mangler underagent-transkriptene endelig usage (output-tokens), og
 # egen sum blir ~25 % for lav. Det meldes som KJENT HULL når `final` (andelen underagent-meldinger
 # med stop_reason) er under 50 %. Begrensning: KJENT HULL har ingen nedre grense og skjuler enhver

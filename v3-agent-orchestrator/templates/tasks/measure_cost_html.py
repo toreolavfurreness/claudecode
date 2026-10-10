@@ -96,12 +96,8 @@ def money(x):
     return f'${x:,.0f}' if x >= 100 else f'${x:,.2f}'
 
 
-# Tiltak uten egen decision-log-rad. Effort-endringen er avlest i transkriptet 13.09, ikke
-# loggført, og står derfor her — med kilden oppgitt, slik at den ikke ser ut som en logget rad.
-EXTRA_MILESTONES = [
-    ('2026-09-13 10:27', 'Koordinator-effort satt til high',
-     'Avlest i transkriptet — ikke loggført som egen rad.', 'transkript'),
-]
+# Tiltak uten egen decision-log-rad: (tidspunkt, tittel, tekst, kilde). Tom som standard.
+EXTRA_MILESTONES = []
 
 # Rader i decision-log som er TILTAK på loopen selv, ikke beslutninger om én todo.
 MEASURE_ROW = re.compile(
@@ -155,9 +151,9 @@ def _epoch(ts):
 # (chip-farge i grafen) og `trend_report` (exit-kode i §8c). Flagget lå først bare i
 # rapporten, og grafen rendret rød chip på «kostnad per dag» mens rapporten sa
 # «kontekst» — to kilder til samme sannhet, altså nøyaktig divergensen `normalize`
-# ble trukket ut for å fjerne. (Kode-review PR #852, 2026-09-17.)
+# ble trukket ut for å fjerne.
 #
-# `gate` = kan målingen utløse §8c-plikt? «kostnad per dag» kan IKKE: målt 2026-09-17
+# `gate` = kan målingen utløse §8c-plikt? «kostnad per dag» kan IKKE: målt
 # er r = 0,963 mot antall agentkjøringer per dag, så den måler hvor mye vi jobbet, ikke
 # hvor effektivt. Som gate ville den fyrt hver gang vi jobbet mye — rød av feil grunn,
 # speilvendt av en vakt som aldri kan bli rød. Beholdes som kontekst.
@@ -176,7 +172,7 @@ def _num(v):
     `str(...).isdigit()`. De er ikke ekvivalente — `'-1'` og `' 3'` passerer bare den
     første, og `'²'` passerer `isdigit()` men får `float()` til å kaste. Ingen
     divergerende verdi finnes i dagens run-log, men to kilder til samme serie er
-    akkurat det `SERIES` ble innført for å fjerne. (Kode-review PR #852 runde 2.)
+    akkurat det `SERIES` ble innført for å fjerne.
     """
     try:
         return float(v)
@@ -200,13 +196,13 @@ def _verdict(vals, lower_is_better=True, window=5):
         # til en retning» — usant for en serie med nok punkter, og den teksten kan
         # aldri bli FEIL VEI. Det rammet nettopp serien der 0 ER måltilstanden:
         # Gate F-returer har nådd 0, så en full regresjon ville blitt meldt som
-        # «for få punkter» med exit 0. (Kode-review PR #852, 2026-09-17.)
+        # «for få punkter» med exit 0.
         if after == 0:
             return ('→', 'flat', f'uendret (0 begge vinduer, siste {n} mot forrige {n})')
         # Pilen følger FORTEGNET (verdien steg), dommen følger `lower_is_better`.
         # Første form snudde pilen sammen med dommen og påsto nedgang på en serie som
         # hadde steget — samme sammenblanding av «retning» og «bra/dårlig» som
-        # `SERIES` ble innført for å avslutte. (Kode-review PR #852 runde 2.)
+        # `SERIES` ble innført for å avslutte.
         return ('↑', 'bad' if lower_is_better else 'good',
                 f'fra 0 til {after:.2f} i snitt — baselinen var null, '
                 f'siste {n} mot forrige {n}')
@@ -371,7 +367,7 @@ def normalize(rows, rl):
     """
     if rows and rows[0].get('_normalized'):
         return
-    # PR-nummer (fra «Kode-review PR 812»-beskrivelser) → todo via run-log; «197A» → «197» når
+    # PR-nummer (fra «Kode-review PR 12»-beskrivelser) → todo via run-log; «12A» → «12» når
     # delleveransen ikke har egen run-log-rad men hovedtodoen har aktivitet.
     pr_to_todo = {v['pr']: k for k, v in rl.items() if v.get('pr')}
     keys = {r['todo'] for r in rows}
@@ -381,7 +377,7 @@ def normalize(rows, rl):
         if re.fullmatch(r'\d+[A-Z]', t) and t not in rl and t[:-1] in keys:
             t = t[:-1]
         r['todo'] = t
-    # Linse-agenter beskrives ofte med PR-nummeret («Race review PR 812»). Er PR-en ikke i run-log
+    # Linse-agenter beskrives ofte med PR-nummeret («Race review PR 12»). Er PR-en ikke i run-log
     # ennå, arver de forelderens todo (kode-revieweren navngir todoen).
     by_id = {r['agent']: r for r in rows}
     for r in rows:

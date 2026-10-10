@@ -48,7 +48,7 @@ sha=<full-40-char-origin/{{BASE_BRANCH}}-HEAD-SHA>;tests=<green|red|infra-feil>;
   `infra-feil` (kommando feilet å starte: manglende dep, config-feil, OOM — IKKE regresjon).
 - `rls` — `green` (ingen åpne hull), `red` (funn som krever eskalering), `n/a` (ingen
   tech-relevante endringer siden forrige helsesjekk, eller ingen tech-review-agenter konfigurert).
-- `web` — web-lastings-/login-smoke (A5b, tetter BUG-076-blindsonen): `green` (kjørte, passerte),
+- `web` — web-lastings-/login-smoke (A5b, tetter blindsonen): `green` (kjørte, passerte),
   `red` (kjørte, reell web-regresjon — eskalér), `n/a` (kjent worktree-/Metro-begrensning,
   curl-probe-bekreftet — eskalerer IKKE, samme filosofi som `rls=n/a`), `infra-feil` (Playwright selv
   ødelagt, ikke worktree-stien — eskalér).

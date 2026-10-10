@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# {{PROJECT_NAME}} — regresjonsharness for .claude/hooks/guard-main-merge.sh (TODO 188, PR1).
+# {{PROJECT_NAME}} — regresjonsharness for .claude/hooks/guard-main-merge.sh (PR1).
 #
 # Kjøres: bash .claude/hooks/test-guard-main-merge.sh [sti-til-hook]
 # HARNESS_PHASE=pre|post (default pre) velger hvilken forventet fasit (NÅ/ETTER)
@@ -7,7 +7,7 @@
 # være grønn (0 AVVIK), fase "post" er en RØD-fase-demonstrasjon (rader med
 # NÅ ≠ ETTER, samt post-only-rader, avviker mot dagens hook med vilje — se
 # planens § 8 / Steg 5). Fasit for hver rad = hookens EGEN exit-kode
-# (2 = BLOKKERT, 0 = SLIPPER) — ikke grep i eget skall (lesson 2026-08-31).
+# (2 = BLOKKERT, 0 = SLIPPER) — ikke grep i eget skall.
 #
 # Radtabellen (case-uttrykkene under) er GENERERT fra planens V1-V5+V4b-tabeller
 # av implementerens autoringskript (ikke committet — se PR1-beskrivelsen for
@@ -410,7 +410,7 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 CMDEOF
       ;;
     A5) cat <<'CMDEOF'
-git push origin claude/todo-188-x
+git push origin claude/todo-12-x
 CMDEOF
       ;;
     A6) cat <<'CMDEOF'
@@ -934,7 +934,7 @@ write_gh_stub() {
   local dest="$1"
   cat > "$dest" <<'GHSTUBEOF'
 #!/usr/bin/env perl
-# Per-case gh-stub for TODO 188-harnessen. Leser KUN STUB_*-miljøvariabler —
+# Per-case gh-stub for harnessen. Leser KUN STUB_*-miljøvariabler —
 # hooken får ingen test-override (§ 7.3).
 use strict;
 use warnings;
@@ -994,7 +994,7 @@ write_gen_refspecs_pl() {
   local dest="$1"
   cat > "$dest" <<'REFSPECSPLEOF'
 #!/usr/bin/env perl
-# TODO 188, § 0.2b — push-refspec-generator, "pre"-fase-gate (VIKTIG-3/VIKTIG-4,
+# § 0.2b — push-refspec-generator, "pre"-fase-gate (VIKTIG-3/VIKTIG-4,
 # r4-pålegg MINDRE-9). Sammenligner referansemodellen (§ 5 pkt 10a steg 1-5)
 # mot DAGENS regex, ordrett transkribert fra guard-main-merge.sh blokk 1
 # (hooken er uendret i PR1 — se plan-header). Kjøres av
@@ -1249,7 +1249,7 @@ write_gen_baserefs_pl() {
   local dest="$1"
   cat > "$dest" <<'BASEREFSPLEOF'
 #!/usr/bin/env perl
-# TODO 188, § 0.2b — base-rommet-generator, "pre"-fase-gate. Kryssproduktet
+# § 0.2b — base-rommet-generator, "pre"-fase-gate. Kryssproduktet
 # {--base V, --base=V, -B V, -BV} x {13 refs + "{{PROD_BRANCH}}", '{{PROD_BRANCH}}', $BR} = 64
 # kandidater, kjørt mot DAGENS blokk 2 (ordrett transkribert) og mot
 # referansemodellen for § 5 pkt 10b. Ingen forhåndsspesifisert fasit-telling
@@ -1375,7 +1375,7 @@ mutate_hook_variant() {
 
 build_longcmd() {
   # ~300000 byte, sendes via STDIN (aldri argv) — Linux' MAX_ARG_STRLEN
-  # (128 KiB per argv-element) felte nøyaktig dette i TODO 187s CI-runde.
+  # (128 KiB per argv-element) feller nøyaktig dette i CI.
   local kind="$1"
   local pad
   pad="$(head -c 300000 /{{BASE_BRANCH}}/zero | tr '\0' 'x')"

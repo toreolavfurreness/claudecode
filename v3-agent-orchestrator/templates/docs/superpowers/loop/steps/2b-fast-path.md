@@ -26,14 +26,10 @@ rutevalg (§3/§4 dispatches rett og slett ikke).
 **Run-log ved fast-path:** `models`-feltet skriver `skipped` for hoppede stadier →
 `skipped/skipped/<impl-modell>/<code-reviewer-modell>`, `plan_review_rounds=0`.
 
-**Presedens-referanser (annotert presist):**
-- **TODO 151** (run-log 2026-07-12T02:30, `skipped/skipped/Sonnet4.6/Opus4.8`) = den
-  **rene/kanoniske** fast-path-raden: planner+reviewer hoppet, code-reviewer FAKTISK KJØRT.
-  Bruk denne som mal.
-- **TODO 136** (run-log 2026-07-01T12:35, `Opus4.8/skipped/skipped/skipped`) siteres **KUN**
-  for at «`skipped` er en gyldig per-stadie-verdi» i run-log-formatet. 136s
-  `code-reviewer=skipped` forutdaterer og **BRYTER** §5b-aldri-hoppes-regelen over — den er
-  **IKKE** en gyldig fast-path-mal og skal ikke etterlignes.
+**Mal for raden:** `skipped/skipped/<impl-modell>/<code-reviewer-modell>` er den kanoniske
+fast-path-raden: planner og reviewer hoppet, code-reviewer FAKTISK KJØRT. `skipped` er en gyldig
+per-stadie-verdi, men `code-reviewer=skipped` BRYTER §5b-aldri-hoppes-regelen over og er aldri en
+gyldig fast-path-rad.
 
 **Auditbar presedens:** når fast-path anvendes, MÅ du logge HVILKEN presedens (arkivert
 todo/lesson) som påberopes — ikke bare `models=skipped`. Konkret: (i) §5-dispatch-noten
