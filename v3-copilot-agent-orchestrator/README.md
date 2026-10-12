@@ -150,6 +150,7 @@ v3-copilot-agent-orchestrator/
 ├── MIGRATION.md               Ta kitet i bruk i et eksisterende prosjekt
 ├── loop.config.example.yaml   Den ENESTE fila du fyller (kopier → loop.config.yaml)
 ├── setup.md                   /setup — kompilerer config inn i kitet (token-tabell + skript)
+├── KIT-SYNC                   Vedlikehold: hvilken kit-versjon denne mappa sist ble synket mot
 ├── docs/
 │   ├── ARCHITECTURE.md        Universelt vs. config
 │   ├── PORTING-DECISIONS.md   Copilot-valgene, med kilder og det som må verifiseres

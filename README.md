@@ -80,6 +80,10 @@ Mappa nevner ikke Claude og kan deles der Copilot er påkrevd.
 
 **Velg v3 (Copilot) når:** du ville valgt v3, men må bruke GitHub Copilot.
 
+**Holdes i takt med v3:** workflowen `copilot-kit` sier fra (og holder en issue åpen) når
+`v3-agent-orchestrator/` er endret uten at endringen er portert, og validerer Copilot-kitet på hver PR.
+Se [`.github/kit-port/README.md`](.github/kit-port/README.md).
+
 **Flytte et prosjekt som kjører v3.7 i Claude Code:** loopen må stå stille. Kjør `/setup` fra
 `v3-copilot-agent-orchestrator/` med samme `loop.config.yaml` (modellene skrives om til Copilot-lister),
 flytt `docs/superpowers/loop/run-log.md`, `decision-log.md` og `retro-log.md` til `docs/loop/`, flytt
