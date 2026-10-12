@@ -1,0 +1,11 @@
+# Organisasjonens standardverdier for styring. Kopieres inn i prosjektets
+# v3-copilot-agent-orchestrator/loop.config.yaml (erstatter governance-blokken der).
+# Endre verdiene her i org-laget, ikke i hvert prosjekt.
+governance:
+  enabled: true
+  instructions_file: org/AGENTS.org.md            # organisasjonens standard, uendret
+  human_approval: plan_and_merge                  # tolkningen av «menneske i loopen», se org/compliance.md §1
+  approved_mcp_servers: []                        # TODO: navnene fra organisasjonens godkjente MCP-register
+  blocked_paths: ["infra/**", "**/*.tf", "**/*.bicep", "k8s/**", "helm/**", "charts/**", ".github/workflows/**"]
+  blocked_commands: default                       # infrastruktur, IAM/RBAC, hemmeligheter, --auto-approve
+  data_classification: internal                   # open | internal | sensitive (organisasjonens klasser)

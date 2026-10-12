@@ -120,6 +120,7 @@ git log origin/{{BASE_BRANCH}}..origin/{{PROD_BRANCH}} --oneline --no-merges
 Tomt = forsonet. Treff = uforsonet hotfix (eller en forsoning gjort med `-s ours` — sjekk begge).
 Forson til `{{BASE_BRANCH}}` FØR første dispatch.
 
+{{GOV_PREFLIGHT}}
 ### Rapporter modus
 
 Etter sjekkene, print:

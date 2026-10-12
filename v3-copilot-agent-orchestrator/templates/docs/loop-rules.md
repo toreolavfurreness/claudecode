@@ -208,6 +208,7 @@ Hver vakt har en testharness ved siden av seg (`test-guard-*.sh`, `scripts/test-
 Endrer du en vakt: kjør harnessen, og behandle endringen som `hook_selfmod` (se
 `docs/loop/report-schema.md`).
 
+{{GOV_RULES_SECTION}}
 ## Kit-regelen
 
 En PR som endrer en kitfil (en loop-fil som også finnes i kit-repoet), har en egen `Kit:`-linje i

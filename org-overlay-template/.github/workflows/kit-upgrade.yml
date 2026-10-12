@@ -1,0 +1,60 @@
+# Sier fra når det finnes en ny versjon av kitet (v3-copilot-agent-orchestrator) i kit-repoet.
+# Kjører hver mandag og ved behov. Holder én åpen issue tildelt repo-eieren til kitet er oppgradert.
+name: kit-upgrade
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sjekk kitversjon
+        id: kit
+        run: |
+          set +e
+          bash scripts/check-kit-upgrade.sh > kit.txt
+          rc=$?
+          set -e
+          cat kit.txt
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          { echo "## Kitversjon"; echo; echo '```'; cat kit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Oppdater issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RC: ${{ steps.kit.outputs.rc }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          TITLE="Ny versjon av agent-kitet"
+          NR="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+                -q ".[] | select(.title == \"$TITLE\") | .number" | head -1)"
+          HASH="$(sha256sum kit.txt | cut -c1-16)"
+          if [ "$RC" = "1" ]; then
+            {
+              echo "Det finnes en nyere versjon av kitet enn den i dette repoet."
+              echo
+              echo '```'; cat kit.txt; echo '```'
+              echo
+              echo "Oppgrader på en egen branch: \`bash scripts/upgrade-kit.sh\`, sammenlign \`loop.config.example.yaml\` med prosjektets \`loop.config.yaml\`, kjør \`bash scripts/apply-org-config.sh\` og \`/setup\`, og lag en PR. Issuen lukkes automatisk når kitet er oppdatert."
+              echo
+              echo "<!-- kit-hash: $HASH -->"
+            } > body.md
+            if [ -z "$NR" ]; then
+              gh issue create --title "$TITLE" --body-file body.md --assignee "$OWNER"
+            elif ! gh issue view "$NR" --json body -q .body | grep -qF "kit-hash: $HASH"; then
+              gh issue edit "$NR" --body-file body.md
+              gh issue comment "$NR" --body "Kitet har fått nye endringer siden sist — se oppdatert beskrivelse."
+            fi
+          elif [ "$RC" = "0" ] && [ -n "$NR" ]; then
+            gh issue close "$NR" --comment "Kitet er oppdatert."
+          elif [ "$RC" = "2" ]; then
+            echo "::warning title=Kitversjon ikke målt::$(head -1 kit.txt)"
+          fi

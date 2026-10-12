@@ -221,3 +221,17 @@ worktree_bootstrap:
   env_files: [.env.local, .env.test]
   env_allowed_keys: [NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, TEST_USER_EMAIL, TEST_USER_PASSWORD]
   env_denied_prefixes: [SUPABASE_SERVICE_ROLE_KEY, PROD_]
+
+# --- Styring (docs/loop/governance.md) ------------------------------------------
+# Valgfri; fravær eller enabled: false = av. Alle undernøkler unntatt enabled er valgfrie.
+governance:
+  enabled: false
+  # Ekstern instruksfil (f.eks. teamets eller virksomhetens agentstandard), lagt i repoet uendret.
+  # Settes inn øverst i AGENTS.md mellom INSTRUKSFIL-markører og byttes ut ved hver /setup.
+  # instructions_file: docs/standards/AGENTS.standard.md
+  human_approval: plan_and_merge                  # none | plan_and_merge (eieren godkjenner plan og merge per todo)
+  # approved_mcp_servers: [github]                # utelatt = ingen MCP-sjekk; [] = ingen MCP-servere tillatt
+  blocked_paths: ["infra/**", "**/*.tf", "**/*.bicep", "k8s/**", "helm/**", "charts/**", ".github/workflows/**"]
+  blocked_commands: default                       # "default" (infrastruktur, IAM, hemmeligheter, --auto-approve),
+                                                  # [] eller en liste med {pattern: <regex>, reason: <tekst>}
+  # data_classification: internal                 # kort tekst; vises for agentene, strengere data = pausepunkt

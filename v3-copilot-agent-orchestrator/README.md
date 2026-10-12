@@ -130,6 +130,29 @@ plassholdere, og `/setup` stopper til alle er byttet ut:
 
 ---
 
+## Styring (valgfri)
+
+Skal agentene følge en felles standard med menneskelig godkjenning, slå på `governance` i
+`loop.config.yaml`. Alle delene er valgfrie:
+
+- **`instructions_file`:** en ekstern instruksfil (f.eks. teamets eller virksomhetens agentstandard)
+  settes inn uendret øverst i `AGENTS.md` og går foran kitets regler. Den byttes ut hver gang `/setup`
+  kjøres, så endringer gjøres i kildefila.
+- **`human_approval: plan_and_merge`:** eieren godkjenner planen (etter plan-review, før koding) og
+  mergen (før noe når felles kode eller delt state committes), med faste spørsmål og bare et klart
+  «Ja/Godkjent/Kjør» som svar. Agentene skriver bare i egne worktrees og branches før det.
+- **`blocked_commands` og `blocked_paths`:** stoppes av en hook, og planer og PR-er som rører de
+  blokkerte stiene, avvises. Standardlista dekker infrastruktur, IAM, hemmeligheter og `--auto-approve`.
+- **`approved_mcp_servers`:** `/run-loop` stopper før første todo hvis `.mcp.json` har en server som
+  ikke står på lista.
+- **`data_classification`:** vises for agentene; strengere data er et pausepunkt.
+
+Detaljene står i `docs/loop/governance.md`, som genereres. Virksomhetsspesifikke tilpasninger (egen
+standard, tolkning, egne agenter og hooks) hører hjemme i et eget lag utenfor kitet; se
+`org-overlay-template/` i kit-repoet.
+
+---
+
 ## Forutsetninger
 
 - **Plattform:** GitHub Copilot med Copilot-harnessen: VS Code med Session Target = **Copilot** (ikke

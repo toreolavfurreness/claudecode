@@ -469,6 +469,58 @@ if _hooks_on["session_start_lint"] and not (get("verification_commands.type_chec
 if _hooks_on["typecheck_on_edit"] and not get("verification_commands.type_check"):
     sys.exit("FEIL: hooks.typecheck_on_edit_extensions er satt, men verification_commands.type_check er tom.")
 
+# --- Valider governance (valgfri nøkkel — fravær = styring AV) ---------------------------
+# Styring: en ekstern instruksfil (f.eks. en team- eller virksomhetsstandard) øverst i AGENTS.md,
+# menneskelig godkjenning av plan og merge, blokkerte kommandoer og stier, godkjente MCP-servere og
+# dataklassifisering. Se templates/docs/loop/governance.md.
+_gv = c.get("governance") or {}
+if not isinstance(_gv, dict):
+    sys.exit(f"FEIL: governance må være et objekt, fikk {_gv!r}.")
+_gv_on = _gv.get("enabled", False)
+if not isinstance(_gv_on, bool):
+    sys.exit(f"FEIL: governance.enabled må være true/false, fikk {_gv_on!r}.")
+_unknown_gv = set(_gv) - {"enabled", "instructions_file", "human_approval", "approved_mcp_servers",
+                          "blocked_paths", "blocked_commands", "data_classification"}
+if _unknown_gv:
+    sys.exit(f"FEIL: ukjente nøkler under governance: {sorted(_unknown_gv)}.")
+_gv_file = _gv.get("instructions_file")
+_gv_appr = _gv.get("human_approval", "plan_and_merge")
+_gv_mcp = _gv.get("approved_mcp_servers")
+_gv_paths = _gv.get("blocked_paths", [])
+_gv_cmds = _gv.get("blocked_commands", "default")
+_gv_class = _gv.get("data_classification")
+if _gv_on:
+    for _k, _v in _gv.items():
+        if isinstance(_v, str) and re.search(r"[<>]", _v):
+            sys.exit(f"FEIL: governance.{_k} har fortsatt en plassholder: {_v!r}.")
+    if _gv_file is not None:
+        if not isinstance(_gv_file, str) or not _gv_file.strip() or _gv_file.startswith("/") or ".." in _gv_file.split("/"):
+            sys.exit("FEIL: governance.instructions_file må være en relativ sti i repoet (eller utelates).")
+        if not os.path.isfile(os.path.join(ROOT, _gv_file)):
+            sys.exit(f"FEIL: governance.instructions_file peker på {_gv_file}, som ikke finnes. Legg fila der\n"
+                     "  (uendret) og kjør /setup på nytt, eller fjern nøkkelen.")
+    if _gv_appr not in ("none", "plan_and_merge"):
+        sys.exit(f"FEIL: governance.human_approval må være none eller plan_and_merge, fikk {_gv_appr!r}.")
+    if _gv_mcp is not None and (not isinstance(_gv_mcp, list)
+                                or not all(isinstance(x, str) and re.fullmatch(r"[A-Za-z0-9._-]+", x) for x in _gv_mcp)):
+        sys.exit(f"FEIL: governance.approved_mcp_servers må være en liste med servernavn (eller utelates), fikk {_gv_mcp!r}.")
+    if not isinstance(_gv_paths, list) or not all(isinstance(x, str) and x.strip() for x in _gv_paths):
+        sys.exit(f"FEIL: governance.blocked_paths må være en liste med glob-mønstre (fnmatch, `*` krysser `/`), fikk {_gv_paths!r}.")
+    if _gv_cmds != "default":
+        if not isinstance(_gv_cmds, list) or not all(
+                isinstance(x, dict) and set(x) == {"pattern", "reason"}
+                and isinstance(x["pattern"], str) and isinstance(x["reason"], str) for x in _gv_cmds):
+            sys.exit("FEIL: governance.blocked_commands må være \"default\", [] eller en liste med\n"
+                     "  {pattern: <regex>, reason: <tekst>}.")
+        for x in _gv_cmds:
+            try:
+                re.compile(x["pattern"])
+            except re.error as e:
+                sys.exit(f"FEIL: governance.blocked_commands: ugyldig regex {x['pattern']!r}: {e}")
+    if _gv_class is not None and (not isinstance(_gv_class, str) or not re.fullmatch(r"[A-Za-zÆØÅæøå0-9 ._-]+", _gv_class)):
+        sys.exit(f"FEIL: governance.data_classification må være en kort tekst (eller utelates), fikk {_gv_class!r}.")
+_gv_approval = _gv_on and _gv_appr == "plan_and_merge"
+
 # --- Valider worktree_bootstrap (valgfri nøkkel — fravær = ingen installasjon/env-kopi) ----
 # Verdiene rendres inn i et bash-skript. Alt som havner mellom doble anførselstegn valideres
 # mot tegn som ville brutt ut av strengen; install_cmd går via sitert heredoc og er fri.
@@ -741,6 +793,44 @@ _topics_own = [x for x in c["lessons_topics"] if x != "open-followups"]
 lessons_topics_bullets = "\n".join(f"- `{x}/`" for x in _topics_own)
 lessons_index_entries = "\n".join(f"- `{x}/` — <scope: fyll inn>" for x in _topics_own)
 
+# --- Styring: blokker som settes inn i run-loop, stegfilene og loop-rules -------------------
+GOV_PREFLIGHT = """
+### 5. Styring (governance)
+
+Styring er på. Les `docs/loop/governance.md` før første todo. Kjør så:
+
+```bash
+python3 tasks/governance-check.py mcp; echo "exit=$?"
+```
+
+Exit 1 (en MCP-server er ikke godkjent) eller 2 (kan ikke måles) → **STOPP: pausepunkt**, før
+første todo. Rapporter `Styring: på (godkjenning: <human_approval>, MCP: OK)` sammen med de andre
+preflight-linjene.
+"""
+GOV_GATE_PLAN = """
+**Styring: godkjenning av plan (BINDENDE, før §5).** Etter `go`: følg `docs/loop/governance.md` §2 —
+sjekk plan-rapporten mot blokkerte stier (`python3 tasks/governance-check.py paths --plan-report <fil>`),
+vis eieren plan, berørte filer, diff og risikovurdering, og still spørsmålet ordrett. Ingen
+implementer-dispatch uten et klart ja og `plan_godkjent: <ISO>` i todoens frontmatter. Dette gjelder
+også fast-path (§2b) og pipelinede planer (§5c).
+"""
+GOV_GATE_MERGE = """
+**Styring: godkjenning av merge (BINDENDE, mellom steg 0 og steg 1).** Etter at CI-gaten er grønn,
+og før lessons, bugs, arkiv, merge eller run-log røres: følg `docs/loop/governance.md` §3 —
+`python3 tasks/governance-check.py paths --pr <pr>`, vis eieren PR, diffstat, CI-dom, reviewens
+konklusjon og delt-state-endringene, og still spørsmålet ordrett. Uten et klart ja: ingen merge,
+ingen delt-state-commit, `phase: venter-eier`. Ved ja får run-log-raden
+`godkjent=plan:<ISO>,merge:<ISO>`. Delt-state-halen i steg 6 (og i §6c/§7/§8/§8b) committes heller
+ikke uten godkjenning, se governance.md §3.
+"""
+GOV_RULES_SECTION = """
+## Styring
+
+Styring er på. Godkjenninger, faste regler, blokkerte kommandoer og stier, godkjente MCP-servere og
+dataklassifisering står i [`docs/loop/governance.md`](loop/governance.md). Workers leser den i Steg 0.
+Står det en instruksfil øverst i `AGENTS.md`, går den foran disse reglene ved konflikt.
+"""
+
 HEADER = ("<!--\n  GENERERT av /setup fra loop.config.yaml — IKKE rediger her.\n"
           "  Endre loop.config.yaml og kjør /setup på nytt.\n-->")
 
@@ -820,6 +910,26 @@ M = {
     "{{DEEP_DISPATCH_ALLOWED}}": case_pattern(_deep_list),
     "{{BELOW_IMPLEMENTER_ALIAS}}": _below_impl,
     "{{FIXR3_IMPL_EXPECT}}": _fixr3_impl_expect,
+    # Styring (governance.*). Blokk-tokens er tomme når styring er av.
+    "{{GOV_HUMAN_APPROVAL}}": _gv_appr if _gv_on else "",
+    "{{GOV_INSTRUCTIONS_LINE}}": (f"Instruksfila `{_gv_file}` står øverst i `AGENTS.md` (satt inn uendret av `/setup`) og går "
+                                  "foran resten av `AGENTS.md` og kitets regler. Er noe her i konflikt med den, gjelder "
+                                  "instruksfila, og koordinatoren stopper og spør.") if (_gv_on and _gv_file) else "",
+    "{{GOV_APPROVED_MCP_SERVERS}}": repr(_gv_mcp) if _gv_on else "None",
+    "{{GOV_BLOCKED_PATHS}}": repr(_gv_paths if _gv_on else []),
+    "{{GOV_BLOCKED_COMMANDS}}": ("DEFAULT_BLOCKED_COMMANDS" if _gv_cmds == "default"
+                                 else repr([[x["pattern"], x["reason"]] for x in _gv_cmds])) if _gv_on else "[]",
+    "{{GOV_BLOCKED_PATHS_LIST}}": (", ".join(f"`{x}`" for x in _gv_paths) or "ingen") if _gv_on else "",
+    "{{GOV_BLOCKED_COMMANDS_DESC}}": ("standardlista i `tasks/governance-check.py` (infrastruktur, IAM, hemmeligheter, `--auto-approve`)"
+                                      if _gv_cmds == "default" else
+                                      ("; ".join(x["reason"] for x in _gv_cmds) or "ingen")) if _gv_on else "",
+    "{{GOV_MCP_LIST}}": ((", ".join(f"`{x}`" for x in _gv_mcp) or "ingen — enhver MCP-server stopper loopen")
+                         if _gv_mcp is not None else "ikke satt — ingen MCP-sjekk") if _gv_on else "",
+    "{{GOV_DATA_CLASSIFICATION}}": (f"`{_gv_class}`" if _gv_class else "ikke satt") if _gv_on else "",
+    "{{GOV_PREFLIGHT}}": (GOV_PREFLIGHT if _gv_on else ""),
+    "{{GOV_GATE_PLAN}}": (GOV_GATE_PLAN if _gv_approval else ""),
+    "{{GOV_GATE_MERGE}}": (GOV_GATE_MERGE if _gv_approval else ""),
+    "{{GOV_RULES_SECTION}}": (GOV_RULES_SECTION if _gv_on else ""),
     "{{GENERATED_HEADER}}": HEADER,
 }
 
@@ -872,6 +982,8 @@ if not _hooks_on["implementer_model_guard"]:
 if not _hooks_on["compaction_checkpoint"]:
     SKIP_WHEN_OFF |= {".github/hooks/scripts/precompact-checkpoint.sh",
                       ".github/hooks/scripts/test-checkpoint-hooks.sh", "docs/loop/steps/0c-sjekkpunkt.md"}
+if not _gv_on:
+    SKIP_WHEN_OFF |= {"docs/loop/governance.md", "tasks/governance-check.py"}
 if not _hooks_on["session_start_lint"]:
     SKIP_WHEN_OFF.add(".github/hooks/scripts/session-start-lint.sh")
 if not _hooks_on["typecheck_on_edit"]:
@@ -976,6 +1088,30 @@ if re.search(r"^@docs/loop-rules\.md\s*$", _cmt, re.M):
     notes.append("AGENTS.md: linja `@docs/loop-rules.md` er en importsyntaks Copilot ikke følger — "
                  "fjern den manuelt (lenken over gjør jobben)")
 
+# --- AGENTS.md: ekstern instruksfil øverst (governance.instructions_file) -----------------
+# Fila settes inn UENDRET mellom to markører øverst i AGENTS.md og byttes ut ved hver /setup
+# (kilden eies av den som eier standarden). Resten av AGENTS.md røres ikke.
+_STD_START = "<!-- INSTRUKSFIL START"
+_STD_END = "<!-- INSTRUKSFIL SLUTT -->"
+with open(_cm) as f: _cmt = f.read()
+_has_std = _STD_START in _cmt and _STD_END in _cmt
+if _gv_on and _gv_file:
+    with open(os.path.join(ROOT, _gv_file), encoding="utf-8") as f: _std_text = f.read().rstrip("\n")
+    _std_block = (f"{_STD_START}: satt inn uendret av /setup fra {_gv_file} — ikke rediger her. "
+                  "Den går foran alt annet i denne fila og i loop-reglene. -->\n"
+                  f"{_std_text}\n{_STD_END}\n")
+    if _has_std:
+        _new_cmt = re.sub(re.escape(_STD_START) + r".*?" + re.escape(_STD_END) + r"\n?", lambda m: _std_block,
+                          _cmt, count=1, flags=re.S)
+    else:
+        _new_cmt = _std_block + "\n" + _cmt
+    if _new_cmt != _cmt:
+        with open(_cm, "w") as f: f.write(_new_cmt)
+        notes.append(f"AGENTS.md: instruksfila {_gv_file} {'oppdatert' if _has_std else 'satt inn øverst'}")
+elif _has_std:
+    notes.append("AGENTS.md: har en INSTRUKSFIL-blokk, men governance.instructions_file er ikke satt — "
+                 "blokken står urørt; fjern den manuelt hvis den ikke skal brukes")
+
 # --- .github/hooks/loop-guards.json: GENERERT (kit-eid, overskrives) ---------------------
 # Copilot laster alle .github/hooks/*.json (version 1). Kit-et eier denne ene fila og skriver
 # den på nytt hver gang fra hooks.* — prosjektets egne hooks ligger i andre filer i samme mappe
@@ -988,6 +1124,8 @@ _HOOK_REG = [
     ("compaction_checkpoint",   "preCompact",  "sh .github/hooks/scripts/precompact-checkpoint.sh",   30),
 ]
 _hooks_doc = {"version": 1, "hooks": {}}
+_hooks_on["governance"] = _gv_on
+_HOOK_REG.insert(2, ("governance", "preToolUse", "python3 tasks/governance-check.py hook", 30))
 for _key, _event, _cmd, _timeout in _HOOK_REG:
     if _hooks_on[_key]:
         _hooks_doc["hooks"].setdefault(_event, []).append(

@@ -50,6 +50,7 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
 
 <!-- mekanisk-kandidat: CI-gate før merge — preToolUse-hook på merge-kallet som krever ci=green for samme sha (mangler; guard-main-merge.sh håndhever A4) -->
 
+{{GOV_GATE_MERGE}}
 Fra ferdig-rapporten, `status: "implemented"`:
 1. **Lessons:** for hver `lessons[]`, skriv én fil `tasks/lessons/<topic>/<YYYY-MM-DD>-<slug>.md` etter skrive-protokollen i `tasks/lessons.md` og formatet i `docs/loop-rules.md` § «Lessons learned — én fil per lesson»: `sources` → frontmatter-`kilder`, `pattern`/`checklist` → **Problem:**/**Løsning:**/**Unngå:**. Ingen indeks å oppdatere. Dekker en eksisterende lesson samme mønster: utvid den i stedet. Carry-forwards (planens CF-seksjon, rapportens `notes`) går til `tasks/followups/`, én fil per oppfølging — de er ikke et lessons-tema.
 1b. **Rollehukommelse (kun når rollens minne er på i `agent_memory`):** for hver kandidat i
