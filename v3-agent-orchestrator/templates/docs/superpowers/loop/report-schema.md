@@ -32,7 +32,7 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
   "plan_path": "tasks/plans/todo-41-redirect-after-login-next-flyt.md",
   "summary": "Kort sammendrag av valgt tilnærming (1-3 setninger).",
   "files_touched": ["src/proxy.ts", "src/app/login/page.tsx"],
-  "technical_risk": { "flagged": false, "kind": null, "executable_gate": null, "detail": null },
+  "technical_risk": { "flagged": false, "kind": null, "executable_gate": null, "native_dep": null, "native_permission": null, "detail": null },
   "deps_ok": true,
   "verification_criteria": ["Uinnlogget bruker på dyp lenke → /login?next=<url>"],
   "planned_diff": { "lines": 40, "files": 2 },
@@ -43,8 +43,9 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
 }
 ```
 
-- `technical_risk.flagged`: `true` hvis planen krever noe under pause-triggerne. `kind` ∈ `"migration"|"rls"|"prod_push"|"secrets"|"docs_selfmod"|"hook_selfmod"` (de to siste dekker kit-selvmodifisering). `docs_selfmod` = `v3-agent-orchestrator/templates/`, `.claude/commands/setup.md` — IKKE prosjektets øvrige dokumentasjon. `hook_selfmod` = ikke-A-håndhevende hooks i `.claude/hooks/` (i dag: `typecheck-on-edit.sh`, `session-start-lint.sh`, `guard-reviewer-readonly.sh` + tilhørende test-script) — **eksplisitt UTENFOR scope:** hooks som håndhever en nivå-A-invariant (`guard-main-merge.sh` = A4 push/merge til `{{PROD_BRANCH}}`; `guard-supabase-ref.sh` = A1/A7 prod/dev-prosjektref-skille) forblir ALLTID nivå A uansett `executable_gate`, fordi B5s koordinator-selv-godkjenning ellers ville latt koordinatoren godkjenne endring av vakten som håndhever sin egen A-plikt. Tilpass ellers til prosjektets pause-triggere.
+- `technical_risk.flagged`: `true` hvis planen krever noe under pause-triggerne. `kind` ∈ `"migration"|"rls"|"prod_push"|"secrets"|"docs_selfmod"|"hook_selfmod"|"native"` (`docs_selfmod`/`hook_selfmod` dekker kit-selvmodifisering; `"native"` er native iOS-kodearbeid). `docs_selfmod` = `v3-agent-orchestrator/templates/`, `.claude/commands/setup.md` — IKKE prosjektets øvrige dokumentasjon. `hook_selfmod` = ikke-A-håndhevende hooks i `.claude/hooks/` (i dag: `typecheck-on-edit.sh`, `session-start-lint.sh`, `guard-reviewer-readonly.sh` + tilhørende test-script) — **eksplisitt UTENFOR scope:** hooks som håndhever en nivå-A-invariant (`guard-main-merge.sh` = A4 push/merge til `{{PROD_BRANCH}}`; `guard-supabase-ref.sh` = A1/A7 prod/dev-prosjektref-skille) forblir ALLTID nivå A uansett `executable_gate`, fordi B5s koordinator-selv-godkjenning ellers ville latt koordinatoren godkjenne endring av vakten som håndhever sin egen A-plikt. Tilpass ellers til prosjektets pause-triggere.
 - `technical_risk.executable_gate` (kun relevant når `kind` er `docs_selfmod`/`hook_selfmod`): `true` hvis planen har en KJØRBAR testtabell/differensial/mutasjonstest for endringen (ikke bare prosa-verifisering). `null` for de øvrige `kind`-verdiene. Koordinatoren klassifiserer `flagged: true` med `kind ∈ {docs_selfmod, hook_selfmod}` og `executable_gate: true` som **pausepunkt-regel B5** (`tasks/decision-level.py`) — bestemmer selv og logger i stedet for å spørre. Enhver annen `technical_risk` (inkludert ALT flagget av en REVIEWER, som aldri bærer `kind`/`executable_gate` — se «Kode-review-rapport» under) forblir nivå A.
+- `technical_risk.native_dep` og `technical_risk.native_permission` (`true|false` når `kind` er `"native"`, `null` ellers). Har planen også en annen risiko (migrasjon, RLS, secrets, prod/main, Edge-deploy), er `kind` den, aldri `native`. `native_dep` = planen legger til en avhengighet med native kode eller en config-plugin, eller rører `eas.json`, `app.config.js` eller `app.json` utenom ren visningstekst, eller EAS-miljøer (konfigurasjonen avgjør hva et bygg peker på, se `CLAUDE.md` § Native iOS-bygg). `native_permission` = planen legger til en tillatelse (Info.plist-nøkkel, `ios.infoPlist`/`permissions` i `app.json`/`app.config.js`, entitlement). Begge `false` er **pausepunkt-regel B8** (koordinatoren sender `true` som `yes` og `false` som `no`), ellers A3.
 - `deps_ok`: `false` → `status: "blocked"`.
 - `planned_diff`: planens anslag for diffen, i linjer og filer. §4 sammenligner det med budsjettet fra §3-dispatchen (proporsjonalitet).
 - `canary`: stikkprøve på at filene faktisk ble lest. Koordinatoren oppgir et mål (fil + linje som IKKE er gjentatt i prompten); planneren returnerer linjenummeret den landet på og den eksakte teksten der. Mismatch = lesing hoppet over. NB: dette beviser at lesing *skjedde*, ikke at *alle* bootstrap-filer ble lest fullt.
@@ -79,12 +80,13 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
 ```
 
 - `severity` ∈ `"BLOKKERENDE"|"VIKTIG"|"MINDRE"`.
+- `deferred` (valgfri, kun deltareview): `deferred[]` har samme form som `findings[]` og bærer funn utenfor rundens endring. Aldri gate-input. Bæres til §5-dispatchen sammen med VIKTIG/MINDRE.
 - `verdict` ∈ `"go"` (ingen BLOKKERENDE) | `"no-go"` (≥1 BLOKKERENDE → koordinator sender tilbake til planner etter konvergensregelen i `coordinator-runbook.md` § Konvergensregel).
 - `evidence`: reviewer er IKKE symmetrisk med planner — revieweren SKRIVER ingenting, den LESER kun planfilen. `reviewed_head` er derfor PRIMÆRT bevis (beviser faktisk lesing av riktig artefakt); koordinatoren matcher den mot SIN EGEN kopi av planfilen (den reviewer ble dispatchet mot). `toplevel` beviser kun reviewerens egen cwd, ikke at riktig artefakt ble lest — merkes SVAKT/sekundært.
 - **Dette skjemaet har ingen `technical_risk`-nøkkel**. En reviewer som mener planen
   bærer teknisk risiko, flagger det via `verdict: "no-go"` + `notes`, ikke via et strukturert felt.
   Koordinatorens `tasks/decision-level.py` klassifiserer ALL reviewer-initiert `technical_risk` som
-  nivå A — **pausepunkt-regel B5 gjelder KUN plan-rapportens `technical_risk`**, aldri reviewerens.
+  nivå A — **pausepunkt-regel B5 og B8 gjelder KUN plan-rapportens `technical_risk`**, aldri reviewerens.
 
 ## Lens-observasjon (tech-review-sub-agent → code-reviewer)
 
@@ -267,6 +269,8 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
 → Rapport med 0 BLOKKERENDE + 0 VIKTIG (kun MINDRE / ingen funn): verdict = "go", revise-gate trigges ikke → merge.
 ```
 
+`deferred` (valgfri, kun deltareview): `deferred[]` har samme form som `findings[]`. Aldri gate-input, sendes aldri til `review-severity-floor.py`, og skrives til `tasks/followups/` i §6.
+
 `verdict` alene er ikke revise-gaten. Koordinatorens §5b-gate leser severity-arrayet direkte og sender tilbake til implementer ved ≥1 BLOKKERENDE **eller** ≥1 VIKTIG. MINDRE-funn blokkerer verken `verdict` eller revise-gaten.
 
 ## Ferdig-rapport (implementer → koordinator)
@@ -294,7 +298,7 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
     { "topic": "workflow-process", "pattern": "…", "checklist": "…", "sources": "TODO 41" }
   ],
   "bugs_closed": [],
-  "bugs_new": [],
+  "bugs_new": [{ "title": "…", "discovered": "YYYY-MM-DD" }],
 {{SCOUT_USAGE_LINE}}  "deviations": "ingen",
   "notes": "Fritekst til koordinatoren."
 }
@@ -350,6 +354,7 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
   Koordinatoren avleder `degradation`-kolonnen i run-log fra BEGGE feltene sammen — se
   `run-log.md` for den fullstendige formelen (begge carve-outs).
 - Implementeren skriver `lessons`/`bugs_*` som DATA. Den skriver ALDRI til `tasks/lessons*`, `tasks/followups/`, `tasks/bugs.md` eller `tasks/todo_archive.md`, og rører ikke todo-frontmatteren — det gjør koordinatoren.
+- Hvert element i `bugs_new[]`/`bugs_closed[]` bærer datoen buggen ble oppdaget i feltet `discovered: "YYYY-MM-DD"`, og oppføringen koordinatoren skriver åpner med `**Oppdaget:** YYYY-MM-DD`.
 
 ## `run-log.md`s frittekst-notatfelt (kalt «felt 11» i `coordinator-runbook.md`)
 
@@ -359,7 +364,7 @@ appender selv: `selector=<agenter>`, `floor=<n> viol=<n>`,
 `floor_exempt=<g>:godtatt,<a>:avvist`,
 `pipelined_from=<todo>` (§5c), `auto_decided=<rad-eier>:<antall>`, `attest=<verdi>`
 , `vblock=<ok|stale|missing|legacy|stuck>` (med F5s valgte V-ID i parentes:
-`vblock=ok(F5:V4)`), `wtguard=<none|missing|ok|violation>`, og `scout=<dispatches>d/<KB>kb` (lokaliserings-workeren). Feltets EKSAKTE
+`vblock=ok(F5:V4)`), `wtguard=<none|missing|ok|violation>`, `planned=<linjer>/<filer>`, og `scout=<dispatches>d/<KB>kb` (lokaliserings-workeren). Feltets EKSAKTE
 nummer i forhold til spec-tabellens navngitte kolonner er ikke fastsatt — denne setningen dokumenterer kun INNHOLDET, ikke posisjonen.
 
 **`scout=`-tokenet.** Formen er `scout=<dispatches>d/<KB>kb`, der begge tallene er summen over ALLE
@@ -384,6 +389,8 @@ oppdragsgiveren — en øvre grense, ikke en besparelse (§ Scout-rapport). Seri
 over mange runder sammenlignet med rundenes øvrige form (antall fix-runder, `plan_review_rounds`),
 aldri som et regnskap per runde.
 
+**`planned=`-tokenet.** Verdien er `Planlagt diff:`-linja i planfila (`Planlagt diff: 280/11` gir `planned=280/11`), og `planned=n/a` for en todo uten planfil. `tasks/retro-numbers.py` leser den mot faktisk diff.
+
 `attest=` er, sammen med `pipelined_from=`, `vblock=` og `wtguard=`, blant tokenene i registeret over hvis
 FRAVÆR IKKE er et kontraktbrudd — i motsetning til `floor=`, `floor_exempt=`, `auto_decided=` og
 `scout=` (sistnevnte kun når `scout.enabled` er `true`), som ALLE gjør fravær til et kontraktbrudd:
@@ -394,6 +401,7 @@ FRAVÆR IKKE er et kontraktbrudd — i motsetning til `floor=`, `floor_exempt=`,
 | `floor_exempt=` | Ja | på ikke-`health`-rader med `floor=` |
 | `auto_decided=` | Ja | alltid, på ikke-`health`-rader |
 | `scout=` | Ja | kun når `scout.enabled` er `true` |
+| `planned=` | Ja | på `merged`-rader der planfila har `Planlagt diff:`-linja (eldre planer har den ikke) |
 | `attest=` | Nei (`observe`) | — |
 | `pipelined_from=` | Nei | — |
 | `vblock=` | Nei | — |

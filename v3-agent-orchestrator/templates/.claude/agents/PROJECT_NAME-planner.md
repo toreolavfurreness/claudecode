@@ -35,6 +35,8 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 
 Les og følg `.claude/commands/todo-plan.md` i sin helhet. Skriv planfilen `tasks/plans/todo-<nr>-<slug>.md` (din egen nye fil). **UNNTAK:** ikke sett `plan:`/`status` i todo-frontmatteren — de eies av koordinatoren; returner `plan_path` i rapporten i stedet. Du venter IKKE på menneskelig godkjenning og du kjører IKKE devil's-advocate selv — det gjør en uavhengig reviewer.
 
+Rett under `**Status:**` står `Planlagt diff: <linjer>/<filer>` ved linjestart: samme tall som `planned_diff` i plan-rapporten, oppdatert i hver revisjon. Koordinatoren fører det som `planned=` på merge-raden.
+
 Rør KUN planfilen din. Rør IKKE todo-frontmatteren, og skriv ALDRI til `tasks/lessons*`, `tasks/followups/`, `tasks/bugs.md` eller `tasks/todo_archive.md`.
 
 ### Selv-audit av V-kriteriene (BINDENDE — gjør dette FØR du leverer planen)
@@ -130,4 +132,4 @@ I FULL modus (faktisk planarbeid): sluttrapporten din MÅ bære et `evidence`-ob
 
 ## Returverdi
 
-Siste melding = ETT JSON-objekt etter plan-rapport-skjemaet i `docs/superpowers/loop/report-schema.md`. Sett `technical_risk.flagged: true` ved risiko, fyll `canary` fra målet koordinatoren oppga, og fyll `evidence` per seksjonen over (utelatt kun i probe-modus). Er `technical_risk.kind` `"docs_selfmod"` eller `"hook_selfmod"` (kit-selvmodifisering): fyll ALLTID `technical_risk.executable_gate` (`true` kun hvis planen har en kjørbar testtabell/differensial/mutasjonstest for endringen, ikke bare prosa) — koordinatoren bruker feltet til å avgjøre om dette er nivå A eller nivå B (`tasks/decision-level.py`).
+Siste melding = ETT JSON-objekt etter plan-rapport-skjemaet i `docs/superpowers/loop/report-schema.md`. Sett `technical_risk.flagged: true` ved risiko, fyll `canary` fra målet koordinatoren oppga, og fyll `evidence` per seksjonen over (utelatt kun i probe-modus). Er `technical_risk.kind` `"docs_selfmod"` eller `"hook_selfmod"` (kit-selvmodifisering): fyll ALLTID `technical_risk.executable_gate` (`true` kun hvis planen har en kjørbar testtabell/differensial/mutasjonstest for endringen, ikke bare prosa) — koordinatoren bruker feltet til å avgjøre om dette er nivå A eller nivå B (`tasks/decision-level.py`). Er risikoen native iOS-arbeid, er `kind` ordrett `"native"` (ikke `native_ios`, `native_ios_modal` e.l.), og `native_dep` og `native_permission` fylles ALLTID (`true|false`). En plan som rører `eas.json`, `app.config.js` eller `app.json` utenom ren visningstekst, eller EAS-miljøer, setter `native_dep: true`. Har planen også en annen risiko (migrasjon, RLS, secrets, prod/main, Edge-deploy), er `kind` den, aldri `native`.

@@ -100,6 +100,7 @@ autoritativt; tabellen er for mennesker.
 | `{{HEALTH_CHECK_INTERVAL}}` | `release.health_check_merge_interval` |
 | `{{PIPELINE_MAX_IN_FLIGHT}}` | `pipelining.max_in_flight` — valgfri nøkkel, default `0` |
 | `{{PARALLEL_IMPLEMENTERS_MAX}}` | `parallel_implementers.max` — valgfri nøkkel, default `1` (§5d) |
+| `{{RETRO_FILE_CLASSES}}` | `retro_file_classes` — valgfri nøkkel (rendret Python-liste `CLASSES = [(navn, (mønster, …)), …]`, brukt av `tasks/retro-numbers.py`). Fravær ⇒ tester og planer/docs/loop |
 | `{{MEMORY_PLANNER}}` | `agent_memory.scope` + `agent_memory.enabled_roles` (planner) — valgfri nøkkel |
 | `{{MEMORY_REVIEWER}}` | `agent_memory.scope` + `agent_memory.enabled_roles` (reviewer) — valgfri nøkkel |
 | `{{MEMORY_IMPLEMENTER}}` | `agent_memory.scope` + `agent_memory.enabled_roles` (implementer) — valgfri nøkkel |
@@ -287,6 +288,25 @@ if isinstance(_pimax, bool) or not isinstance(_pimax, int) or _pimax < 1:
         f"FEIL: parallel_implementers.max må være et heltall >= 1 "
         f"(1 = dagens sekvensielle atferd), fikk {_pimax!r}."
     )
+
+# --- Valider retro_file_classes (valgfri nøkkel — fravær = standardlista) ---
+# Filklassene tasks/retro-numbers.py fordeler tillagte linjer på. Første treff
+# vinner, og det som ikke treffer, er appkode. Substituert på SETUP-TID.
+_rfc = c.get("retro_file_classes")
+if _rfc is None:
+    _rfc = [
+        {"name": "tester", "patterns": ["e2e/", "__tests__", ".test.", ".spec."]},
+        {"name": "planer/docs/loop", "patterns": ["tasks/", "docs/", ".claude/", ".md"]},
+    ]
+if not isinstance(_rfc, list) or not all(
+    isinstance(k, dict) and isinstance(k.get("name"), str) and k["name"]
+    and isinstance(k.get("patterns"), list) and k["patterns"]
+    and all(isinstance(p, str) and p for p in k["patterns"])
+    for k in _rfc
+):
+    sys.exit("FEIL: retro_file_classes må være en liste av {name: <tekst>, patterns: [<tekst>, …]}.")
+retro_file_classes = "CLASSES = [" + ", ".join(
+    f"({k['name']!r}, {tuple(k['patterns'])!r})" for k in _rfc) + "]"
 
 # --- Valider scout (valgfri nøkkel — fravær = scout AV) -------------------
 # Lokaliserings-workeren (§3/§5). Fravær ⇒ enabled = False ⇒ charteret genereres
@@ -635,6 +655,7 @@ M = {
     "{{HEALTH_CHECK_INTERVAL}}": str(c["release"]["health_check_merge_interval"]),
     "{{PIPELINE_MAX_IN_FLIGHT}}": str(_pmif),
     "{{PARALLEL_IMPLEMENTERS_MAX}}": str(_pimax),
+    "{{RETRO_FILE_CLASSES}}": retro_file_classes,
     "{{MEMORY_PLANNER}}": memory_line("planner"),
     "{{MEMORY_REVIEWER}}": memory_line("reviewer"),
     "{{MEMORY_IMPLEMENTER}}": memory_line("implementer"),

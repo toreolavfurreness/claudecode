@@ -139,6 +139,10 @@ def status():
         if d.get("status") == "deferred":
             out.append(f"ADVARSEL: TODO {d['nr']} er utsatt, men står i scope. Flytt den til en annen "
                        "release eller fjern `release:`.")
+    for d in open_:
+        if re.search(r"\brelease-retro\b", d.get("tags", "") or ""):
+            out.append(f"ADVARSEL: retro-todoen TODO {d['nr']} er åpen. Den holdes i egen sesjon med "
+                       "eieren før første claim i releasen.")
     cut = rel.get("cutoff", "")
     if re.match(r"\d{4}-\d{2}-\d{2}$", cut):
         for d in open_:
@@ -205,6 +209,12 @@ def self_test():
             todo("2", "open", "1.0.0", tags="[prod-release]"); todo("3", "open")
             check("åpen todo i scope → PÅGÅR, exit 0", 0, "DOM: PÅGÅR")
             check("prod-release-todoen teller ikke som åpen", 0, "åpne 1 ")
+            todo("6", "open", "1.0.0", tags="[release-retro, eierpunkt]")
+            check("åpen retro-todo gir ADVARSEL", 0, "retro-todoen TODO 6 er åpen")
+            todo("6", "open", "1.0.0", tags="[retro]")
+            check("taggen retro alene gir ingen retro-advarsel", 0, "ingen", lambda: (
+                0, [] if any("retro-todoen" in l for l in status()[1]) else ["ingen"]))
+            os.remove("tasks/todos/todo-6-x.md")
             todo("1", "done", "1.0.0", extra='epic: "deling"\n')
             w(ARCHIVE, "## TODO 0 — Arkivert sak\n**Release:** 1.0.0\n**Epic:** deling\n**PR:** #7\n\n"
                        "## TODO 9 — Annen release\n**Release:** 0.9.0\n")

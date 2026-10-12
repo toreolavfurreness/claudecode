@@ -162,6 +162,16 @@ pipelining:
 parallel_implementers:
   max: 1
 
+# --- Filklasser i retro-tallene (tasks/retro-numbers.py) -------------------
+# Valgfri nøkkel. Tallskriptet fordeler tillagte linjer per release på disse
+# klassene. Første treff vinner (delstreng i filstien), og det som ikke
+# treffer noen, telles som appkode. Mangler nøkkelen, brukes lista under.
+retro_file_classes:
+  - name: tester
+    patterns: ["e2e/", "__tests__", ".test.", ".spec."]
+  - name: planer/docs/loop
+    patterns: ["tasks/", "docs/", ".claude/", ".md"]
+
 # ===========================================================================
 # Valgfrie nøkler (v3)
 # ===========================================================================

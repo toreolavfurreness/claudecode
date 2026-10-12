@@ -55,9 +55,31 @@ Dette er den billigste gaten i loopen: et falsk-rødt kriterium som ikke fanges 
 fix-runde og én kode-review-runde, og et vakuøst kriterium koster hele todoen fordi ingen oppdager
 at arbeidet ikke ble gjort.
 
+### Deltareview (runde 2 og senere)
+
+Gjelder når dispatchen sier `DELTAREVIEW runde <N>`. Bindende:
+
+1. For hvert funn fra forrige runde: er det rettet? Et funn som ikke er rettet, eller er rettet
+   feil, står i `findings[]` med samme severity.
+2. Les endringen mellom rundene. Alt den rører, granskes like strengt som i runde 1. I plan-review
+   kjøres kriterie-auditen på hvert V-kriterium som er nytt eller endret, og på hvert kriterium som
+   står uendret, men får ny forventet verdi fordi et steg er endret. I kode-review leses
+   `gh pr diff` fortsatt i sin helhet. Linjer i fix-diffen som ikke står i `gh pr diff`, kommer fra `origin/{{BASE_BRANCH}}`
+   og er ikke PR-ens. Kan du ikke lese endringen (fix-diffen eller planens diff), eller er den tom, si det i `notes` og gjør full review.
+3. En rettelse som bevises med en test, skal ha testen målt rød uten rettelsen, med feilårsaken
+   sitert ordrett. Mangler målingen, eller er årsaken en krasj, en manglende import eller en tom
+   testseleksjon, er rettelsen ikke bevist: **VIKTIG** (plan-review: et vakuøst kriterium er
+   BLOKKERENDE som før).
+4. Et nytt funn utenfor endringen står bare i `findings[]` når det er BLOKKERENDE og navngir et
+   konkret feilscenario (inndata eller tilstand, og det gale utfallet). Alt annet går i
+   `deferred[]` med ærlig severity og samme form som `findings[]`. Et funn som skyldes rundens
+   endring, er innenfor endringen uansett hvor symptomet står.
+
 ### Ufravikelige invarianter (sjekk planen mot disse)
 
 {{TIER1_INVARIANTS}}
+
+Native kodearbeid (også i en iOS-Modal) som ikke er EAS-bygg/TestFlight, ny native avhengighet, ny tillatelse eller endring i `eas.json`/`app.config.js`/`app.json`/EAS-miljøer, flagger du ikke som teknisk risiko, men en plan med native kodearbeid uten `technical_risk` med `kind: native` i dispatchen er et **BLOKKERENDE** funn. Det gjelder ikke når planen også har en av risikoene over: da er `kind` den (`report-schema.md`), og du flagger den risikoen. Står `technical_risk` med `kind: native` i dispatchen, etterprøver du `native_dep` (også `eas.json`/`app.config.js`/`app.json` og EAS-miljøer, se `report-schema.md`) og `native_permission` mot planens fil-liste og steg. Et galt svar, eller `kind: native` på en plan som også har en av risikoene over, er et **BLOKKERENDE** funn.
 
 Ikke gjenta planen. Pek kun på svakheter, hver med konkret `ref` + foreslått `fix`. Ranger BLOKKERENDE / VIKTIG / MINDRE.
 

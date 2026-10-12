@@ -29,7 +29,7 @@ For den aktuelle TODO-en, presenter en detaljert plan som dekker:
 4. **Risiko og fallgruver:** Hva kan gå galt? Trekk eksplisitt på erfaringer fra de relevante lesson-filene (etter lese-protokollen i tasks/lessons.md)
 5. **Verifisering:** Eksakte steg for å bekrefte at oppgaven er ferdig (basert på TODO-ens testkriterier)
 
-Merk alle risikable steg eksplisitt med ⚠️ PAUSE i steg-listen. Risikable steg er {{PAUSE_TRIGGERS}}, typisk:
+Merk alle risikable steg eksplisitt med ⚠️ PAUSE i steg-listen. Risikable steg er {{PAUSE_TRIGGERS}}, ny native avhengighet, ny tillatelse eller endring i `eas.json`/`app.config.js`/`app.json`/EAS-miljøer. Annet native kodearbeid (også i en iOS-Modal) får ikke PAUSE, det flagges i plan-rapporten som `technical_risk` med `kind: "native"`. Typisk:
 - Database-migrasjoner / skjemaendringer
 - Endringer i tilgangs-/sikkerhetspolicies (f.eks. RLS-policies)
 - Sletting av filer eller data

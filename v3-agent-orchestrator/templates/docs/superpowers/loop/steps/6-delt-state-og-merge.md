@@ -50,7 +50,7 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
 
 Fra ferdig-rapporten, `status: "implemented"`:
 1. **Lessons:** for hver `lessons[]`, skriv én fil `tasks/lessons/<topic>/<YYYY-MM-DD>-<slug>.md` etter skrive-protokollen i `tasks/lessons.md` og formatet i `docs/loop-rules.md` § «Lessons learned — én fil per lesson»: `sources` → frontmatter-`kilder`, `pattern`/`checklist` → **Problem:**/**Løsning:**/**Unngå:**. Ingen indeks å oppdatere. Dekker en eksisterende lesson samme mønster: utvid den i stedet. Carry-forwards (planens CF-seksjon, rapportens `notes`) går til `tasks/followups/`, én fil per oppfølging — de er ikke et lessons-tema.
-2. **Bugs:** `bugs_new[]` → `tasks/bugs.md`; `bugs_closed[]` → `tasks/bugs_archive.md` (opprett fila hvis den ikke finnes).
+2. **Bugs:** `bugs_new[]` → `tasks/bugs.md`; `bugs_closed[]` → `tasks/bugs_archive.md` (opprett fila hvis den ikke finnes). Hver oppføring, ny som lukket, har `**Oppdaget:** YYYY-MM-DD` som første linje under overskriften (ISO-dato først, forklaring etter), og linja beholdes ved flytting til arkivet: `tasks/retro-numbers.py` teller bugs i perioden på den. Datoen er elementets `discovered`. Mangler den, får en ny bug dagens dato fra `date +%F`. En lukket bug får aldri en gjettet dato: da utelates linja, og tallet blir `IKKE MÅLT`.
 3. **Arkiver todo:** flytt til `tasks/todo_archive.md` (format: se eksisterende oppføringer). Slett `tasks/todos/todo-<nr>-<slug>.md`. Flytt planfil → `tasks/plans/archive/`.
 4. **Merge:** verifiser base FØR merge — `gh pr view <pr> --json baseRefName -q .baseRefName` → MÅ være `{{BASE_BRANCH}}`, ALDRI `{{PROD_BRANCH}}`.
 
@@ -238,6 +238,11 @@ Fra ferdig-rapporten, `status: "implemented"`:
    silent-node-failure-kilde. `printf` (ikke heredoc-&&-kjede) unngår
    del-eksekverings-fellen. Dedup-nøkkelen er `timestamp | todo_nr` — **to rader for samme
    todo i samme minutt støttes IKKE av denne nøkkelen**; bruk et distinkt `$TS` per rad. Workers rører ALDRI run-log.md.
+
+   **`planned=`** skrives sammen med raden, som `ci=`. Verdien er `Planlagt diff:`-linja i planfila:
+   `grep -hm1 '^Planlagt diff:' tasks/plans/archive/todo-<nr>-*.md` (planfila ligger i arkivet etter punkt 3),
+   og `Planlagt diff: 280/11` gir `planned=280/11`. Mangler linja (plan fra før 516), utelates tokenet, og en
+   todo uten planfil får `planned=n/a`. Tallet gjettes aldri. Overgang: 516s egen §6-rad SKAL bære `planned=`.
 
    **NB — notat-feltet (`selector=`/`floor=`/`viol=`/`floor_exempt=`/`pipelined_from=`/`parallel_with=`/
    `auto_decided=`/`attest=`/`vblock=`/`scout=`/`wtsweep=`/`ci=`) er IKKE med i `$ROW`-malen over.** De fleste

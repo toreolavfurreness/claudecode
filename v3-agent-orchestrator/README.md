@@ -99,6 +99,34 @@ pausepunkter). v3 er v2 pluss herding fra drift, og at `/setup` nå installerer
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.7** (eieren spørres bare om eiervalg, og fast retro per release):
+- **Deltareview fra runde 2:** plan-review og kode-review kontrollerer at forrige rundes funn er
+  rettet, og at rettelsen ikke har ødelagt noe. En rettelse som bevises med en test, skal ha testen
+  målt rød uten rettelsen. Nye funn utenfor endringen teller bare når de er BLOKKERENDE med et
+  konkret feilscenario. Resten går i `deferred[]` og skrives til `tasks/followups/`.
+- **Konvergens på form er nivå B i begge gater.** §4 leses som §5b: koordinatoren avgjør og logger
+  (B7), og eieren spørres ved innholdsfunn, manglende data og kostnadsbremsen.
+- **B8, native kodearbeid:** `technical_risk.kind: native` med `native_dep` og `native_permission`.
+  Begge `false` er B8 (ingen spørsmål, rad på eierens enhetsliste i releasefila). Ellers A3. Regelen
+  er stack-spesifikk, som A3. Prosjekter uten native bygg merker den ikke.
+- **D4-avvik i helsesjekken** rettes og logges av koordinatoren (`loop [D4]: rettet`), uten kvittering.
+- **Fast retro per release:** `tasks/retro-numbers.py <versjon> --since <iso>` gir tallgrunnlaget
+  (runder, beslutninger, kostnad, hovedsesjoner, diff, ledetid, bugs), og
+  `docs/superpowers/loop/retro-template.md` er malen. Det som ikke kan måles, står som `IKKE MÅLT`.
+  `measure-cost.py` har fått `--main-usd` og `--until`, og `release.py status` advarer om åpen
+  retro-todo (`tags: [release-retro]`).
+- **`retro_file_classes`** (ny, valgfri nøkkel i `loop.config.yaml`): filklassene retro-tallene
+  fordeler tillagte linjer på. `BUGS_RULE` i `retro-numbers.py` er `(0, '')`: sett nummer og dato
+  bare hvis prosjektet har bugs fra før `Oppdaget`-linja ble påkrevd.
+- **Retro-tall føres framover:** `planned=<linjer>/<filer>` på merge-raden (fra `Planlagt diff:` i
+  planfila), `Eierens svar: venter (spurt …)` med tider, `SLAG` som eneste vokabular for `Type`, og
+  `MANGLER_TYPE`/`UKJENT_TYPE`/`FEIL_FORM` i `decision-level.py --agreement`. Bugs får datert
+  `Oppdaget`-linje.
+- **«Egen sesjon, ikke agent»** (runbooken): retro, prod-release, kit-port og brainstorm holdes i
+  egen sesjon, med overlevering i `docs/superpowers/loop/handover/`.
+- **Ikke med:** kitet har ingen `/release-prod`, så steget som oppretter retro-todoen står bare i
+  `tasks/releases/README.md`.
+
 **v3.6.1** (køsiden):
 - **Vente-grunn i pillen:** en `venter`-rad sier hva den venter på (deps, brainstorm, triage, eier,
   en annen release) i stedet for bare «venter».

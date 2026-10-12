@@ -18,7 +18,10 @@ Bruk: python3 tasks/measure-cost.py [<since-iso>] [<session-dir>...] [--html <st
   --calibrate      egen sum (hovedfil + underagenter) mot harnessens `cost-state.totalCostUSD` per økt:
                    `calibrate session=… harness=… own=… diff=…% final=…% over=…`, vindu `startTime`–slutt.
                    Exit 1 ved minst én over=yes uten KJENT HULL, exit 2 når ingen økt ble målt.
-  --calibrate-self-test  9 tilfeller, kjører CLI-en mot konstruerte økter.
+  --calibrate-self-test  12 tilfeller, kjører CLI-en mot konstruerte økter.
+  --main-usd       kostnaden i hovedfilene (ikke underagentene), én linje per økt med meldinger i vinduet og
+                   to SUM-linjer. Uten session-dir: alle økter, også de uten underagenter. Exit 2 uten økter.
+  --until <iso>    (med --main-usd) øvre grense for vinduet, til og med. Uten --main-usd: exit 2.
   --prices-check <fil>   sammenligner PRICES med prissiden (hent den med curl, se kommentaren ved PRICES).
   Uten <since-iso> brukes nå − 30 dager (UTC).
   MEASURE_ROWS=<sti.json> skriver i tillegg radene som JSON (legg den i scratchpad, ikke i repoet).
@@ -92,7 +95,7 @@ def _calibrate_self_test():
             with open(path, 'w', encoding='utf-8') as fh:
                 fh.write(''.join(json.dumps(x) + '\n' for x in lines))
         return d
-    cases = [   # (navn, økter, exit, skal stå i utskriften, skal IKKE stå)
+    cases = [   # (navn, økter, exit, skal stå i utskriften, skal IKKE stå[, flagg — standard --calibrate])
         ('vindu', [session()], 0, ['over=no', 'final=100%'], []),
         ('flere cost-state', [session(first={'type': 'cost-state', 'startTime': 1788249600000, 'totalCostUSD': 20.0})],
          0, ['over=no'], []),
@@ -104,13 +107,17 @@ def _calibrate_self_test():
         ('uten startTime', [session(start=None)], 2, [], ['calibrate session=']),
         # Exit-koden skal ikke settes fra siste økt alene.
         ('over foran kjent hull', [session(total=20.0), session(total=20.0, stop=None)], 1, ['KJENT HULL'], []),
+        ('main-usd', [session()], 0, ['usd=10.00', 'agents=1', 'SUM alle hovedsesjoner: $10.00 (1 økter)'], [],
+         ['--main-usd']),
+        ('main-usd until', [session()], 0, ['usd=5.00'], ['usd=10.00'], ['--main-usd', '--until', '2026-09-01T10:00']),
+        ('until uten main-usd', [session()], 2, [], ['usd='], ['--until', '2026-09-01T10:00']),
     ]
-    for name, dirs, code, has, hasnt in cases:
-        r = subprocess.run([sys.executable, __file__, '2020-01-01T00:00', *dirs, '--calibrate'],
+    for name, dirs, code, has, hasnt, *flags in cases:
+        r = subprocess.run([sys.executable, __file__, '2020-01-01T00:00', *dirs, *(flags[0] if flags else ['--calibrate'])],
                            capture_output=True, text=True)
         assert (r.returncode == code and all(x in r.stdout for x in has)
                 and not any(x in r.stdout for x in hasnt)), f'{name}: exit={r.returncode} {r.stdout!r} {r.stderr[-300:]!r}'
-    print('calibrate-self-test: 9/9')
+    print(f'calibrate-self-test: {len(cases)}/{len(cases)}')
 
 _KEY = r'([0-9]+(?:[A-Za-z][0-9]*)?)'
 
@@ -161,6 +168,13 @@ want_trend = '--trend' in args
 if want_trend:
     args.remove('--trend')
 cutover = _opt('--cutover', '2026-09-15T18:30')
+want_main = '--main-usd' in args
+if want_main:
+    args.remove('--main-usd')
+until = _opt('--until')
+if until and not want_main:
+    print('--until gjelder bare sammen med --main-usd', file=sys.stderr)
+    sys.exit(2)
 # Claude Code kanoniserer prosjektstien ved å bytte hvert ikke-alfanumeriske tegn
 # med `-`. Utledes fra repo-roten — IKKE fra cwd — så malen verken bærer én utviklers
 # hjemmekatalog inn i et nytt prosjekt eller bommer fra en worktree.
@@ -189,7 +203,7 @@ dirs = args[1:] or sorted(d for d in glob.glob(os.path.join(PROJECT_DIR, '*')) i
 
 # Et tomt `dirs` skal ALDRI kunne leses som en måling: uten denne vakten rapporterer
 # scriptet «SUM: $0.00» med exit 0 når PROJECT_DIR peker feil.
-if not dirs and not prices_check:
+if not dirs and not prices_check and not want_main:
     sys.exit(f'ingen sesjonskataloger med subagents under {PROJECT_DIR}\n'
              f'  cwd = {os.getcwd()}\n'
              f'  Dette er IKKE et $0-resultat — det er en manglende måling.')
@@ -313,6 +327,31 @@ def calibrate(dirs, since):
 
 if want_calibrate:
     sys.exit(calibrate(dirs, since))
+
+def main_usd(files, since, until):
+    """Hovedfilenes kostnad per økt. Rollen til en økt står ikke i transkriptet: leseren avgjør fra dir= og agents=."""
+    tot = {True: [0.0, 0], False: [0.0, 0]}   # har underagenter → [usd, økter]
+    for f in files:
+        ms = [m for m in (_msgs(f) if os.path.exists(f) else ())
+              if m[0] >= since and (not until or m[0][:len(until)] <= until)]
+        if not ms:
+            continue
+        agents = len(glob.glob(os.path.join(f[:-len('.jsonl')], 'subagents', 'agent-*.jsonl')))
+        cost = sum(m[1] for m in ms)
+        tot[agents > 0][0] += cost; tot[agents > 0][1] += 1
+        print(f"main session={os.path.basename(f)[:8]} dir={os.path.basename(os.path.dirname(f))[-24:]} agents={agents} "
+              f"usd={cost:.2f} n={len(ms)} first={min(m[0] for m in ms)} last={max(m[0] for m in ms)}")
+    n = tot[True][1] + tot[False][1]
+    if not n:
+        print('main-usd: ingen hovedsesjon med meldinger i vinduet — IKKE en måling.', file=sys.stderr)
+        return 2
+    print(f'SUM hovedsesjoner med underagenter: ${tot[True][0]:.2f} ({tot[True][1]} økter)')
+    print(f'SUM alle hovedsesjoner: ${tot[True][0] + tot[False][0]:.2f} ({n} økter)')
+    return 0
+
+if want_main:
+    sys.exit(main_usd([d.rstrip('/') + '.jsonl' for d in args[1:]]
+                      or sorted(glob.glob(os.path.join(PROJECT_DIR, '*.jsonl'))), since, until))
 
 # PR-nummer → todo fra run-loggens merge-rader (`| <todo> | <slug> | merged | - | #NNNN |`). Uten dette
 # ble «PR 1007» lest som todo 100 (`\d{3}` tok de tre første sifrene).

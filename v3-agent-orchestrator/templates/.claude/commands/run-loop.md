@@ -131,7 +131,7 @@ Tom kø → §6c helsesjekk + release-rådgiver → (grønn) §8b drain retro-lo
 
 ## Pausepunkter — STOPP, frigi claim, rapporter til brukeren
 
-- Teknisk risiko ({{PAUSE_TRIGGERS}})
+- Teknisk risiko ({{PAUSE_TRIGGERS}}; native kodearbeid utenom dem klassifiseres med `decision-level.py`, B8 eller A3)
 - Brainstorm-påkrevd todo (hopp over, rapporter)
 - Release: scope tomt (`MÅL NÅDD` / `MÅL IKKE NÅDD`), åpne scope-todoer uten kvalifiserte, eller `release.py status` exit 2 (§1)
 - Worker `failed`/`blocked`, merge-konflikt, canary-mismatch, reviewer no-go som ikke konvergerer, CI-gate før merge ikke grønn (§6 steg 0)

@@ -15,7 +15,7 @@ og kjør /setup på nytt. `{{PROD_ENV_ID}}`/`{{PROD_BRANCH}}`/`{{DEV_ENV_ID}}`/
 disse fire gjør V12 (idempotens) og V13 (V-DRY) substitusjons-BEVISSTE, ikke
 trivielt sanne.
 
-Regeltabellen (A1-A8 + B1-B7) og konvergensvakten under er én kilde i KODE.
+Regeltabellen (A1-A8 + B1-B8) og konvergensvakten under er én kilde i KODE.
 Den andre kilden er PROSA i `docs/superpowers/loop/coordinator-runbook.md`
 § Pausepunkter og § Konvergensregel — de to holdes i paritet av
 `--dump-rules` + Del D2 i hver helsesjekk.
@@ -47,15 +47,14 @@ overskriften og telles på eierens første rad med radtid >= oppføringstid. Exi
 manglende token eller oppføring etter en `merged`-rad, 2 når en fil ikke kan leses.
 
 `rule` er `"A0"` når klassifiseringen feiler høyt (ukjent hendelse, manglende
-påkrevd kontekst, kostnadsbrems, manglende konvergensdata, innholdsfunn, eller i §4 funn som
-ikke går ned) — DA er `level` alltid `"A"`,
+påkrevd kontekst, ugyldig verdi, kostnadsbrems, manglende konvergensdata eller innholdsfunn) — DA er `level` alltid `"A"`,
 `trigger` er `None`, og exit-koden er != 0. Et ikke-klassifiserbart valg blir
 ALDRI stilltiende et B-valg (fail-closed). For alle andre resultater
 (inkludert legitime A1-A8-treff, som bare betyr «spør mennesket», ikke et
 kontraktbrudd) er exit-koden 0.
 
-`--dump-rules` skriver TSV (`id<TAB>level<TAB>trigger`) for alle 15 radene
-(A1-A8, B1-B7) i den rekkefølgen de er definert under — brukt av V7/Del D2 for
+`--dump-rules` skriver TSV (`id<TAB>level<TAB>trigger`) for alle 16 radene
+(A1-A8, B1-B8) i den rekkefølgen de er definert under — brukt av V7/Del D2 for
 å avstemme mot runbook-prosaen.
 
 `--self-test` kjører fixturene og skriver `<N>/<total>` + PASS/FEIL per
@@ -79,9 +78,7 @@ from datetime import datetime, timedelta
 
 # CAP markerer første runde som har en forrige runde å sammenligne med
 # (konvergensdata kreves fra runde 2), og terskelen for decision_logged.
-# Intet fast rundetak: i §4 begrenses antall runder av at
-# gate-funnene må gå ned for hver runde, pluss kostnadsbremsen. I §5b
-# begrenser bare kostnadsbremsen og innholdsregelen.
+# Intet fast rundetak: i §4 og §5b begrenser bare kostnadsbremsen og innholdsregelen antall runder.
 CAP = 2
 
 # --- Regeltabellen (frossen prosa, én kilde i kode) -------------------------
@@ -91,7 +88,7 @@ CAP = 2
 A_RULES = [
     ("A1", "Skriving mot prod-miljøet (`{{PROD_ENV_ID}}`) eller kjøring av `{{RELEASE_COMMAND}}`"),
     ("A2", "Env-variabler, secrets eller vault"),
-    ("A3", "Native/EAS-bygg, TestFlight-distribusjon eller iOS-Modal-endring"),
+    ("A3", "Native/EAS-bygg, TestFlight-distribusjon, eller native iOS-arbeid med ny native avhengighet eller ny tillatelse"),
     ("A4", "Push eller merge til `{{PROD_BRANCH}}`"),
     ("A5", "Destruktiv eller irreversibel operasjon (datasletting, force-push, drop)"),
     ("A6", "Avvik fra `CLAUDE.md` eller `docs/naming-conventions.md` som krever menneskets bekreftelse"),
@@ -105,7 +102,8 @@ B_RULES = [
     ("B4", "Pipelining: valg eller drop av B-sporet (§5c)"),
     ("B5", "Godkjenning av `technical_risk` fra **plan-rapporten** når `kind ∈ {docs_selfmod, hook_selfmod}` **og** `executable_gate = true`"),
     ("B6", "Retro-triage: hvilke retro-observasjoner som promoteres eller lukkes (§8b)"),
-    ("B7", "§4 plan-review: ny revisjonsrunde (fra runde 2 kun ved konvergens) vs. drop/`open` — alle runder under kostnadstaket"),
+    ("B7", "§4 plan-review: ny revisjonsrunde (fra runde 2 kun uten innholdsfunn) vs. drop/`open` — alle runder under kostnadstaket"),
+    ("B8", "Godkjenning av `technical_risk` fra **plan-rapporten** når `kind = native` uten ny native avhengighet og uten ny tillatelse"),
 ]
 TRIGGER_BY_ID = dict(A_RULES + B_RULES)
 
@@ -114,7 +112,7 @@ TRIGGER_BY_ID = dict(A_RULES + B_RULES)
 
 # --- Påkrevd kontekst per hendelsesklasse -----------------------------------
 # `technical_risk` med `source == "planner"` krever i TILLEGG `kind` og
-# `executable_gate` — håndtert som spesialtilfelle i classify(), ikke her,
+# `executable_gate` (for `kind=native`: NATIVE_KEYS i stedet) — håndtert som spesialtilfelle i classify(), ikke her,
 # fordi kravet er BETINGET på en annen kontekstverdi.
 REQUIRED_CONTEXT = {
     "revise_gate_choice": ["code_review_rounds", "action"],
@@ -124,6 +122,7 @@ REQUIRED_CONTEXT = {
 }
 
 TRUE_STRINGS = {"yes", "true", "1"}
+NATIVE_KEYS = ("native_dep", "native_permission")
 
 
 def truthy(v):
@@ -143,7 +142,7 @@ def obligations_for(rule_id):
             "Regel-IDen er hentet fra DETTE skriptet (--event/--context), ikke fra hukommelsen.",
         ]
     return [
-        "Spør mennesket eksplisitt og vent på et uttrykkelig go/no-go.",
+        "Spør mennesket eksplisitt, med anbefaling og konsekvens i vanlig språk, og vent på et uttrykkelig go/no-go.",
         "Release claim (den CLAIMEDE todoens claim — aldri en pipelinet, u-claimet B, se §5c).",
     ]
 
@@ -157,29 +156,23 @@ def _a0(violations):
     return "A", "A0", None, [], violations
 
 
-def _convergence(ctx, n, narrow=False):
+def _convergence(ctx, n):
     """Konvergensregelen. Ikke-tom liste ⇒ A0.
 
-    narrow=True er §5b: at gate-funnene ikke går
-    ned, og en ny feilklasse, er B1. Innholdsfunn, manglende data og kostnadsbremsen er A0.
-    `cost_over=few` (bremsen mangler utvalg) er A0
-    bare i §5b fra runde 2 og teller ellers som `no`.
+    Begge gater leses likt (§5b og §4): at gate-funnene ikke går ned, og en ny feilklasse, er B1/B7. Innholdsfunn,
+    manglende data og kostnadsbremsen er A0. `cost_over=few` (bremsen mangler utvalg)
+    er A0 fra runde 2 og teller som `no` i runde 1.
     """
     v = []
-    if ctx.get("cost_over") not in (("no",) if narrow and n >= CAP else ("no", "few")):
+    if ctx.get("cost_over") not in (("no",) if n >= CAP else ("no", "few")):
         v.append(f"cost_brake: cost_over={ctx.get('cost_over')!r}")
     if n >= CAP:
         try:
-            prev, now = int(ctx["blocking_prev"]), int(ctx["blocking_now"])
+            int(ctx["blocking_prev"]), int(ctx["blocking_now"])
         except (KeyError, TypeError, ValueError):
             v.append("konvergensdata mangler/ugyldig: blocking_prev/blocking_now")
-        else:
-            if now >= prev and not narrow:
-                v.append(f"no_convergence: blocking {prev}->{now}")
-        if narrow and ctx.get("new_class") not in ("yes", "no"):
+        if ctx.get("new_class") not in ("yes", "no"):
             v.append(f"konvergensdata mangler/ugyldig: new_class={ctx.get('new_class')!r}")
-        elif not narrow and ctx.get("new_class") != "no":
-            v.append(f"no_convergence: new_class={ctx.get('new_class')!r}")
         if ctx.get("content") != "no":
             v.append(f"no_convergence: content={ctx.get('content')!r}")
     return v
@@ -189,7 +182,7 @@ def classify(event, ctx):
     """Returnerer (level, rule, trigger, obligations, violations).
 
     Evalueringsrekkefølge (§3.1, ufravikelig): konvergensvakt →
-    påkrevd-kontekst-vakt → A1..A8 → B1..B7 → A0 (fail-closed). Første treff
+    påkrevd-kontekst-vakt → A1..A8 → B1..B8 → A0 (fail-closed). Første treff
     vinner. Konvergensvakten kjøres FØR alt annet, uavhengig av `event` — det
     er nøyaktig det som lukker event-navn-lekkasjen (F14: `next_todo_select`
     med `code_review_rounds=3` og uten `decision_logged` er A0, selv om
@@ -209,7 +202,7 @@ def classify(event, ctx):
             violations.append(f"decision_logged mangler ved code_review_rounds={n}")
         # (ii) Kostnadsbrems, konvergensdata og innholdsregel for en NY fix-runde (smal lesning).
         if event == "revise_gate_choice" and ctx.get("action") == "fix_round":
-            violations += _convergence(ctx, n, narrow=True)
+            violations += _convergence(ctx, n)
 
     if event == "plan_review_choice" and "plan_review_rounds" in ctx:
         try:
@@ -224,10 +217,15 @@ def classify(event, ctx):
 
     # --- 2. Påkrevd-kontekst-vakt --------------------------------------------
     missing = [k for k in REQUIRED_CONTEXT.get(event, []) if k not in ctx]
+    native = event == "technical_risk" and ctx.get("source") == "planner" and ctx.get("kind") == "native"
     if event == "technical_risk" and ctx.get("source") == "planner":
-        missing += [k for k in ("kind", "executable_gate") if k not in ctx]
+        missing += [k for k in ("kind",) + (NATIVE_KEYS if native else ("executable_gate",)) if k not in ctx]
     if missing:
         return _a0([f"påkrevd kontekst mangler for {event!r}: {', '.join(missing)}"])
+    # `true`/`false` fra skjemaet skal oversettes til yes/no av koordinatoren. Alt annet er en feil.
+    bad = [f"ugyldig verdi: {k}={ctx[k]!r}" for k in NATIVE_KEYS if native and ctx[k] not in ("yes", "no")]
+    if bad:
+        return _a0(bad)
 
     # --- 3. A1..A8 ------------------------------------------------------------
     if event == "migration_apply" and ctx.get("env") == "prod":
@@ -238,7 +236,7 @@ def classify(event, ctx):
         return _hit("A2")
     if event == "technical_risk" and ctx.get("source") == "planner" and ctx.get("kind") == "secrets":
         return _hit("A2")
-    if event == "native_build":
+    if event == "native_build" or (native and [ctx[k] for k in NATIVE_KEYS] != ["no", "no"]):
         return _hit("A3")
     if event == "main_push":
         return _hit("A4")
@@ -253,7 +251,7 @@ def classify(event, ctx):
     if event == "edge_function_deploy":
         return _hit("A8")
 
-    # --- 4. B1..B7 ------------------------------------------------------------
+    # --- 4. B1..B8 ------------------------------------------------------------
     if event == "revise_gate_choice" and ctx.get("action") in ("fix_round", "merge_carry", "stop"):
         return _hit("B1")
     if event == "todo_split":
@@ -273,15 +271,18 @@ def classify(event, ctx):
         return _hit("B6")
     if event == "plan_review_choice" and ctx.get("action") in ("revise", "drop"):
         return _hit("B7")
+    if native:
+        return _hit("B8")
 
     # --- 5. A0 — fail-closed ----------------------------------------------
     return _a0([f"ukjent hendelse eller ingen regel treffer: event={event!r} context={ctx!r}"])
 
 
-# --- Fixtures (52 stk.: F1..F49 + F1b/F1c/F25b) -----------------------------
+# --- Fixtures (59 stk.: F1..F49 + F52..F58 + F1b/F1c/F25b) -----------------------------
 _CONV = {"blocking_prev": "3", "blocking_now": "1", "new_class": "no", "content": "no", "cost_over": "no"}
 _F28 = {"code_review_rounds": "2", "action": "fix_round", "decision_logged": "yes", **_CONV}
 _F34 = {"plan_review_rounds": "2", "action": "revise", **_CONV, "blocking_prev": "2"}
+_NAT = {"source": "planner", "kind": "native"}
 FIXTURES = [
     ("F1", "revise_gate_choice", {"code_review_rounds": "2", "action": "fix_round", "decision_logged": "yes", **_CONV}, "B", "B1"),
     ("F1b", "revise_gate_choice", {"code_review_rounds": "3", "action": "fix_round", "decision_logged": "yes", **_CONV, "blocking_prev": "2", "blocking_now": "2"}, "B", "B1"),
@@ -322,7 +323,7 @@ FIXTURES = [
     # på konvergensvakten.
     ("F27", "todo_split", {"code_review_rounds": "4", "decision_logged": "yes"}, "B", "B2"),
     # F28-F40: hver fixture skiller seg fra F28/F34 i ÉN nøkkel. §5b leses smalt:
-    # F29 (funnene går ikke ned) og F30 (ny feilklasse) er B1. §4 er uendret (F35, F37, F38).
+    # F29 (funnene går ikke ned) og F30 (ny feilklasse) er B1. §4 leses likt: F35 og F37 er B7, F38 er A0.
     ("F28", "revise_gate_choice", _F28, "B", "B1"),
     ("F29", "revise_gate_choice", {**_F28, "blocking_now": "3"}, "B", "B1"),
     ("F30", "revise_gate_choice", {**_F28, "new_class": "yes"}, "B", "B1"),
@@ -330,23 +331,32 @@ FIXTURES = [
     ("F32", "revise_gate_choice", {**_F28, "cost_over": "yes"}, "A", "A0"),
     ("F33", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round", "cost_over": "yes"}, "A", "A0"),
     ("F34", "plan_review_choice", _F34, "B", "B7"),
-    ("F35", "plan_review_choice", {**_F34, "blocking_prev": "1"}, "A", "A0"),
+    ("F35", "plan_review_choice", {**_F34, "blocking_prev": "1"}, "B", "B7"),
     ("F36", "revise_gate_choice", {**_F28, "code_review_rounds": "6", "blocking_prev": "2"}, "B", "B1"),
-    ("F37", "plan_review_choice", {**_F34, "new_class": "yes"}, "A", "A0"),
+    ("F37", "plan_review_choice", {**_F34, "new_class": "yes"}, "B", "B7"),
     ("F38", "plan_review_choice", {**_F34, "content": "yes"}, "A", "A0"),
     ("F39", "revise_gate_choice", {k: v for k, v in _F28.items() if k != "blocking_now"}, "A", "A0"),
     ("F40", "revise_gate_choice", {k: v for k, v in _F28.items() if k != "new_class"}, "A", "A0"),
-    # F41-F49: `few` stopper bare §5b fra runde 2. F46-F48 fester at `unknown` stopper
+    # F41-F49: `few` stopper begge gater fra runde 2 (F41, F43, F45). F46-F48 fester at `unknown` stopper
     # også i §4 og i §5b runde 1, F49 at manglende `cost_over` stopper i §5b runde 1.
     ("F41", "revise_gate_choice", {**_F28, "cost_over": "few"}, "A", "A0"),
     ("F42", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round", "cost_over": "few"}, "B", "B1"),
-    ("F43", "plan_review_choice", {**_F34, "cost_over": "few"}, "B", "B7"),
+    ("F43", "plan_review_choice", {**_F34, "cost_over": "few"}, "A", "A0"),
     ("F44", "plan_review_choice", {"plan_review_rounds": "1", "action": "revise", "cost_over": "few"}, "B", "B7"),
     ("F45", "revise_gate_choice", {**_F28, "code_review_rounds": "3", "cost_over": "few"}, "A", "A0"),
     ("F46", "plan_review_choice", {"plan_review_rounds": "1", "action": "revise", "cost_over": "unknown"}, "A", "A0"),
     ("F47", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round", "cost_over": "unknown"}, "A", "A0"),
     ("F48", "plan_review_choice", {**_F34, "cost_over": "unknown"}, "A", "A0"),
     ("F49", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round"}, "A", "A0"),
+    # F52-F58 (F50/F51 er reservert): native kodearbeid
+    # er B8 bare når begge feltene er `no`. Manglende felt, `false` og source=reviewer er A0.
+    ("F52", "technical_risk", {**_NAT, "native_dep": "no", "native_permission": "no"}, "B", "B8"),
+    ("F53", "technical_risk", {**_NAT, "native_dep": "yes", "native_permission": "no"}, "A", "A3"),
+    ("F54", "technical_risk", {**_NAT, "native_dep": "no", "native_permission": "yes"}, "A", "A3"),
+    ("F55", "technical_risk", {**_NAT, "native_dep": "no"}, "A", "A0"),
+    ("F56", "technical_risk", {**_NAT, "source": "reviewer", "native_dep": "no", "native_permission": "no"}, "A", "A0"),
+    ("F57", "technical_risk", {**_NAT, "native_dep": "false", "native_permission": "no"}, "A", "A0"),
+    ("F58", "plan_review_choice", {k: v for k, v in _F34.items() if k != "new_class"}, "A", "A0"),
 ]
 
 
@@ -378,8 +388,20 @@ RUN_LOG_PATH = "docs/superpowers/loop/run-log.md"
 _HEADER = re.compile(r"^### (\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?: —)? (.*)$")
 _TODO = re.compile(r"TODO (\d+[A-Za-z0-9]*)")
 _BTAG = re.compile(r"\[B\d+\]")
-_TOKEN = re.compile(r"auto_decided=[^ |;]*:(\d+)")
+_TOKEN = re.compile(r"auto_decided=([^ |;:]*):(\d+)")
 _FIELD = re.compile(r"\*\*([^*:]+):\*\*\s*(.*)")
+# `se <tid>` peker til svaroppføringen. Annen tekst som starter med «se» er et vanlig svar.
+_SE = re.compile(r"se \d{4}-\d{2}-\d{2} \d{2}:\d{2}", re.I)
+# Leddet foran kolon i `Type` -> slag. Eneste vokabular: leses av [A0]-vakten i reconcile() og av retro-numbers.py.
+SLAG = {ledd: slag for slag, ledd_ in {
+    "runder": "revise_gate_choice revise_gate plan_review_choice plan_invalid runder",
+    "eiervalg": "eiervalg scope_change calibration naming_deviation todo_split next_todo_select "
+                "pipeline_b_select retro_triage worker_blocked release_scope",
+    "risiko": "risiko technical_risk migration_apply edge_function_deploy secrets_change native_build "
+              "main_push destructive_op",
+    "kvittering": "kvittering health_red",
+    "måling": "måling",
+}.items() for ledd in ledd_.split()}
 
 
 def parse_log(text):
@@ -426,7 +448,8 @@ def agreement(entries):
     rows = {}
     for e in sorted(entries, key=lambda e: e["ts"]):
         svar = e["fields"].get("Eierens svar")
-        if svar is None or svar.lower().startswith("venter"):
+        # `se <tid>` peker til svaroppføringen, og en uoppfordret ordre er ikke et svar på en anbefaling.
+        if svar is None or svar.lower().startswith("venter") or _SE.match(svar) or "(uoppfordret)" in svar.lower():
             continue
         typ = e["fields"].get("Type") or re.split(r"[,\]]", _bracket(e["header"]))[0].strip()
         rows.setdefault(typ, []).append(svar.lower().startswith("fulgt"))
@@ -463,6 +486,9 @@ def _mini_log():
     out += entry("2026-09-10 10:00", "A0", Type="Y", Eierens_svar="fulgt")
     out += entry("2026-09-11 10:00", "A0", Type="Y", Eierens_svar="avvek: kutt")
     out += entry("2026-10-01 10:00", "A0", Type="X", Eierens_svar="venter")
+    out += entry("2026-09-13 10:00", "A0", Type="Y", Eierens_svar="se 2026-09-10 10:00")
+    out += entry("2026-09-14 10:00", "A0", Type="Y", Eierens_svar="ordre: x (uoppfordret)")
+    out += entry("2026-09-15 10:00", "A0", Type="V", Eierens_svar="se over, kutt X")   # ingen peker: et avvik
     out += entry("2026-09-12 10:00", "A, eier", Eierens_svar="Fulgt («ja»)")
     out += entry("2026-10-02 09:00", "B1", Reversibel_til="merge")
     out += entry("2026-10-01 11:00", "B", Reversibel_til="y")
@@ -475,7 +501,7 @@ def _mini_log():
 
 def run_parser_self_test():
     entries = parse_log(_mini_log())
-    exp_agr = ["A\t1\t1\t0\t-", "W\t10\t10\t0\t-", "X\t10\t10\t0\tflytt-til-B", "Y\t2\t1\t1\t-", "Z\t9\t9\t0\t-"]
+    exp_agr = ["A\t1\t1\t0\t-", "V\t1\t0\t1\t-", "W\t10\t10\t0\t-", "X\t10\t10\t0\tflytt-til-B", "Y\t2\t1\t1\t-", "Z\t9\t9\t0\t-"]
     got_agr = agreement(entries)
     got_rb = [(h["ts"], h["reversibel"]) for h in recent_b(entries, 24, datetime(2026, 10, 2, 12, 0))]
     exp_rb = [("2026-10-02 09:00", "merge")]
@@ -508,7 +534,7 @@ def attribute(entries, run_text):
             continue
         m = _TOKEN.search(line)
         row = {"ts": f[0][:16].replace("T", " "), "todo": f[1], "outcome": f[3],
-               "token": int(m.group(1)) if m else None, "n": 0}
+               "token": int(m.group(2)) if m else None, "key": m and m.group(1), "n": 0}
         rows.append(row)
         by_todo.setdefault(f[1], []).append(row)
     for rs in by_todo.values():
@@ -556,8 +582,20 @@ def reconcile(entries, run_text, since):
             missing += 1
             out.append(f"{ts} {r['todo']} rad=- logg={r['n']} MANGLER_TOKEN")
         else:
-            bad += r["token"] != r["n"]
-            out.append(f"{ts} {r['todo']} rad={r['token']} logg={r['n']} {'OK' if r['token'] == r['n'] else 'AVVIK'}")
+            status = "AVVIK" if r["token"] != r["n"] else "FEIL_FORM" if r["key"] != r["todo"] else "OK"
+            bad += status != "OK"
+            out.append(f"{ts} {r['todo']} rad={r['token']} logg={r['n']} {status}")
+    # [A0]-vakten gjelder fra 516s egen merged-rad (kit-porten bytter nummeret). Uten raden håndheves ingenting.
+    limit = next((r["ts"] for r in rows if r["todo"] == "516" and r["outcome"] == "merged"), None)
+    n = 0
+    for e in entries if limit else []:
+        if not re.search(r"\[A0[\],]", e["header"]) or e["ts"] <= since or e["ts"] <= limit:
+            continue
+        typ = e["fields"].get("Type")
+        ledd = typ and typ.split(":")[0].strip()
+        if not ledd or ledd not in SLAG:
+            n += 1
+            out.append(f"{e['ts'].replace(' ', 'T')} A0 " + (f"UKJENT_TYPE {ledd}" if ledd else "MANGLER_TYPE"))
     after, wait = {}, {}
     for ts, todo, outcome in waiting:
         if ts > since:
@@ -571,8 +609,8 @@ def reconcile(entries, run_text, since):
     out.append(f"etter merged-rad: {fmt(after)}")
     out.append(f"venter på merge: {fmt(wait)}")
     out.append(f"uten todo: {sum(1 for ts in ownerless if ts > since)}")
-    out.append(f"rader={n_rows} avvik={bad} mangler_token={missing} etter_merged={n_after}")
-    return out, 1 if bad + missing + n_after else 0
+    out.append(f"rader={n_rows} avvik={bad} mangler_token={missing} etter_merged={n_after} a0_feil={n}")
+    return out, 1 if bad + missing + n_after + n else 0
 
 
 def build_header(rule, todo, title, now):
@@ -627,6 +665,16 @@ def run_reconcile_self_test():
     run_rt = run + row("15:00", "15", "merged", tok15 + "; ")
     rt, _ = reconcile(entries, run_rt, last_health(run))
     with_header = parse_log(log + build_header("B3", "15", "prøve", datetime(2026, 1, 1, 12, 40)) + "\n")
+    ff, ff_code = reconcile(entries, "# test\n" + row11, "")
+    run516 = run + row("14:20", "516", "merged", "auto_decided=516:0; ")
+    a0_log = log + f"### {t} 14:19 — loop [A0]: før grensen\n### {t} 14:23 — loop [A0]: kjent\n- **Type:** eiervalg:farge\n"
+
+    def a0(extra, since):
+        ls, c = reconcile(parse_log(a0_log + extra), run516, since)
+        return [l for l in ls if " A0 " in l], ls[-1], c
+
+    a0_sum = "rader=1 avvik=0 mangler_token=0 etter_merged=0 a0_feil="
+    a0_bad = f"### {t} 14:21 — loop [A0]: uten type\n### {t} 14:22 — loop [A0]: ukjent\n- **Type:** hokus\n"
     checks = [
         ("varianter", 3, n[("11", "merged")]),
         ("flerrad", (1, 2), (n[("12", "paused")], n[("12", "merged")])),
@@ -634,13 +682,19 @@ def run_reconcile_self_test():
         ("uten-todo", True, "uten todo: 1" in lines),
         ("b-uten-siffer", "auto_decided=11:0", auto_decided(entries, run, "11")),
         ("venter", ("venter på merge: 15:1", "auto_decided=15:2"), (lines[-3], tok15)),
-        ("etter-merged", ("etter merged-rad: 16:1", "rader=5 avvik=0 mangler_token=1 etter_merged=1", 1),
+        ("etter-merged", ("etter merged-rad: 16:1", "rader=5 avvik=0 mangler_token=1 etter_merged=1 a0_feil=0", 1),
          (lines[-4], lines[-1], code)),
         ("mangler-token", True, f"{t}T14:10 17 rad=- logg=0 MANGLER_TOKEN" in lines),
         ("pluss-en", [f"{t}T10:00 11 rad=4 logg=3 AVVIK"], [l for l in plus if l.endswith("AVVIK")]),
         ("rundtur", (True, "auto_decided=15:0"),
          (f"{t}T15:00 15 rad=2 logg=2 OK" in rt, auto_decided(entries, run_rt, "15"))),
         ("header", "auto_decided=15:3", auto_decided(with_header, run, "15")),
+        ("feil-form", (f"{t}T10:00 11 rad=3 logg=3 FEIL_FORM", "rader=1 avvik=1 mangler_token=0 etter_merged=0 a0_feil=0", 1),
+         (ff[0], ff[-1], ff_code)),
+        ("a0-type", ([f"{t}T14:21 A0 MANGLER_TYPE", f"{t}T14:22 A0 UKJENT_TYPE hokus"], a0_sum + "2", 1),
+         a0(a0_bad, f"{t}T14:15")),
+        ("a0-type", ([], a0_sum + "0", 0), a0("", f"{t}T14:15")),
+        ("a0-type", ([], "rader=0 avvik=0 mangler_token=0 etter_merged=0 a0_feil=0", 0), a0(a0_bad, f"{t}T14:22")),
     ]
     ok = True
     for name, exp, got in checks:
@@ -689,7 +743,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--event", help="Hendelsesnavn (f.eks. revise_gate_choice).")
     ap.add_argument("--context", action="append", help="k=v, kan gjentas (eller k1=v1,k2=v2 i ett flagg).")
-    ap.add_argument("--dump-rules", action="store_true", help="Skriv TSV av alle 15 regler.")
+    ap.add_argument("--dump-rules", action="store_true", help="Skriv TSV av alle 16 regler.")
     ap.add_argument("--self-test", action="store_true", help="Kjør fixturene og logg-parser-testen.")
     ap.add_argument("--agreement", action="store_true", help="Samsvar per type (TSV).")
     ap.add_argument("--recent-b", action="store_true", help="Nivå B-entries siste --hours timer (JSON).")
