@@ -9,6 +9,11 @@
 
 Sett `claimed_by: <din-sesjon>` i todo-fila.
 
+Noter AI credits-totalen for sesjonen i sjekkpunktet (`credits_ved_claim: <n>`) hvis du kan lese den. §6
+trekker den fra totalen ved merge og skriver differansen som `credits=` i run-log-raden. UVERIFISERT: `/usage`
+er en kommando for brukeren; kan ikke koordinatoren lese tallet selv, utelates notatet og todoen blir
+`IKKE MÅLT`, med mindre `assistant.usage`-hendelsene finnes i sesjonsloggen.
+
 **Pipelinet plan? Hopp §3/§4.** Er `plan:` satt på todoen OG planfila bærer en `**Status:**`-linje
 som starter med `pipelinet` — se §5c, «Gjenopptakelse i §2»: §3 og §4 er allerede kjørt i en
 tidligere runde og hoppes, etter ferskhets-gaten i §5c. Dette er **IKKE** fast-path (§2b):

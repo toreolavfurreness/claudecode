@@ -7,7 +7,7 @@ Bruk: python3 tasks/retro-numbers.py <versjon> --since <iso> [--until <iso>]
 Skriver markdown til stdout: runder, beslutninger, kostnad, hovedsesjoner, diff, ledetid og bugs.
 `--since`/`--until` avgrenser beslutninger og hovedsesjoner. Kostnad, runder og diff er avgrenset
 av releasens scope. Kjøres fra rota av repoet. Diff og ledetid trenger `gh` med nett.
-Beslutningsloggen fører lokal tid og transkriptene UTC: samme `--since` kutter dem ulikt.
+Beslutningsloggen og run-loggen fører lokal tid og øktloggene UTC: samme `--since` kutter dem ulikt.
 Kalibreringen under Kostnad limes inn uansett utfall og setter aldri exit-koden.
 
 Det som ikke kan måles, står som `IKKE MÅLT: <årsak>`, aldri som 0.
@@ -214,29 +214,35 @@ def bugs(text, since, until):
     return '\n'.join(out)
 
 
-def cost(rows):
+def cost(rows, scope=None):
+    """rows: todo-radene fra measure-cost.py (`credits=` i run-loggen). En todo i scope uten rad er
+    IKKE MÅLT på egen linje, aldri 0."""
     if not rows:
-        raise NotMeasured('ingen agenter knyttet til scopet i transkriptene')
-    todo, role = {}, {}
+        raise NotMeasured('ingen todo i scopet har `credits=` i run-loggen (AI credits fra /usage)')
+    todo, src = {}, {}
     for r in rows:
-        todo[r['todo']] = todo.get(r['todo'], 0.0) + r['usd']
-        n, s = role.get(r['type'], (0, 0.0))
-        role[r['type']] = (n + 1, s + r['usd'])
+        todo[r['todo']] = todo.get(r['todo'], 0.0) + r['credits']
+        n, s = src.get(r.get('source', '?'), (0, 0.0))
+        src[r.get('source', '?')] = (n + 1, s + r['credits'])
     top4 = sorted(todo, key=lambda t: -todo[t])[:4]
-    return '\n'.join([
-        f"{len(rows)} agenter, {no(sum(todo.values()), 2)} USD. Eldste `t0`: {min(r['t0'] for r in rows)[:16]} "
-        '(transkripter eldre enn 30 dager er slettet, så en eldre release er stille ufullstendig).',
-        stat('Per todo (USD)', todo, money=True),
+    out = [
+        f"{len(todo)} todoer med tall ({len(rows)} rader), {no(sum(todo.values()), 2)} AI credits. "
+        f"Eldste rad: {min(r['t0'] for r in rows)[:16]}.",
+        stat('Per todo (AI credits)', todo, money=True),
         '- Fire dyreste: ' + ', '.join(f'{t}: {no(todo[t], 2)}' for t in top4),
-        '- Per rolle: ' + ', '.join(f'{t}: {no(s, 2)} USD ({n} agenter)'
-                                    for t, (n, s) in sorted(role.items(), key=lambda x: -x[1][1]))])
+        '- Per kilde: ' + ', '.join(f'{t}: {no(s, 2)} AI credits ({n} rader)'
+                                    for t, (n, s) in sorted(src.items(), key=lambda x: -x[1][1]))]
+    missing = sorted(set(scope or ()) - set(todo))
+    if missing:
+        out.append(f"- Todoer i scope uten `credits=`: IKKE MÅLT: {', '.join(missing)}")
+    return '\n'.join(out)
 
 
 def mains(stdout, stderr=''):
     if sum(l.startswith('SUM ') for l in stdout.splitlines()) != 2:
-        raise NotMeasured('measure-cost.py --main-usd ga ikke de to SUM-linjene '
+        raise NotMeasured('measure-cost.py --main-credits ga ikke de to SUM-linjene '
                           f"({stderr.strip().splitlines()[-1] if stderr.strip() else 'ingen feiltekst'})")
-    return 'Rollen til en økt står ikke i transkriptet: les `dir=` og `agents=`.\n\n```\n' + stdout.strip() + '\n```'
+    return 'Rollen til en økt står ikke i øktloggen: les `agents=` og `kilde=`.\n\n```\n' + stdout.strip() + '\n```'
 
 
 def diff(prs, pr_numbers, pr_todo=None, plan_t0=None):
@@ -297,21 +303,23 @@ def measure(*args, env=None):
     return run(sys.executable, 'tasks/measure-cost.py', *args, env=env)
 
 
-def cost_io(version, since):
+def cost_io(version, since, scope=None):
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, 'rows.json')
         r = measure('--release', version, env={**os.environ, 'MEASURE_ROWS': path})   # uten since: scopet avgrenser
         if r.returncode or not os.path.exists(path):
             raise NotMeasured(f"measure-cost.py --release {version}: {(r.stderr.strip() or f'exit {r.returncode}').splitlines()[-1]}")
         rows = json.load(open(path, encoding='utf-8'))
-    text = cost(rows)
+    text = cost(rows, scope)
     cal = measure(since, '--calibrate')   # per økt, ikke per scope. Limes inn urørt uansett exit-kode.
+    # Uten `--credits`/`--session` gir kalibreringen exit 2 (IKKE MÅLT): det er forbeholdet, og det
+    # står i teksten under. Kjør `measure-cost.py --calibrate --session <id> --credits <n>` for en ekte.
     return (f'{text}\n\n### Forbehold\n\n`measure-cost.py {since} --calibrate` (exit {cal.returncode}):\n\n'
             f'```\n{(cal.stdout + cal.stderr).strip()}\n```')
 
 
 def mains_io(since, until):
-    r = measure(since, '--main-usd', *(['--until', until] if until else []))
+    r = measure(since, '--main-credits', *(['--until', until] if until else []))
     return mains(r.stdout, r.stderr)
 
 
@@ -332,7 +340,7 @@ def diff_io(runlog_text, scope):
 def self_test():
     global CLASSES, BUGS_RULE   # testdataene er skrevet mot disse verdiene, ikke prosjektets
     CLASSES = [('bevisrigg', ('tfiles',)), ('tester', ('e2e/', '__tests__', '.test.', '.spec.')),
-               ('planer/docs/loop', ('tasks/', 'docs/', '.claude/', '.md'))]
+               ('planer/docs/loop', ('tasks/', 'docs/', '.github/', '.md'))]
     BUGS_RULE = (156, '2026-10-11')
     scope = {'1', '2'}
     log = ('2026-01-01T10:00 | 1 | a | merged | - | #101 | 3 | 2 | m | - | - | auto_decided=koordinator:4; planned=20/2; fix_rounds=1; x\n'
@@ -343,8 +351,8 @@ def self_test():
     dlog = (a0('12:30', 'revise_gate', ok) + '### 2026-01-02 11:00 [B1] Eieren: merket foran teksten\n\n'
             + a0('12:00', 'eiervalg:farge', 'ordre: x (uoppfordret)')
             + '### 2026-01-02 13:00 uten merke\n\n### 2026-02-01 10:00 — TODO 2 [A2]: utenfor vinduet\n')
-    rows = [{'todo': '1', 'type': 'implementer', 'usd': 2.5, 't0': '2026-01-01T09:00:00Z'}]
-    sums = 'main session=abc\nSUM hovedsesjoner med underagenter: $1.00 (1 økter)\nSUM alle hovedsesjoner: $2.00 (2 økter)\n'
+    rows = [{'todo': '1', 'type': 'todo', 'credits': 2.5, 't0': '2026-01-01T09:00', 'source': 'run-log'}]
+    sums = 'main session=abc\nSUM økter med underagenter: 1.00 credits (1 økter)\nSUM alle økter: 2.00 credits (2 økter)\n'
     pr = lambda n: {'number': n, 'additions': 10, 'deletions': 2, 'changedFiles': 1, 'createdAt': '2026-01-01T10:00:00Z',
                     'mergedAt': '2026-01-01T12:00:00Z', 'files': [{'path': 'app/x.tsx', 'additions': 10}]}
     win = ('2026-01-01T00:00', '2026-01-31T23:59')
@@ -357,7 +365,7 @@ def self_test():
         text, code = render([(name, fn)])
         body = text.split('## Ikke målt')[0]
         assert f'IKKE MÅLT: {why}' in body and code == 1, f'{name}: tom kilde skal gi IKKE MÅLT og exit 1, fikk {code}: {body!r}'
-        assert not any(x in body for x in ('0 PR-er', '$0.00', '0 agenter')), f'{name}: tom kilde ble skrevet som tall: {body!r}'
+        assert not any(x in body for x in ('0 PR-er', '0.00', '0 todoer', '0 agenter')), f'{name}: tom kilde ble skrevet som tall: {body!r}'
 
     def glad():
         text, code = render(good)
@@ -432,6 +440,11 @@ def self_test():
         got = [classify(p) for p in ('tasks/tfiles/t1.sql', 'lib/x.test.ts', 'README.md', 'app/(app)/index.tsx')]
         assert got == ['bevisrigg', 'tester', 'planer/docs/loop', 'appkode'], f'classify: {got}'
 
+    def t_cost_scope():
+        text, code = render([('Kostnad', lambda: cost(rows, {'1', '2'}))])
+        assert code == 1 and 'uten `credits=`: IKKE MÅLT: 2' in text and '2,50 AI credits' in text, \
+            f'cost: todo i scope uten credits= skal gi IKKE MÅLT, aldri 0: {text!r}'
+
     def t_oserror():
         def boom():
             raise OSError('kilden forsvant')
@@ -440,8 +453,9 @@ def self_test():
     cases = [glad, t_rounds, t_decisions, t_classify, t_oserror, t_noplan, t_planned, t_bugs, t_wait, t_slag, t_until,
              lambda: fails('rounds', lambda: rounds(log, {'404'}), 'ingen `merged`-rad'),
              lambda: fails('decisions', lambda: decisions(dlog, '2030-01-01T00:00', None), 'ingen overskrift'),
-             lambda: fails('cost', lambda: cost([]), 'ingen agenter'),
-             lambda: fails('mains', lambda: mains('', 'ingen økt i vinduet'), 'measure-cost.py --main-usd'),
+             lambda: fails('cost', lambda: cost([]), 'ingen todo i scopet har `credits=`'),
+             t_cost_scope,
+             lambda: fails('mains', lambda: mains('', 'ingen økt i vinduet'), 'measure-cost.py --main-credits'),
              lambda: fails('diff', lambda: diff([], []), 'ingen PR-numre'),
              lambda: fails('diff', lambda: diff([pr(101)], ['101', '102']), '`gh` ga ikke svar for PR 102')]
     for case in cases:
@@ -467,7 +481,7 @@ def main(argv):
     text, code = render([
         ('Runder', lambda: rounds(read(RUNLOG), scope)),
         ('Beslutninger', lambda: decisions(read(DECLOG), since, until)),
-        ('Kostnad', lambda: cost_io(version, since)),
+        ('Kostnad', lambda: cost_io(version, since, scope)),
         ('Hovedsesjoner', lambda: mains_io(since, until)),
         ('Diff og ledetid', lambda: diff_io(read(RUNLOG), scope)),
         ('Bugs i perioden', lambda: bugs(read('tasks/bugs.md') + '\n' + read('tasks/bugs_archive.md'), since, until))])

@@ -9,7 +9,7 @@ Leser IKKE loop.config.yaml ved kjøring. `CAP` og regeltabellene
 under er FROSSET tekst, ikke substituert av /setup (i motsetning til
 review-lens-select.py/review-severity-floor.py) — men fila følger samme
 GENERERT-kontrakt som resten av kit-et: rediger templaten
-(`v3-agent-orchestrator/templates/tasks/decision-level.py`), ikke denne fila,
+(`v3-copilot-agent-orchestrator/templates/tasks/decision-level.py`), ikke denne fila,
 og kjør /setup på nytt. `{{PROD_ENV_ID}}`/`{{PROD_BRANCH}}`/`{{DEV_ENV_ID}}`/
 `{{RELEASE_COMMAND}}` i trigger-tekstene under ER ekte substitusjonstokens —
 disse fire gjør V12 (idempotens) og V13 (V-DRY) substitusjons-BEVISSTE, ikke
@@ -22,7 +22,9 @@ Den andre kilden er PROSA i `docs/loop/coordinator-runbook.md`
 
 Kjøres av koordinatoren OG av implementeren (samme mønster som
 review-severity-floor.py/review-lens-select.py) — ALDRI av kode-revieweren,
-som er read-only uten python3 i Bash-allowlisten (M10).
+som er read-only (M10: ingen `edit` i `tools`, og `scripts/readonly-check.sh`
+forkaster rapporten hvis worktreen er endret). Read-only-rollene har `execute`,
+så forbudet her er en regel i rolle-instruksen, ikke en verktøysperre.
 
 Bruk:
     python3 tasks/decision-level.py --event <navn> [--context k=v]... [--todo <nr>] [--title <tekst>]

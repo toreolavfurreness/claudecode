@@ -41,7 +41,10 @@ eller slapp vi for tidlig?
 
 ### 3. Hva kostet det, og hvor gikk pengene?
 
-Per todo, per rolle, hovedsesjonene, og fordelingen av diffen på klasser.
+Per todo, per rolle, hovedsesjonene, og fordelingen av diffen på klasser. Kost er AI credits:
+`python3 tasks/measure-cost.py` for todoene og `--main-credits` for koordinator-sesjonene, med tall
+fra sesjonsloggen eller fra `/usage`. Mangler tallene, står det `IKKE MÅLT` — aldri 0 og aldri et
+anslag.
 
 ### 4. Hvor mange runder trengte vi?
 
@@ -80,7 +83,7 @@ Svaret føres under «Høyst tre endringer».
 ## Høyst tre endringer
 
 Per endring: merke `prosjekt` eller `kit`, hvem som gjør den, tallet den skal flytte med dagens
-verdi og mål, og risiko. En kit-endring blir en issue i `claudecode` med tallet.
+verdi og mål, og risiko. En kit-endring blir en issue i kit-repoet med tallet.
 
 1.
 

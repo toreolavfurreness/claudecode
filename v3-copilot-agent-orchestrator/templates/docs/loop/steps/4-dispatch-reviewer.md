@@ -21,21 +21,26 @@ fortsett; SOFT-funn blokkerer ikke. Exit 2 ⇒ planfila mangler eller kan ikke l
 budsjettet ⇒ ⚠️ pausepunkt: legg fram anslag, budsjett og plan for mennesket FØR review-rundene.
 Review gjør en for stor plan grundigere, ikke mindre. Logg `pause_event=proporsjon`.
 
-**Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR `Agent`-blokken under. Én fil per
+**Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR bootstrap-kallet under. Én fil per
 revisjonsrunde:**
 ```bash
 git worktree list --porcelain > "<scratch>/wt-pre-4-plan-reviewer-<runde>.txt"
 ```
 
-<!-- mekanisk-kandidat: pre-dispatch snapshot — hook som skriver git worktree list --porcelain før hver isolation: worktree-dispatch (mangler) -->
+<!-- mekanisk-kandidat: pre-dispatch snapshot — preToolUse-hook som skriver git worktree list --porcelain før hver bootstrap-worktree.sh-kjøring (mangler) -->
 
 Sjekk exit-koden med det samme; ikke-null ⇒ noter paret som `snapshot-missing` (samme regel som §3).
 
-`Agent`: `subagent_type: {{PROJECT_NAME}}-reviewer`. Prompt:
-> TODO <nr>. Plan: `<plan_path>`. Relevante lessons-tema: <liste>. Følg charteret ditt. Returner review-rapport som JSON.
+**Worktree (§0b «Worktree per dispatch»):** `bash scripts/bootstrap-worktree.sh <nr>
+plan-reviewer-r<runde>` (re-dispatch: `-f<n>`) → `WORKTREE`; noter `<bootstrap_branch>` og
+`<base_sha>`. Treet er laget fra fersk `origin/{{BASE_BRANCH}}`, så synken er allerede gjort:
+revieweren skal ikke kjøre fetch/merge (en flyttet HEAD gjør read-only-sjekken rød).
+
+`task`: `agent_type: "{{PROJECT_NAME}}-reviewer"`, `mode: "sync"`, `{{DISPATCH_ARGS_REVIEWER}}`. Prompt:
+> WORKTREE: `<WORKTREE>` (synket, read-only). TODO <nr>. Plan: `<plan_path>`. Relevante lessons-tema: <liste>. Følg charteret ditt. Returner review-rapport som JSON.
 
 **Fra runde 2: deltareview.** Prompt:
-> TODO <nr>. Plan: `<plan_path>`. DELTAREVIEW runde <N>. Forrige rundes funn: <findings[] fra runde N−1 som JSON>. Planens endring: `git diff <forrige_plan_commit> <ny_plan_commit> -- <plan_path>`. Relevante lessons-tema: <liste>. Følg charteret ditt, § Deltareview. Returner review-rapport som JSON.
+> WORKTREE: `<WORKTREE>` (synket, read-only). TODO <nr>. Plan: `<plan_path>`. DELTAREVIEW runde <N>. Forrige rundes funn: <findings[] fra runde N−1 som JSON>. Planens endring: `git diff <forrige_plan_commit> <ny_plan_commit> -- <plan_path>`. Relevante lessons-tema: <liste>. Følg charteret ditt, § Deltareview. Returner review-rapport som JSON.
 
 De to SHA-ene er commitene på `origin/{{BASE_BRANCH}}` som bar planfila da hver runde ble dispatchet: noter
 `git log -1 --format=%H origin/{{BASE_BRANCH}} -- <plan_path>` ved hver review-dispatch, i `[B7]`-oppføringen for
@@ -44,21 +49,25 @@ runden eller i sjekkpunktfila (mangler tallet, hentes det fra
 `<ny_plan_commit>` er tallet nå. Det er IKKE `**Plan-SHA:**` i planhodet, som er dev-basen planen ble
 skrevet mot. Kjør diff-kommandoen selv før dispatch. Mangler forrige rundes funn eller en av SHA-ene, feiler kommandoen, eller gir den tom diff, brukes runde 1-prompten (full review).
 
-**Bevis-sjekk (`evidence`):** match `evidence.reviewed_head` (PRIMÆR) mot SIN EGEN kopi av planfilen — den samme planfilen du dispatchet revieweren mot. Mismatch → revieweren leste sannsynligvis feil eller utdatert plan — re-dispatch eller eskalér. `evidence.toplevel` er SVAKT/sekundært for reviewer (beviser kun cwd, ikke at riktig artefakt ble lest — reviewer skriver ingenting).
+**Read-only-sjekk FØRST (BINDENDE):** `bash scripts/readonly-check.sh <WORKTREE> <base_sha>`
+umiddelbart etter at rapporten er mottatt, før den leses. Exit ≠ 0 ⇒ rapporten forkastes, nivå A
+(⚠️ STOPP, release claim, eskalér med skriptets utskrift); treet beholdes som bevis (§0b `dirty`).
+
+**Bevis-sjekk (`evidence`):** match `evidence.reviewed_head` (PRIMÆR) mot SIN EGEN kopi av planfilen — den samme planfilen du dispatchet revieweren mot. Mismatch → revieweren leste sannsynligvis feil eller utdatert plan — re-dispatch eller eskalér. `evidence.toplevel` er SVAKT/sekundært for reviewer (beviser kun cwd, ikke at riktig artefakt ble lest — reviewer skriver ingenting), men MÅ likevel være lik WORKTREE.
 
 **Rydding av plan-reviewerens worktree:** koordinatoren akkumulerer **paret**
-(`evidence.toplevel`, rundens `<scratch>/wt-pre-4-plan-reviewer-<runde>.txt`) fra HVER §4-runde og
+(rundens WORKTREE, bekreftet av `evidence.toplevel`; rundens `<scratch>/wt-pre-4-plan-reviewer-<runde>.txt`) fra HVER §4-runde og
 kaller §0b én gang per deduplisert sti — dedupliser på STIEN og behold den FØRSTE rundens
 snapshot-fil for stien (samme regel som §6 steg 4(i)) — i `go`-grenen, i
 `technical_risk`-grenen og ved TERMINERING av revisjons-løkka (A0 fra konvergensregelen).
-**ALDRI i no-go-grenen** som sender funnene tilbake til planneren: reviewer-agenten skal leve
-videre gjennom revisjonsrunden (kontinuitet). Eies av rydde-kontrakten — utvid
+**ALDRI i no-go-grenen** som sender funnene tilbake til planneren: plan-reviewerens trær skal stå
+gjennom hele revisjonsløkka (kontinuitet) og ryddes samlet når løkka lukkes. Eies av rydde-kontrakten — utvid
 DENNE regelen, ikke legg til en ny. **Hvorfor paret og ikke bare stien (R21):**
 runde 2s snapshot inneholder runde 1s worktree, så et felles snapshot ville avvist runde 1s sti som
 `preexisting` og gjort vakt 5 til en permanent blokkering nettopp i akkumulerings-tilfellet.
 **Akkumuleringen er per DISPATCH-FORSØK, ikke per runde:** en re-dispatch etter bevis-mismatch
-(`evidence.reviewed_head`) legger den forkastede revieweren sitt `evidence.toplevel` inn i lista med
-SITT eget pre-snapshot, og §0b kalles for den også — ikke bare for dispatch-forsøket som til slutt
+(`evidence.reviewed_head`) får sitt eget tre (`-f<n>`) og legger den forkastede revieweren sin
+WORKTREE inn i lista med SITT eget pre-snapshot, og §0b kalles for den også — ikke bare for dispatch-forsøket som til slutt
 gir `go`/`no-go`.
 
 **Konsolideringsgate (før planner-revisjonen) — OBLIGATORISK.** En review-runde legger til lag og

@@ -39,7 +39,7 @@ VERDICT_OK = "ok"
 def normalize_path(t):
     """N1 (strip ledende './', ALDRI lstrip), N2 (strip ':<n>'/':<n>-<m>'-suffiks),
     N4 ('…/**' og '…/*' ⇒ katalog-prefiks '…/')."""
-    t = re.sub(r"^\./", "", t)  # N1 — lstrip("./") ville spist punktumet i .claude/…
+    t = re.sub(r"^\./", "", t)  # N1 — lstrip("./") ville spist punktumet i .github/…
     t = re.sub(r":\d+(-\d+)?$", "", t)  # N2
     t = re.sub(r"/\*\*$", "/", t)  # N4
     t = re.sub(r"/\*$", "/", t)  # N4
@@ -346,7 +346,7 @@ def run_self_test():
         # i git ls-files (de har alle '/' eller en filendelse).
         repo_files = set()
 
-    # F-EXT-1 — punktum i .claude/… bevart
+    # F-EXT-1 — punktum i .github/… bevart
     p = _mk_plan("## Filer som berøres\n\n- `.github/agents/x.agent.md`\n")
     err, lst = extract_plan_b_list(p, repo_files)
     os.unlink(p)

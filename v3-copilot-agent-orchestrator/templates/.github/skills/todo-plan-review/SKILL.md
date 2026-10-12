@@ -1,5 +1,7 @@
 ---
+name: todo-plan-review
 description: "Devil's advocate: gransk en ferdig plan kritisk før implementering."
+disable-model-invocation: true
 ---
 <!--
   GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
@@ -9,7 +11,7 @@ Du er devil's advocate. Ingen filer skal endres før brukeren godkjenner review.
 
 Les følgende filer i denne rekkefølgen:
 1. `tasks/todos/README.md` — forstå status-enum
-2. Glob over `tasks/todos/todo-*.md`, finn todo med `status: reviewed` som har `plan`-felt satt men ikke er startet ennå — eller spør brukeren hvilken todo som skal review-es
+2. Gå gjennom `tasks/todos/todo-*.md` (glob), finn todo med `status: reviewed` som har `plan`-felt satt men ikke er startet ennå — eller spør brukeren hvilken todo som skal review-es
 3. Les den aktuelle todofilen i sin helhet: `tasks/todos/todo-<nr>-<slug>.md`
 4. Les planfilen via `plan`-feltet i frontmatter: `tasks/plans/todo-<nr>-<slug>.md`
 5. tasks/lessons.md — tema-katalog + lese-protokoll. Velg 1–3 relevante tema

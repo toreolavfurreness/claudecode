@@ -7,22 +7,75 @@
 
 → Kjerne: `coordinator-runbook.md` § 0b · Begrunnelser: `runbook-hvorfor.md` § 0b
 
-Kalles fra §3, §4, §5, §5b og §5c — ALDRI av en worker selv (R6: workere kan ikke selv fjerne en
-worktree eller slette en branch, worktree-vakten avviser dem).
+Kalles fra §3, §4, §5, §5b og §5c — ALDRI av en worker selv (R6: en worker fjerner aldri en
+worktree og sletter aldri en branch; for read-only-rollene fanger `scripts/readonly-check.sh` et
+brudd, se «Worktree per dispatch» under).
+
+## Worktree per dispatch (gjelder §3, §4, §5, §5b, §5c og §5d)
+
+En `task`-subagent deler filsystem og arbeidskatalog med koordinatoren. Isolasjonen lages derfor av
+koordinatoren selv, FØR hver dispatch, med `scripts/bootstrap-worktree.sh`. Stegfilene peker hit i
+stedet for å gjenta prosedyren.
+
+1. **Pre-snapshot FØRST** (vakt 5 under): `git worktree list --porcelain > "<pre_snapshot>"`,
+   umiddelbart før bootstrap-kallet i punkt 2. Snapshotet tas altså FØR treet finnes, slik at
+   vakt 5 («stien er fraværende i snapshotet») beviser at treet ble laget for nettopp denne
+   dispatchen.
+2. **Lag treet:**
+   ```bash
+   WT=$(bash scripts/bootstrap-worktree.sh <todo-nr> <etikett>)
+   ```
+   Skriptet lager `.loop-worktrees/<etikett>-<todo-nr>` på branchen `loop/<etikett>-<todo-nr>` fra
+   `origin/{{BASE_BRANCH}}` og skriver BARE stien til stdout. Noter stien som `WORKTREE`.
+   **Finnes treet allerede, gjenbruker skriptet det** — derfor etikett-regelen i punkt 3. Exit ≠ 0 eller
+   ingen sti ⇒ INGEN dispatch (en worker uten eget tre ville jobbet i hovedsjekkuten); rett årsaken
+   og kjør punkt 1–2 på nytt.
+3. **Etikett — én sti per dispatch-forsøk:** `planner-r<runde>`, `plan-reviewer-r<runde>`,
+   `code-reviewer-r<runde>`, `rca-r<runde>` (rotårsaksanalysen i §5b), med `-f<n>` (n = 2, 3, …)
+   for hver re-dispatch i samme runde (canary-/bevis-mismatch, kontrakt-vakt-avvisning). Implementeren
+   får `implementer` ved §5-dispatchen, og fix-mode-rundene i §5b GJENBRUKER det treet (se §5b,
+   «Fix-mode-dispatch-mal»). En sti gjenbrukes aldri av en annen rolle eller en senere todo.
+   Siden skriptet gjenbruker en eksisterende sti, er en unik etikett det ENESTE som hindrer at et
+   nytt forsøk havner i en forkastet workers tre: før bootstrap-kallet skal stien
+   `.loop-worktrees/<etikett>-<todo-nr>` IKKE stå i pre-snapshotet (unntak: fix-runder i
+   implementer-treet). UVERIFISERT: at skriptet godtar etiketter med runde-/forsøkssuffiks.
+4. **Noter før dispatch:** `git -C "<WORKTREE>" branch --show-current` → `<bootstrap_branch>`
+   (normalt `loop/<etikett>-<todo-nr>`; punkt 7 (b) under) og, RETT FØR dispatch,
+   `git -C "<WORKTREE>" rev-parse HEAD` → `<base_sha>` (read-only-sjekken i punkt 6). For
+   kode-revieweren settes treet først på PR-hodet, se §5b «Review-dispatch».
+5. **Dispatch** med `WORKTREE: <WORKTREE>` som første linje i prompten. Workerens Steg 0 er
+   `cd "<WORKTREE>"` og en sjekk av at `git rev-parse --show-toplevel` er lik WORKTREE; alle
+   kommandoer og fil-endringer skjer der. Scout får ingen egen worktree: den kjører i
+   oppdragsgiverens WORKTREE, som oppdragsgiveren gir i scout-prompten. Probe-dispatcher
+   (`{"ok": true}`) får ingen WORKTREE.
+6. **Etter rapporten:** `evidence.toplevel` MÅ være lik WORKTREE, tegn for tegn. Avvik ⇒ rapporten
+   forkastes (re-dispatch med ny etikett eller eskalér). **Read-only-roller** (plan-reviewer,
+   code-reviewer, rotårsaksanalysen) sjekkes i tillegg, FØR rapporten leses:
+   ```bash
+   bash scripts/readonly-check.sh <WORKTREE> <base_sha>
+   ```
+   Skriptet feiler hvis `git status --porcelain` i treet ikke er tom eller HEAD har flyttet seg fra
+   `<base_sha>`: exit 0 = OK, 1 = brudd, 2 = kan ikke måles (behandles som brudd). Exit ≠ 0 ⇒
+   rapporten forkastes og hendelsen er nivå A (⚠️ STOPP, release claim,
+   eskalér med skriptets utskrift). Treet ryddes IKKE: §0b gir da `dirty` og beholder det som bevis.
+   Read-only-rollene har heller ikke `edit` i `tools` (Copilot håndhever verktøylista); sjekken
+   fanger skriving via shell.
 
 **Inngangsdata:**
-- `<wt_path>` — ALLTID en eksakt sti (worktreens absolutte rot fra en workers `evidence.toplevel`
-  eller ferdig-rapportens `branch`-oppslag). Aldri et mønster, aldri et sveip.
+- `<wt_path>` — ALLTID en eksakt sti: WORKTREE-stien koordinatoren selv fikk fra bootstrap-skriptet
+  for dispatchen, bekreftet av workerens `evidence.toplevel` (punkt 6 over). Aldri et mønster,
+  aldri et sveip.
 - `<rolle>` ∈ {`planner`, `plan-reviewer`, `code-reviewer`, `implementer`}.
 - `<pre_snapshot>` (OBLIGATORISK) — kanonisk form: `<pre_snapshot>` =
   `<scratch>/wt-pre-<seksjon>-<rolle>-<runde>.txt`, skrevet av koordinatoren umiddelbart FØR
-  dispatchen (Steg 1b-regelen). **Generell regel: `<pre_snapshot>` er ALLTID fila som ble skrevet
-  umiddelbart før DEN DISPATCHEN som skapte `<wt_path>` — aldri en fil navngitt etter en annen
-  dispatch**, selv når to dispatch-steder gjenbruker samme filnavns-MØNSTER (se §5b og §5c for
-  konkrete kallsteder der dette avviker fra filnavnet man skulle tro). **Én snapshot-fil per
-  dispatch — gjenbruk ALDRI én fil på tvers av dispatches:** runde 2s snapshot inneholder runde 1s
-  worktree, og runde 1s sti ville da blitt avvist som `preexisting`. Akkumulerte sti-lister bærer
-  derfor PAR (sti, snapshot-fil), ikke bare stier.
+  bootstrap-kallet for dispatchen (punkt 1 over). **Generell regel: `<pre_snapshot>` er ALLTID fila
+  som ble skrevet umiddelbart før bootstrap-kallet for DEN DISPATCHEN som fikk `<wt_path>` — aldri
+  en fil navngitt etter en annen dispatch**, selv når to dispatch-steder gjenbruker samme
+  filnavns-MØNSTER (se §5b og §5c for konkrete kallsteder der dette avviker fra filnavnet man skulle
+  tro). **Én snapshot-fil per dispatch — gjenbruk ALDRI én fil på tvers av dispatches:** runde 2s
+  snapshot inneholder runde 1s worktree, og runde 1s sti ville da blitt avvist som `preexisting`.
+  Akkumulerte sti-lister bærer derfor PAR (sti, snapshot-fil), ikke bare stier.
+- `<bootstrap_branch>` — branchen bootstrap-skriptet opprettet for treet (punkt 4 over).
 - `<forventet_fil>` (valgfritt) — planfilen §0b skal kreve finnes på `origin/{{BASE_BRANCH}}` før
   rydding (kun planner-rollen).
 - `<branch_kryss_sjekk>` (valgfritt) — branch-navnet ferdig-rapporten oppga, som ren kryss-sjekk.
@@ -30,7 +83,8 @@ worktree eller slette en branch, worktree-vakten avviser dem).
 **Rekkefølge:**
 
 1. **R1s fem vakter** (mot returnert rapport — aldri sveip):
-   - **Vakt 1:** `<wt_path>` er den EKSAKTE stien fra rapporten.
+   - **Vakt 1:** `<wt_path>` er den EKSAKTE WORKTREE-stien du laget for dispatchen, og
+     rapportens `evidence.toplevel` er lik den.
    - **Vakt 2:** `<wt_path>` MÅ være medlem av `git worktree list --porcelain` NÅ (dynamisk
      oppslag, kjørt fail-safe — se punkt 3).
    - **Vakt 3:** `<wt_path>` MÅ inneholde `.loop-worktrees/`.
@@ -45,10 +99,10 @@ worktree eller slette en branch, worktree-vakten avviser dem).
      `grep -cFx` = `0` for ENHVER oppgitt sti og dermed stille latt vakt 5 «passere» uansett —
      samme fail-open-klasse som BLOKKERENDE-2, på et annet artefakt. Består plausibilitetssjekken,
      kjør selve predikatet, ordrett form: `grep -cFx 'worktree <wt_path>' <pre_snapshot>` MÅ gi
-     `0`. Gir den `≥ 1`, fantes worktreen FØR vi dispatchet ⇒ den er ikke vår ⇒ **ADVARSEL
+     `0`. Gir den `≥ 1`, fantes worktreen FØR vi laget den for dispatchen ⇒ den er ikke vår ⇒ **ADVARSEL
      (`preexisting`), INGEN rydding**. Mangler eller er `<pre_snapshot>` uleselig ⇒ **ADVARSEL
      (`snapshot-missing`), INGEN rydding**. `-F` og `-x` er obligatoriske (uten `-x` matcher
-     `agent-dead` linja for `agent-deadbeef`). **Snapshotet leses ALDRI som kilde til stier** — det
+     `planner-r1-4` linja for `planner-r1-41`). **Snapshotet leses ALDRI som kilde til stier** — det
      er et predikat over én oppgitt sti, aldri en iterasjonskilde. Det er forskjellen fra det
      forkastede sveipet (r2 BLOKK-4).
    - **Vakt 5b (kun `<rolle> = planner`):** `cp`-kilden i Steg 2 (a) ER bindingen mellom rapport og
@@ -106,8 +160,9 @@ worktree eller slette en branch, worktree-vakten avviser dem).
    `git branch -d`, begge KUN etter exit 0 fra `remove`:
    (a) den **lagrede** verdien fra `awk`-oppslaget (sti → branch, samme streng-match-form som
    dagens §6-blokk), og
-   (b) den **sti-utledede** `worktree-<basename(wt_path)>` — men KUN hvis basename matcher
-   `^agent-[0-9a-f]+$` OG branchen finnes i `git branch --list 'worktree-agent-*'`.
+   (b) den **noterte** `<bootstrap_branch>` (branchen bootstrap-skriptet lagde for treet, notert
+   FØR dispatch) — men KUN hvis den er ulik (a) OG finnes i `git branch --list '<bootstrap_branch>'`.
+   Den blir forlatt når workeren byttet til sin egen branch (K3).
    **Aldri `-D`.** Legg samtidig `<wt_path>` inn i sesjonens allerede-ryddet-sett (lista
    koordinatoren holder i kontekst over stier §0b har ryddet i denne sesjonen) — det er DEN lista
    punkt 2 (a) slår opp i, ikke akkumulerings-/dedup-lista fra §3/§4/§5/§5b/§5c.

@@ -1,8 +1,11 @@
 # Faste artefakter
 
 Eneste sted i repoet der lenkene står. `/handover` og §6-halen leser herfra.
-**Republiser alltid med `url`** — en publisering uten `url` lager en ny side og bryter lenken eieren har.
-Har sesjonen verken lest eller publisert siden, kjør `Artifact action:"read"` på URL-en først.
+**Republiser alltid til samme URL** — en publisering som lager en ny side, bryter lenken eieren har.
+Har sesjonen verken lest eller publisert siden, les den publiserte versjonen på URL-en først, med samme
+publiseringsverktøy som laget den. UVERIFISERT: hvilket publiseringsverktøy som finnes i
+Copilot-sesjonen er prosjektavhengig (f.eks. en MCP-server i `.mcp.json`); URL-regelen gjelder uansett
+verktøy.
 
 Fila er prosjekt-eid (`/setup` skriver den bare hvis den mangler), men Køsiden-raden er felles for alle
 prosjekter: generator- og vakt-kolonnen skal stå nøyaktig som i kit-malen. `python3 tasks/kit-drift.py`

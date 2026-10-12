@@ -14,11 +14,14 @@ er et pausepunkt — da kjøres verken §8b eller §8c).
 
 ```bash
 python3 tasks/lesson-classes.py --days 7      # feilklasser i lessons
-python3 tasks/measure-cost.py "$(date -v-30d +%F)" --trend   # 30-dagersvindu: kostnad, review-runder, Gate F, $/dag
+python3 tasks/measure-cost.py "$(date -v-30d +%F)" --trend   # 30-dagersvindu: kostnad (AI credits), review-runder, Gate F, credits/dag
 ```
 
-Transkriptene slettes etter `cleanupPeriodDays` (standard 30 dager), så 30-dagersvinduet er
-også taket for hva som kan måles uten å heve den innstillingen.
+Kostnadstallene kommer fra sesjonsloggene (`${COPILOT_HOME:-$HOME/.copilot}/session-state/<sesjon>/events.jsonl`)
+når de bærer `assistant.usage`-hendelser, ellers fra `/usage`-tallene som er ført inn med
+`--credits`. Finnes ingen av delene for en periode, er kostnaden `IKKE MÅLT` der — aldri 0 — og
+kostnadsdommen bygger bare på punktene som er målt. 30-dagersvinduet er beholdt som vindu; eldre
+sesjonslogger kan være ryddet bort.
 
 `--trend` skriver de samme fire dommene som Trend-seksjonen i måle-artifactet, fra samme
 datauttrekk og samme terskelfunksjon — så en graf som viser oppgang og en §8c-kjøring som sier

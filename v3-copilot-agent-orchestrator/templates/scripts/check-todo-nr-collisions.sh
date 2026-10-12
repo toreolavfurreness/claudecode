@@ -1,6 +1,6 @@
 #!/bin/sh
 # Maskinell gate mot todo-nr-kollisjoner mellom parallelle koordinatorer.
-# Generert av /setup (kilde: v3-agent-orchestrator/templates/scripts/). Kalles fra CI
+# Generert av /setup (kilde: kitets templates/scripts/). Kalles fra CI
 # (scaffolding/github-workflows/ci.yml, jobben `todo-nr-guard`) og fra
 # koordinator-runbookens §6.4 (gate a) + §9 (--next).
 # POSIX sh, macOS/BSD-trygt. Ingen GNU-only-flagg (aldri `sed s///i`, aldri `grep -P`)

@@ -3,9 +3,9 @@
 
 Bakgrunn: i uke 38/2026 var 29 av 33 BLOKKERENDE review-funn samme feilklasse —
 «en vakt som ikke kan bli rød av riktig grunn». Hver enkelt ble funnet av en
-adversariell Opus-review til $3–15 per runde, og hver utløste en fix-runde til
-~$10. De fleste variantene er tekstmønstre, ikke dømmekraft. Denne linteren
-kjenner dem igjen for ~$0.
+adversariell review med den dype modellen, en dyr runde hver, og hver utløste
+en ny fix-runde. De fleste variantene er tekstmønstre, ikke dømmekraft. Denne
+linteren kjenner dem igjen nesten gratis.
 
 Den erstatter IKKE plan-review. Den fjerner de mekaniske funnene fra
 review-budsjettet, så revieweren kan bruke det på det som faktisk krever

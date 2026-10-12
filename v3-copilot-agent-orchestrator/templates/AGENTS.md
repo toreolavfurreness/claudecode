@@ -4,11 +4,14 @@
 >
 > - **Denne filen** (`AGENTS.md`) — prosjektets egne atferdsregler og infrastruktur. Eies av
 >   prosjektet; `/setup` skrev den én gang og overskriver den aldri.
+>   Copilot leser den som egendefinerte instrukser i hver sesjon — også i loopens subagenter
+>   (`include-custom-instructions: true`).
 > - **`docs/loop-rules.md`** — loop-, lessons- og kunnskapsbase-reglene. Eies av kit-et, genereres
->   av `/setup` og importeres under. Rediger den ikke her — endre malen og kjør `/setup` på nytt.
+>   av `/setup` og lenkes under. Lenken lastes ikke automatisk: fila MÅ leses. Rediger den ikke —
+>   endre malen og kjør `/setup` på nytt.
 > - **`docs/orchestration-loop.md`** — operatør-guide for den autonome loopen.
 
-@docs/loop-rules.md
+Loop-reglene står i [`docs/loop-rules.md`](docs/loop-rules.md). Les og følg den før alt loop-arbeid.
 
 ## Infrastruktur
 

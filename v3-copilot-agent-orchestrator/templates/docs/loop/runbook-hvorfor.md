@@ -18,7 +18,44 @@ dispatch-promptlengde gikk fra 1 676 tegn (uke 28) til 3 294 (uke 37), og over 7
 ## 0. Synk
 
 
+## 0c. Sjekkpunkt ved komprimering
+
+→ Regel: «les sjekkpunktfila før hvert steg»
+
+**Hvorfor lesingen er en regel og ikke en hook.** Ingen hook-hendelse kan legge tekst inn i
+konteksten etter en komprimering (`preCompact` er bare et varsel, og `sessionStart` fyrer ikke for
+en komprimering). Et sjekkpunkt som bare leses «når noe virker rart», leses ikke når det trengs mest:
+etter en komprimering ser sammendraget komplett ut. Å lese fila før hvert steg koster noen hundre
+linjer og gjør komprimeringen ufarlig uansett når den skjer.
+
+
 ## 0b. Rydd en worker-worktree (gjenbrukbar prosedyre)
+
+→ Regel: «Worktree per dispatch»
+
+**Hvorfor koordinatoren lager treet.** En `task`-subagent deler filsystem og arbeidskatalog med
+den som dispatcher den. Uten et eget tre ville to workers — eller en worker og koordinatoren —
+skrevet i samme sjekkout, og feil-cwd-klassen (planfil skrevet til hovedsjekkuten) ville vært
+normaltilstanden, ikke en bug. Treet lages derfor av ett skript, ett sted, før hver dispatch, og
+stien gis i prompten. Det gjør bevis-sjekken skarpere enn et mønster: `evidence.toplevel` skal være
+lik en sti koordinatoren kjenner på forhånd.
+
+**Hvorfor snapshotet tas før bootstrap-kallet.** Vakt 5 skal bevise at treet ble laget for nettopp
+denne dispatchen. Et snapshot tatt etter bootstrap ville inneholde treet og avvist det som
+`preexisting`.
+
+**Hvorfor én sti per dispatch-forsøk, men samme tre for fix-rundene.** En forkastet worker
+(canary-/bevis-mismatch) kan ha etterlatt halvskrevne filer; et nytt forsøk i samme tre ville arvet
+dem og gjort bevisene tvetydige. Fix-rundene er motsatt: treet bærer PR-branchen, er rent etter
+push, og en fersk worker der bygger på nøyaktig det som ble reviewet.
+
+**Hvorfor read-only-sjekken etter dispatch.** Hook-inndataene for et verktøykall sier ikke hvilken
+subagent som kaller, så en hook kan ikke skille en reviewer fra en implementer. Vernet er derfor to
+ledd: read-only-rollene har ikke `edit` i verktøylista (håndhevet av plattformen), og
+`scripts/readonly-check.sh` måler etterpå at treet er rent og at HEAD står der koordinatoren satte
+den. Skriving via shell fanges dermed ved kilden — i treet — og ikke av en vakt som må gjette
+avsenderen. Et brudd er nivå A fordi en reviewer som skrev, har gjennomgått noe annet enn det som
+skal merges.
 
 
 ## 1. Kø-utvelgelse (med ekte deps-gating)
@@ -53,6 +90,17 @@ todoen stille ut av scope, og releasen ville meldt `MÅL NÅDD` uten den.
 
 ## 5b. Uavhengig kode-review
 
+→ Regel: «Sende en worker tilbake» (kjernen) og «Fix-mode-dispatch-mal»
+
+**Hvorfor fersk dispatch som standard.** En worker som har levert sluttrapporten, er avsluttet; det
+finnes ingen sesjon å sende en melding til. `write_agent` når bare en worker som fortsatt kjører i
+bakgrunnen. Intensjonen bak reglene om å ikke vekke en død worker og om at en lås ikke er et
+liveness-signal, er derfor: (1) en worker regnes som død i det rapporten er levert, (2) et
+tre som er ryddet eller navngitt i en navngitt sweep, er dødt og gjenbrukes aldri, (3) en worker som
+kan leve (B-sporet i §5c/§5d), får aldri treet sitt navngitt. Den ferske workeren får det den gamle
+hadde i kontekst gjennom prompten: samme WORKTREE, en peker til forrige rapport og funnene — som
+pekere, ikke sitater, av samme grunn som Bevis-regelens måling over.
+
 → Regel: «F3a: **gulvet** — antall»
 
 **Overskrifts-formen.** Regexen matchet opprinnelig KUN fet form (`**V1**`,
@@ -65,6 +113,14 @@ bakoverkompatibel** mot planer i fet form (uendret antall). Defektklassen: en de
 
 
 ## 5c. Pipelining (plan neste todo mens denne implementeres)
+
+→ Regel: «Mekanikk: parvis dispatch i bakgrunnen, med en par-barriere»
+
+**Hvorfor barrieren beholdes selv om bakgrunnsmodus tillater mer.** Med `mode: "background"` kunne
+A sin §5b starte i det implementer(A) leverer. Snapshot-parene, pre-par-2-halen og §0b-kallene er
+likevel skrevet for et par som er ferdig samtidig: par 2s snapshot skal inneholde BEGGE par 1-trærne,
+og B sin plan skal være pushet før reviewer(B) får sitt tre. Å slippe barrieren ville krevd en ny
+runde med disse invariantene; latensen for A er prisen, og den er kjent og akseptert.
 
 
 ## 5d. Parallelle implementere (fil-disjunkt-gate)

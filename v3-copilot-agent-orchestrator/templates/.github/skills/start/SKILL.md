@@ -1,12 +1,14 @@
 ---
+name: start
 description: "Sesjonsstart: full kontekstlasting (AGENTS.md, lessons-katalog, todo-kø)."
+disable-model-invocation: true
 ---
 <!--
   GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
   Endre loop.config.yaml og kjør /setup på nytt.
 -->
 Les følgende filer i denne rekkefølgen:
-1. AGENTS.md (importerer docs/loop-rules.md — les begge)
+1. AGENTS.md (peker til docs/loop-rules.md — les begge)
 2. tasks/lessons.md (katalog — tema-scope + lese- og skriveprotokoll; lessons ligger én per fil under tasks/lessons/<tema>/)
 3. tasks/bugs.md
 4. `tasks/todos/README.md` — forstå frontmatter-skjema og status-enum
@@ -26,7 +28,7 @@ Navngi branchen etter konvensjonen i docs/naming-conventions.md (prefix: feat/, 
 Hvis du finner ucommittede endringer fra tidligere sesjon: rapporter dette.
 
 **Finn neste todo:**
-Glob over `tasks/todos/todo-*.md` og les frontmatter-feltene `nr`, `status`, `order`, `title`, `deps`, `tags` fra hver fil.
+Gå gjennom `tasks/todos/todo-*.md` (glob) og les frontmatter-feltene `nr`, `status`, `order`, `title`, `deps`, `tags` fra hver fil.
 Sorter på `order` (numerisk). Finn første todo med `status: open` eller `status: reviewed`.
 
 **Deps-sjekk:**

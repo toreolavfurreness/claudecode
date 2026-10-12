@@ -699,8 +699,8 @@ sys.stdout.write("\n".join(out) + "\n")
 
 # ---------------------------------------------------------------------------
 # HTML-utgang (valgfri): `python3 tasks/queue-status.py --html <sti>` skriver i
-# tillegg en selvstendig HTML-side med samme innhold (lesbar i claude.ai-appen på
-# iOS via Artifact). Ren avledning av dataene over — ingen egen sannhet.
+# tillegg en selvstendig HTML-side med samme innhold (lesbar i nettleseren, også
+# på mobil). Ren avledning av dataene over — ingen egen sannhet.
 # ---------------------------------------------------------------------------
 if "--html" in sys.argv:
     import html as _h

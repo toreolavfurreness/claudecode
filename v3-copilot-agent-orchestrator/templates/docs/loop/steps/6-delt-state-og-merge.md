@@ -22,8 +22,10 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
    ```bash
    python3 tasks/ci-gate.py <pr-nummer>
    ```
-   Kjør den i forgrunnen fra repo-roten med Bash-verktøyets `timeout: 600000`. Bruk aldri
-   `run_in_background`, og aldri shell-`timeout`, som ikke finnes på macOS.
+   Kjør den synkront i forgrunnen fra repo-roten, og la shell-verktøyet vente minst 600 s på
+   kommandoen (UVERIFISERT: navnet på ventetidsparameteren i `bash`-verktøyet; finnes ingen, les
+   utdata til `ci=`-linja er skrevet). Kjør den aldri som bakgrunnsprosess, og aldri med
+   shell-`timeout`, som ikke finnes på macOS.
    Gaten henter PR-ens head-SHA og venter (tak 540 s, under verktøyets 600 s) til alle
    workflow-kjøringer, check-runs og commit-statuser for NETTOPP den SHA-en er ferdige. Linje 1 er
    run-log-tokenet `ci=<klasse>`, linje 2 er `sha=<head-sha>`. Dommen gjelder bare den SHA-en, og
@@ -46,10 +48,15 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
    Ved pausepunkt: release claim og skriv raden med `outcome=paused`, `pause_event=ci-rød` og
    gatens `ci=`-linje i notat-feltet (`ci=error` hvis kallet ble drept). Steg 1–6 kjøres ikke.
 
-<!-- mekanisk-kandidat: CI-gate før merge — PreToolUse-hook på merge-kallet som krever ci=green for samme sha (mangler; guard-main-merge.sh håndhever A4) -->
+<!-- mekanisk-kandidat: CI-gate før merge — preToolUse-hook på merge-kallet som krever ci=green for samme sha (mangler; guard-main-merge.sh håndhever A4) -->
 
 Fra ferdig-rapporten, `status: "implemented"`:
 1. **Lessons:** for hver `lessons[]`, skriv én fil `tasks/lessons/<topic>/<YYYY-MM-DD>-<slug>.md` etter skrive-protokollen i `tasks/lessons.md` og formatet i `docs/loop-rules.md` § «Lessons learned — én fil per lesson»: `sources` → frontmatter-`kilder`, `pattern`/`checklist` → **Problem:**/**Løsning:**/**Unngå:**. Ingen indeks å oppdatere. Dekker en eksisterende lesson samme mønster: utvid den i stedet. Carry-forwards (planens CF-seksjon, rapportens `notes`) går til `tasks/followups/`, én fil per oppfølging — de er ikke et lessons-tema.
+1b. **Rollehukommelse (kun når rollens minne er på i `agent_memory`):** for hver kandidat i
+   ferdig-rapportens `memory_candidates` med gyldig `memory_check` (Minne-gaten, §5b): append linja
+   til `tasks/agent-memory/<agent>/MEMORY.md` (opprett fila hvis den mangler). Koordinatoren er
+   eneste skriver; fila går med i delt-state-commiten (steg 6). Charterets tak og kurering gjelder
+   (implementer-charteret § Rollehukommelse) — en kandidat som bryter dem, skrives ikke.
 2. **Bugs:** `bugs_new[]` → `tasks/bugs.md`; `bugs_closed[]` → `tasks/bugs_archive.md` (opprett fila hvis den ikke finnes). Hver oppføring, ny som lukket, har `**Oppdaget:** YYYY-MM-DD` som første linje under overskriften (ISO-dato først, forklaring etter), og linja beholdes ved flytting til arkivet: `tasks/retro-numbers.py` teller bugs i perioden på den. Datoen er elementets `discovered`. Mangler den, får en ny bug dagens dato fra `date +%F`. En lukket bug får aldri en gjettet dato: da utelates linja, og tallet blir `IKKE MÅLT`.
 3. **Arkiver todo:** flytt til `tasks/todo_archive.md` (format: se eksisterende oppføringer). Slett `tasks/todos/todo-<nr>-<slug>.md`. Flytt planfil → `tasks/plans/archive/`.
 4. **Merge:** verifiser base FØR merge — `gh pr view <pr> --json baseRefName -q .baseRefName` → MÅ være `{{BASE_BRANCH}}`, ALDRI `{{PROD_BRANCH}}`.
@@ -87,13 +94,15 @@ Fra ferdig-rapporten, `status: "implemented"`:
    allowlisten i «In-flight-tabell» (§5d) gater §0b nettopp på denne verdien, og ingen tidligere
    linje sa NÅR den skulle skrives. Endepunktet tar PR-**nummer** (ikke URL), og nummeret må stå som et **literalt tall** i kallet — en shell-variabel blokkeres av `guard-main-merge.sh`. Faktumet at base settes ved PR-oppretting og ikke ved selve merge-operasjonen gjelder uansett merge-form. Fallback ved REST-problemer: `gh pr merge <pr> --merge --match-head-commit <sha fra steg 0>` (bruker GraphQL-kvoten, som kan tømmes ved høyt volum).
 
-   `guard-main-merge.sh` er registrert i `PreToolUse` i `.github/hooks/loop-guards.json` og
-   kjører i alle sesjoner og alle worktrees — verifisert ved at en throwaway
-   worktree-sub-agent ble blokkert på `gh pr merge`. Hooks lastes ved **sesjonsstart** fra
-   **hovedsjekkuten** (`$LOOP_PROJECT_DIR` resolver dit også for worktree-agenter), så en
-   endring i skriptet eller i `settings.json` får effekt først i en fersk sesjon etter at
-   hovedsjekkuten er oppdatert — ikke i den sesjonen som gjorde endringen. Hooks kan i tillegg
-   komme fra den gitignorerte `.claude/settings.local.json`; sjekk begge hvis atferden avviker.
+   `guard-main-merge.sh` er registrert under `preToolUse` i `.github/hooks/loop-guards.json` og
+   filtrerer `toolName == "bash"`. UVERIFISERT: at `preToolUse` også fyrer for verktøykall fra
+   subagenter — verifiser én gang per prosjekt ved at en throwaway-worker i sin WORKTREE blir
+   blokkert på `gh pr merge`, før du stoler på vakten for workers. Hooks lastes ved
+   **sesjonsstart** fra koordinator-sesjonens repo-rot (**hovedsjekkuten**; `$LOOP_PROJECT_DIR`
+   resolver dit), så en endring i skriptet eller i `loop-guards.json` får effekt først i en fersk
+   sesjon etter at hovedsjekkuten er oppdatert — ikke i den sesjonen som gjorde endringen. Hooks
+   kan i tillegg komme fra andre `*.json`-filer i `.github/hooks/` (prosjektets egne); sjekk dem
+   hvis atferden avviker.
    **Begrensning:** vakten inspiserer kun kommandoens FØRSTE linje — flerlinjede eller prefiksede
    kommandoer (`git add -A` ⏎ `git push origin main`, `cd x && git push origin main`) omgår den.
    Base-sjekken over er derfor fortsatt den vakten som aldri kan hoppes over.
@@ -108,7 +117,8 @@ Fra ferdig-rapporten, `status: "implemented"`:
 
    **Worktree-rydding etter merge (§0b, erstatter det gamle inline-oppslaget):** ett §0b-kall per
    **deduplisert** akkumulert implementer-PAR fra §5 (sti + rundens pre-snapshot-fil), med
-   `evidence.toplevel` som nøkkel og ferdig-rapportens `branch`-felt som ren `<branch_kryss_sjekk>`.
+   WORKTREE-stien (bekreftet av `evidence.toplevel`) som nøkkel, treets `<bootstrap_branch>` og
+   ferdig-rapportens `branch`-felt som ren `<branch_kryss_sjekk>`.
    (i) **Dedupliser sti-lista før iterasjon** — dedup på STIEN; behold den FØRSTE rundens
    snapshot-fil for stien (det er den som er «før» for nettopp den worktreen).
    (ii) **«Branchen finnes ikke» er IKKE ADVARSEL** og telles ikke i «bærer commits»-bøtta — kun
@@ -170,24 +180,27 @@ Fra ferdig-rapporten, `status: "implemented"`:
 
    **Deretter: navngitt kjøring for denne todoens egne trær.** Kallet over rydder
    normalt ikke denne todoens egne trær: de er rørt siste døgn, og aldersvakten (`AGE_MIN`,
-   §6d punkt 4) beholder dem. Kjør derfor også `./tasks/worktree-sweep.sh agent-<id> agent-<id> …`
-   med ett `agent-<id>` per worktree-isolert dispatch denne todoen har hatt: planner,
-   plan-reviewer, implementer og kode-reviewer, alle runder og forkastede re-dispatcher.
-   **Navngi bare dispatcher der koordinatoren har mottatt resultatet (sluttrapport eller feil).**
-   `<id>` er agent-ID-en fra dispatch-resultatet; treet er `.loop-worktrees/agent-<id>`, som
-   også er `basename` av rapportens `evidence.toplevel`. Oppgi navnet, ikke stien: alt annet enn
-   `agent-…` avvises med `exit 2`. Scout og lenser har ingen egen worktree og navngis ikke.
-   **Aldri** en agent fra et pipelinet (§5c) eller parallelt (§5d) B-spor: den kan fortsatt leve,
-   og låsen er ikke noe vern — en agent vekket med `SendMessage` er målt uten lås.
-   **Et agent-ID som har vært navngitt i en navngitt kjøring, er dødt: det skal aldri vekkes med
-   `SendMessage` igjen, dispatch en fersk agent.** Skriptet vurderer KUN de navngitte trærne og
+   §6d punkt 4) beholder dem. Kjør derfor også `./tasks/worktree-sweep.sh <navn> <navn> …`
+   med ett navn per tre koordinatoren laget for denne todoen (§0b «Worktree per dispatch»):
+   planner, plan-reviewer, rotårsaksanalyse, implementer og kode-reviewer, alle runder og
+   forkastede re-dispatcher. **Navngi bare trær der koordinatoren har mottatt resultatet
+   (sluttrapport eller feil) fra workeren.** Navnet er `<etikett>-<nr>`, altså `basename` av
+   WORKTREE (og av rapportens `evidence.toplevel`); treet er `.loop-worktrees/<etikett>-<nr>`.
+   Oppgi navnet, ikke stien (f.eks. `./tasks/worktree-sweep.sh implementer-42 planner-r1-42`): alt
+   annet enn et gyldig `<rolle>-<id>`-navn avvises med `exit 2`. Scout og
+   lenser har ingen egen worktree og navngis ikke.
+   **Aldri** et tre fra et pipelinet (§5c) eller parallelt (§5d) B-spor: workeren kan fortsatt
+   kjøre i bakgrunnen (sjekk med `read_agent`), og låsen er ikke noe vern — et tre i bruk er målt
+   uten lås. **Et tre som har vært navngitt i en navngitt kjøring, er dødt: workeren som brukte
+   det får aldri `write_agent` igjen, og stien gjenbrukes aldri i en ny dispatch — dispatch en
+   fersk worker i et nytt tre fra bootstrap-skriptet.** Skriptet vurderer KUN de navngitte trærne og
    hopper over aldersvakten for dem; alle andre vakter og redningen gjelder uendret. Et navn uten
    tre gir `IKKE FUNNET <navn>` (typisk allerede ryddet av §0b i steg 4) — det er ingen feil.
    Oppsummeringslinja er `wtsweep_named=<fjernet>/<beholdt> …`. Skriv begge tokenene inn i
    notat-feltet i steg 5, skilt med `; ` og ALDRI med komma:
    `…; wtsweep=<n>/<n>; wtsweep_named=<n>/<n>`. Gaten leser tokenet fram til mellomrom eller `;`,
    så `wtsweep=3/1,wtsweep_named=2/0` blir ett feilformet token ⇒ RØD. Feiler kallet, eller er
-   ID-ene tapt (f.eks. etter kontekst-komprimering): skriv `wtsweep_named=feilet:<årsak>`; trærne
+   navnene tapt (f.eks. etter kontekst-komprimering, uten sjekkpunkt): skriv `wtsweep_named=feilet:<årsak>`; trærne
    tas da av døgnsweepen når `AGE_MIN` er passert. `--gate` leser KUN `wtsweep=`, og
    `wtsweep_named=` inneholder ikke den understrengen: den navngitte kjøringen kan verken gjøre
    gaten grønn eller rød.
@@ -244,8 +257,13 @@ Fra ferdig-rapporten, `status: "implemented"`:
    og `Planlagt diff: 280/11` gir `planned=280/11`. Mangler linja (plan fra før 516), utelates tokenet, og en
    todo uten planfil får `planned=n/a`. Tallet gjettes aldri. Overgang: 516s egen §6-rad SKAL bære `planned=`.
 
+   **`credits=`** skrives sammen med raden, som `planned=`. Verdien er AI credits todoen kostet: sesjonens
+   AI credits-total nå minus `credits_ved_claim` fra sjekkpunktet (§2). Workers kjører i samme sesjon, så
+   totalen dekker dem. Mangler ett av tallene, skrives ingen `credits=`, og `tasks/measure-cost.py` melder
+   `IKKE MÅLT` for todoen. Tallet gjettes aldri.
+
    **NB — notat-feltet (`selector=`/`floor=`/`viol=`/`floor_exempt=`/`pipelined_from=`/`parallel_with=`/
-   `auto_decided=`/`attest=`/`vblock=`/`scout=`/`wtsweep=`/`ci=`) er IKKE med i `$ROW`-malen over.** De fleste
+   `auto_decided=`/`attest=`/`vblock=`/`scout=`/`wtsweep=`/`ci=`/`planned=`/`credits=`) er IKKE med i `$ROW`-malen over.** De fleste
    appenderes som SISTE felt etter at raden er skrevet (§5b, §5c, §5d, § Pausepunkter) — feltets eget
    NUMMER er omstridt mellom spec-tabellen og de faktiske radene (ikke fastsatt). `wtsweep=` er UNNTAKET: verdien er allerede kjent FØR raden skrives
    (§6 steg 4b over), så den skrives inn i notat-feltet SAMTIDIG med resten av raden i steg 5, ikke
@@ -269,7 +287,8 @@ Fra ferdig-rapporten, `status: "implemented"`:
    heltall. Ingen scout brukt: `scout=0` (kortformen). Til forskjell fra `attest=`/`parallel_with=`
    er FRAVÆR HER ET KONTRAKTBRUDD: en manglende `scout=` kan ikke skilles fra en runde uten
    scout-bruk, og da måler serien ingenting — som er hele grunnen til at tokenet finnes. Mangler
-   `scout_usage` i en rapport (og scout er på), be workeren om feltet i stedet for å gjette;
+   `scout_usage` i en rapport (og scout er på), be workeren om feltet i stedet for å gjette
+   (`coordinator-runbook.md` § «Sende en worker tilbake»);
    fabrikkert telemetri er verre enn ingen. Kunne workeren ikke spørres i det hele tatt (sesjonen
    avsluttet uten rapport, eller rapporten har `status: "blocked"`/`"failed"` og likevel mangler
    `scout_usage`): skriv `scout=unknown` — ALDRI `scout=0`, som betyr «spurt, ingen brukt» og ville
@@ -319,7 +338,7 @@ Fra ferdig-rapporten, `status: "implemented"`:
    **`$MSG`-suffiks ved ADVARSEL fra §0b (VIKT-6 fra r2, r5-formen):** er rundens ADVARSEL-teller
    `> 0`, append `(wtwarn=<n>: <role>@<basename> — <reason>; …)` til `$MSG` (maks tre oppføringer,
    deretter `…`). `<role>` ∈ `planner` | `plan-reviewer` | `code-reviewer` | `implementer`.
-   `<basename>` er worktree-katalogens navn (`agent-<hex>`) — **aldri den absolutte stien**.
+   `<basename>` er worktree-katalogens navn (`<etikett>-<nr>`) — **aldri den absolutte stien**.
    `<reason>` er ett ord fra enumet `dirty` | `locked` | `artifact-missing` | `cmd-error` |
    `branch-not-deleted` | `preexisting` | `snapshot-missing` | `unknown-path` |
    `handoff-mismatch` | `branch-mismatch`. ADVARSLER som oppstod

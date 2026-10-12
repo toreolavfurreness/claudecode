@@ -6,7 +6,7 @@
 
 Denne guiden forklarer **hvordan den autonome utviklingsloopen fungerer i praksis**, og — viktigst — **hvor du som menneske passer inn**. Den er for deg som kjører loopen, ikke for den som bygger den.
 
-- **Design og begrunnelse:** [v3-agent-orchestrator/docs/PORTING.md](../v3-agent-orchestrator/docs/PORTING.md)
+- **Design og begrunnelse:** `v3-copilot-agent-orchestrator/docs/ARCHITECTURE.md` i kit-repoet
 - **Koordinator-runbook (prosedyren loopen kjører):** `docs/loop/coordinator-runbook.md` — kjerne-sjekkliste; prosedyren per steg i `docs/loop/steps/`, begrunnelser i `docs/loop/runbook-hvorfor.md`
 
 ---
@@ -44,7 +44,7 @@ Ved et ekte veiskille i et av stegene stopper loopen og spør deg (pausepunkt, s
 - **Implementer** (`{{MODEL_IMPLEMENTER}}`) koder, verifiserer og lager PR mot `{{BASE_BRANCH}}`.
 - **Code reviewer** (`{{MODEL_CODE_REVIEWER}}`) gjør en uavhengig review av PR-diffen: godkjenner eller sender tilbake.
 
-Hver worker kjører i sin egen worktree (isolert), så de kolliderer ikke. Du ser fremdriften rulle forbi, og blir kun stoppet ved ekte veiskiller (se under).
+Hver worker kjører i sin egen worktree (isolert): koordinatoren lager den med `scripts/bootstrap-worktree.sh` (`.loop-worktrees/<rolle>-<nr>`) før dispatch og gir stien i prompten, så de kolliderer ikke. Du ser fremdriften rulle forbi, og blir kun stoppet ved ekte veiskiller (se under).
 
 ---
 
@@ -55,12 +55,12 @@ Du har tre roller. Ingen av dem krever at du sitter og venter.
 ### 1. Du starter og stopper loopen
 Loopen implementerer og merger **én todo om gangen**, og **du bestemmer når den kjører**. Planleggingen av neste todo kan overlappe implementeringen av den nåværende (pipelining, `coordinator-runbook.md` §5c) — men det er aldri mer enn én todo under implementering. Du kan la loopen gå til køen er tom, eller stoppe når du vil.
 
-Start den med slash-commanden **`/run-loop`** i en fersk sesjon:
+Start den med skillen **`/run-loop`** i Copilot-chatten, i en ny sesjon:
 - `/run-loop` — kjør kontinuerlig til køen er tom eller et pausepunkt treffes
 - `/run-loop once` — kjør nøyaktig én todo, så stopp (forsiktig oppstart / validering)
 - `/run-loop 41` — start med en bestemt todo
 
-Merk: må kjøres i en sesjon startet *etter* at `{{PROJECT_NAME}}-*`-agentene finnes (Claude Code laster agent-registeret ved sesjonsstart).
+Merk: må kjøres i en sesjon startet *etter* at `{{PROJECT_NAME}}-*`-agentene finnes (Copilot laster agent-registeret fra `.github/agents/*.agent.md` ved sesjonsstart).
 
 ### 2. Du styrer køen (rattet)
 Du trenger ikke røre koordinatoren for å endre hva som blir gjort. Rediger **ett felt i én fil** under `tasks/todos/`:
@@ -113,7 +113,8 @@ Review-kadansen din går altså fra *per plan* til *per release* + stikkprøver.
 | **Brainstorm-påkrevd todo** | Krever designvalg bare du kan ta — hoppes over, rapporteres |
 | **Reviewer-no-go som ikke løses** | Gate-funnene konvergerer ikke, eller kostnaden er over taket (se `coordinator-runbook.md` § Konvergensregel) |
 | **Kode-reviewer revise-gate — pausepunkt-regel B1** | Koordinatoren velger selv (ny fix-runde, merge m/carry-forwards, eller stopp) og logger valget i `decision-log.md`; eskalerer til deg (nivå A) ved innholdsfunn, manglende konvergensdata eller kostnad over taket (se `coordinator-runbook.md` § Konvergensregel) |
-| **Agent-probe i preflight feiler («Agent type not found», dekker §5b)** | Start en fersk koordinator-sesjon (se sesjonsstart-noten (B1) over) |
+| **Agent-probe i preflight feiler (`Unknown agent_type`, dekker §5b)** | Start en ny Copilot-sesjon for koordinatoren (se sesjonsstart-noten (B1) over) |
+| **Read-only-sjekken feiler** (`scripts/readonly-check.sh` etter en reviewer-/kode-reviewer-/tech-review-dispatch) | En read-only-rolle har endret worktreen eller flyttet HEAD — rapporten forkastes, du avgjør neste steg (nivå A) |
 | **Release: scope tomt eller blokkert** | Med en aktiv release stopper loopen når scopet er tomt (`MÅL NÅDD` → prod-release-todoen er din; `MÅL IKKE NÅDD` → legg til todoer eller juster `done_when`), eller når åpne todoer i scope ikke kan velges. Den henter ikke arbeid utenfor releasen uten ditt ord. |
 | **Helsesjekk rød** | Regresjon eller infra-feil i integrert `{{BASE_BRANCH}}` — koordinatoren eskalerer med detaljer, du bestemmer neste steg |
 | **Uventet feil / merge-konflikt** | Loopen gjetter ikke — den stopper og rapporterer |
@@ -147,15 +148,15 @@ Loopen og du kan jobbe «samtidig» så lenge dere holder dere til hver deres fi
 | `claimed_by`, `status: in_progress/done` | Koordinator | ❌ ikke rør (= «in-flight»-signal) |
 | `plan:` på en **u-claimet** todo (pipelinet plan) | Koordinator | ❌ ikke rør — men todoen er IKKE under arbeid: `priority`/`order`/`deferred` er fortsatt trygt |
 | `lessons*`, `followups/`, `todo_archive.md`, `bugs.md` | Koordinator | ❌ ikke rør manuelt |
-| `.loop-worktrees/agent-*` | Koordinator (rydder etter hver worker-dispatch; beholder ved abort for forensikk) | ❌ ikke rydd manuelt mens loopen kjører; ✅ trygt når den står stille |
-| `tasks/agent-memory/<agent>/MEMORY.md` | Agenten selv, committes av implementeren i dens egen PR | ❌ ikke rediger manuelt |
+| `.loop-worktrees/<rolle>-<nr>` | Koordinator (lager før hver worker-dispatch, rydder etterpå; beholder ved abort for forensikk) | ❌ ikke rydd manuelt mens loopen kjører; ✅ trygt når den står stille |
+| `tasks/agent-memory/<agent>/MEMORY.md` | Koordinator (single-writer; skriver workerens `memory_candidates` fra rapporten) | ❌ ikke rediger manuelt |
 | `tasks/graph.json` | Ingen — genereres on-demand, committes aldri | ❌ ikke opprett |
-| `tasks/graph-build.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/graph-build.py`) |
-| `tasks/graph-query.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/graph-query.py`) |
-| `tasks/review-lens-select.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/review-lens-select.py`) — kjøres av koordinatoren i §5b, aldri av kode-revieweren |
-| `tasks/review-severity-floor.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/review-severity-floor.py`) — håndhever `severity_floor` per agent, kjøres av koordinatoren i §5b, aldri av kode-revieweren |
-| `tasks/decision-level.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/decision-level.py`) — klassifiserer nivå A/B per hendelse, kjøres av koordinatoren OG implementeren, aldri av kode-revieweren |
-| `tasks/review-fan-in-verify.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-agent-orchestrator/templates/tasks/review-fan-in-verify.py`) — mekanisk `observe`-logg for `fan_in`-rapporten, kjøres av koordinatoren i §5b, aldri av kode-revieweren |
+| `tasks/graph-build.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-copilot-agent-orchestrator/templates/tasks/graph-build.py`) |
+| `tasks/graph-query.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-copilot-agent-orchestrator/templates/tasks/graph-query.py`) |
+| `tasks/review-lens-select.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-copilot-agent-orchestrator/templates/tasks/review-lens-select.py`) — kjøres av koordinatoren i §5b, aldri av kode-revieweren |
+| `tasks/review-severity-floor.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-copilot-agent-orchestrator/templates/tasks/review-severity-floor.py`) — håndhever `severity_floor` per agent, kjøres av koordinatoren i §5b, aldri av kode-revieweren |
+| `tasks/decision-level.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-copilot-agent-orchestrator/templates/tasks/decision-level.py`) — klassifiserer nivå A/B per hendelse, kjøres av koordinatoren OG implementeren, aldri av kode-revieweren |
+| `tasks/review-fan-in-verify.py` | `/setup` (kit-generert) | ❌ rediger templaten (`v3-copilot-agent-orchestrator/templates/tasks/review-fan-in-verify.py`) — mekanisk `observe`-logg for `fan_in`-rapporten, kjøres av koordinatoren i §5b, aldri av kode-revieweren |
 | `docs/loop/decision-log.md` | Koordinator (seed-only, samme vern som `run-log.md`) | ❌ ikke rør manuelt — koordinatoren appender nivå-B-entries; se `decision-log.md` § Format |
 | `tasks/plans/todo-NN-*.md` | Koordinator til §5-dispatch; deretter branch-eid av implementeren (fix-runde-seksjoner) til merge | ❌ ikke rediger manuelt mens todoen er in-flight |
 
@@ -258,6 +259,12 @@ Vurder hvert forslag mot disse fire spørsmålene:
 | Kode-review (§5b) | {{MODEL_CODE_REVIEWER}} (effort {{EFFORT_CODE_REVIEWER}}) | Adversariell diff-review trenger sterk resonnering |
 {{SCOUT_MODEL_ROW}}| Fix-runde 3+ (eskalering) | {{MODEL_CODE_REVIEWER}} (effort {{EFFORT_CODE_REVIEWER}}) | Sene fix-runder krever re-verifisering av planens V-blokk — samme resonneringskrav som kode-review |
 
+Modellen står i hver rolles `models.<rolle>` i `loop.config.yaml` som en prioritert liste: koordinatoren
+sender den som `model` i `task`-kallet, og harnessen bruker den første tilgjengelige. `effort` er
+valgfri (`models.<rolle>_effort`) og sendes som `reasoning_effort` bare når den er satt. Velg gjerne en
+annen modellfamilie for reviewer/code-reviewer enn for planner/implementer — et uavhengig blikk finner
+andre feil.
+
 ---
 
 ## Forutsetninger — lokal vs. cloud/headless
@@ -266,11 +273,11 @@ Loopen har eksterne avhengigheter som ikke finnes i alle kjørekontekster. Prefl
 
 | Avhengighet | Gir | Lokal (standard) | Cloud/headless | Degradering hvis mangler |
 |---|---|---|---|---|
-| E2E-verktøyet (konfigurert probe — CLI eller MCP, se `run-loop.md` §1) | E2E-verifisering av brukerflyt i browser | Tilgjengelig via CLI/plugin/MCP-oppsett | Ikke tilgjengelig | E2E hoppes over; `verification.e2e_outcome: "e2e_unavailable"` i ferdig-rapport; `degradation`-kolonnen avledes av `e2e_outcome` + `web_smoke_outcome` sammen (se `run-log.md`) |
-| Superpowers `/systematic-debugging` | Strukturert 6-stegs rotårsaks-feilsøking | Tilgjengelig | Ikke tilgjengelig | Inline 6-stegs fallback-protokoll trer i kraft i `todo-execute.md`; degraderingen loggføres i `notes`-feltet i ferdig-rapporten |
-| Superpowers `/verification-before-completion` | Strukturert ferdig-sjekk | Tilgjengelig | Ikke tilgjengelig | Manuell verifisering per planens testkriterier. NB: brukes kun ved manuell `/todo-done`, ikke i loop-worker-stien — preflight-sjekker den kun for fullstendighetens skyld |
-| Superpowers `/requesting-code-review` og `/simplify` | Post-impl review og DRY-analyse | Tilgjengelig | Ikke tilgjengelig | Utføres allerede inline i `todo-finish-worker.md` steg 3 og 5 — ingen ytterligere degradering |
-| In-repo-agenter (`{{PROJECT_NAME}}-*`) | Planner, reviewer, implementer, code-reviewer | Tilgjengelig etter sesjon startet post-merge | Ikke tilgjengelig | **Kritisk** — loopen STOPPER; eskalerer til koordinator (agent-probene i `/run-loop`-preflighten — planner + code-reviewer) |
+| E2E-verktøyet (konfigurert probe — CLI eller MCP-verktøy `<server>/<verktøy>`, se `.github/skills/run-loop/SKILL.md` §1) | E2E-verifisering av brukerflyt i browser | Tilgjengelig via CLI/plugin/MCP-oppsett | Ikke tilgjengelig | E2E hoppes over; `verification.e2e_outcome: "e2e_unavailable"` i ferdig-rapport; `degradation`-kolonnen avledes av `e2e_outcome` + `web_smoke_outcome` sammen (se `run-log.md`) |
+| Debug-skill `/systematic-debugging` (`.github/skills/systematic-debugging/`) | Strukturert 6-stegs rotårsaks-feilsøking | Tilgjengelig hvis prosjektet har skillen | Samme (skills følger repoet) | Inline 6-stegs fallback-protokoll trer i kraft i `.github/skills/todo-execute/SKILL.md`; degraderingen loggføres i `notes`-feltet i ferdig-rapporten |
+| Verifiserings-skill `/verification-before-completion` (`.github/skills/verification-before-completion/`) | Strukturert ferdig-sjekk | Tilgjengelig hvis prosjektet har skillen | Samme | Manuell verifisering per planens testkriterier. NB: brukes kun ved manuell `/todo-done`, ikke i loop-worker-stien — preflight-sjekker den kun for fullstendighetens skyld |
+| Skills `/requesting-code-review` og `/simplify` | Post-impl review og DRY-analyse | Tilgjengelig hvis prosjektet har skillene | Samme | Utføres allerede inline i `.github/skills/todo-finish-worker/SKILL.md` steg 3 og 5 — ingen ytterligere degradering |
+| In-repo-agenter (`{{PROJECT_NAME}}-*`) + `scripts/bootstrap-worktree.sh` og `scripts/readonly-check.sh` | Planner, reviewer, implementer, code-reviewer; worktree per worker og read-only-sjekk | Tilgjengelig etter sesjon startet post-merge | Ikke tilgjengelig | **Kritisk** — loopen STOPPER; eskalerer til koordinator (agent-probene og skript-sjekken i `/run-loop`-preflighten — planner + code-reviewer) |
 
 In-repo-agenter er den eneste avhengigheten der manglende tilgjengelighet STOPPER loopen. Alle andre avhengigheter degraderer kontrollert med sporbar historikk i run-log.
 
@@ -281,7 +288,7 @@ In-repo-agenter er den eneste avhengigheten der manglende tilgjengelighet STOPPE
 | Fase | Hva | Status |
 |---|---|---|
 | **0** | Valider mønsteret i en live-sesjon på 1–2 ekte todos | **Validert** — i ordinær drift |
-| **1** | Port til et Workflow-script (bakgrunnskjøring + resume) | **Ikke planlagt** — fase 1 er ingen forutsetning for fase 2, og pipelining (fase 2 trinn 1) ble prioritert foran |
+| **1** | Skript-drevet kjøring (bakgrunnskjøring + resume) | **Ikke planlagt** — fase 1 er ingen forutsetning for fase 2, og pipelining (fase 2 trinn 1) ble prioritert foran |
 | **2** | Parallelle workers (flere todos samtidig) | **Trinn 1 (pipelining) levert OG kjørt i drift** (to runder: 246→250, 250→195B) — `coordinator-runbook.md` §5c; en pipelinet runde kjennes igjen på `pipelined_from=` i run-loggen. **Trinn 2 (parallelle implementere) levert, ikke kjørt i drift ennå** — `coordinator-runbook.md` §5d + `tasks/parallel-disjoint.py`; armet via `parallel_implementers.max` i `loop.config.yaml`. Første parallelle runde kjennes igjen på `parallel_with=` i run-loggen (forventet inert inntil køen blander loop- og app-arbeid, jf. § 1.3.2 i planen) |
 
-Statuskolonnen er en **datert observasjon**, ikke en løpende sannhet. Skifter en fase tilstand, oppdateres cellen — og datoen i kolonneoverskriften — i templaten `v3-agent-orchestrator/templates/docs/orchestration-loop.md` etterfulgt av `/setup`, aldri i denne genererte fila (headeren øverst gjelder tokeniserte verdier i `loop.config.yaml`; narrativt innhold ligger i templaten).
+Statuskolonnen er en **datert observasjon**, ikke en løpende sannhet. Skifter en fase tilstand, oppdateres cellen — og datoen i kolonneoverskriften — i templaten `v3-copilot-agent-orchestrator/templates/docs/orchestration-loop.md` etterfulgt av `/setup`, aldri i denne genererte fila (headeren øverst gjelder tokeniserte verdier i `loop.config.yaml`; narrativt innhold ligger i templaten).

@@ -1,5 +1,7 @@
 ---
+name: loop-health-check
 description: "Periodisk helsesjekk + release-rådgiver for orkestreringsloopen."
+disable-model-invocation: true
 ---
 {{GENERATED_HEADER}}
 
@@ -91,6 +93,13 @@ git diff <forrige_sha>..origin/{{BASE_BRANCH}} --name-only -- <sti>
 - Tom diff → hopp over sweep, sett `rls=n/a`
 - Ikke-tom diff (eller ingen forrige SHA) → dispatch den relevante tech-review-agenten og
   rapporter funnene. Sett `rls=green` (ingen åpne hull) eller `rls=red` (funn som krever eskalering).
+  Dispatchen følger samme mekanikk som i loopen (`.github/skills/run-loop/SKILL.md` § «Dispatch i denne
+  harnessen»): lag worktreen med `bash scripts/bootstrap-worktree.sh health <agent>` og send stien som
+  `WORKTREE:` i prompten (skriptet godtar `health` i todo-nr-plassen); `task` med `agent_type: "<agent>"`,
+  `{{DEEP_DISPATCH_ARGS}}`,
+  `mode: "sync"`. Tech-review-agenten er read-only: kjør
+  `bash scripts/readonly-check.sh <WORKTREE> <base-sha>` etterpå. Feiler den, forkastes rapporten og
+  helsesjekken er **RØD (infra)** — ⚠️ PAUSEPUNKT, nivå A.
 - Ingen tech-review-agenter konfigurert → `rls=n/a` alltid.
 
 ### A5b — Web-smoke (betinget, tetter blindsonen: ingen annen gate faktisk LASTER web-appen)
@@ -111,8 +120,9 @@ git diff <forrige_sha>..origin/{{BASE_BRANCH}} --name-only -- app/ components/ l
 
 **Preferert sti (unngår `n/a`):** start/gjenbruk Metro fra HOVEDSJEKKUTEN (ikke en nøstet
 `.loop-worktrees/…`-sti) — `playwright.config.ts` har `reuseExistingServer: true` og bundler
-mot port {{DEV_SERVER_PORT}}, så kommandoen kjører rent derfra. Hovedsjekkuten er alltid i
-«Additional working directories», så koordinatoren har tilgang. Kostnad når den faktisk kjører:
+mot port {{DEV_SERVER_PORT}}, så kommandoen kjører rent derfra. Koordinatoren kjører selv i
+hovedsjekkuten (worker-worktreene ligger under `.loop-worktrees/` i samme repo), så den har tilgang.
+Kostnad når den faktisk kjører:
 ~1–2 min (inkl. Metro-oppstart hvis ingen server allerede kjører på porten).
 
 Utfallsklasser:
@@ -187,32 +197,28 @@ Flere vakter: verste utfall vinner (`infra-feil`/`red` > `report-red` > `n/a`/`g
 
 ### A5e — Kostnadskalibrering
 
-Sammenligner `measure-cost.py` sin egen sum med harnessens kostnadstall per avsluttet økt. Steget gjør
-aldri helsesjekken rød.
+Sammenligner `measure-cost.py` sin egen sum av `assistant.usage`-hendelser i
+`~/.copilot/session-state/<sessionId>/events.jsonl` (eller `$COPILOT_HOME/session-state/…`) med de
+AI credits-tallet `/usage` viser for samme økt, gitt med `--credits`. Koordinatoren kjører det for sin
+egen økt: `/usage` først, så skriptet. Steget gjør aldri helsesjekken rød.
 
 ```bash
-python3 tasks/measure-cost.py --calibrate; echo "exit=$?"
+python3 tasks/measure-cost.py --calibrate --session <sessionId> --credits <AI credits fra /usage>; echo "exit=$?"
 ```
 
-`final` er andelen underagent-meldinger som har endelig usage. Exit 2 (ingen økt målt) →
-**ADVARSEL**. Annen exit ≠ 0 uten en `over=yes`-linje (traceback, eller ingen sesjonskataloger) →
-**ADVARSEL** med stderr ordrett. Per linje:
-- `over=yes` uten `KJENT HULL` → **ADVARSEL**.
-- `KJENT HULL` → meld som «KJENT HULL», ikke som ADVARSEL: fra Claude Code 2.1.281 mangler
-  underagent-transkriptene endelig usage, så egen sum er for lav. `KJENT HULL` har ingen nedre grense
-  og skjuler enhver undermåling i økta: prisfeil, avkortet hovedfil, manglende underagent-filer (når
-  minst én underagent-melding er igjen) og avvik som stammer fra hovedfila.
-- En linje med `final` under 50 % etterprøver ikke prisene, uansett `over=`. Har ingen linje `final` på
-  50 % eller mer, meld steget som «ikke en prismåling denne runden». Prisene kan da bare etterprøves
-  slik (`<fil>` i scratchpad):
+Uten `--credits` gir skriptet exit 2 og `IKKE MÅLT`. `--session` kan utelates når
+`$COPILOT_SESSION_ID` er satt eller det bare finnes én sesjonskatalog for prosjektet.
 
-```bash
-curl -sL https://platform.claude.com/docs/en/about-claude/pricing.md -o <fil>
-python3 tasks/measure-cost.py --prices-check <fil>
-```
+Exit 2 (ingen økt målt) → **ADVARSEL**. Annen exit ≠ 0 uten en `over=yes`-linje (traceback, eller
+ingen sesjonskataloger) → **ADVARSEL** med stderr ordrett. Per linje:
+- `over=yes` → **ADVARSEL**: egen sum og `/usage`-tallet spriker mer enn toleransen.
+- `IKKE MÅLT` → meld som «IKKE MÅLT», ikke som ADVARSEL: `assistant.usage`-hendelsene er flyktige og
+  lagres normalt ikke i `events.jsonl`, så økta har ingen egen sum — eller mangler et manuelt
+  `/usage`-tall å sammenligne med. Det er aldri 0 og aldri et anslag. Har ingen økt i vinduet begge
+  kildene, meld steget som «ikke en kostnadsmåling denne runden».
 
-ADVARSEL, KJENT HULL og «ikke en prismåling denne runden» endrer ikke A6. Koordinatoren tar med én linje
-per utfall til eieren i neste statusrapport, med calibrate-linja ordrett.
+ADVARSEL, IKKE MÅLT og «ikke en kostnadsmåling denne runden» endrer ikke A6. Koordinatoren tar med én
+linje per utfall til eieren i neste statusrapport, med calibrate-linja ordrett.
 
 ### A5f — Kit-drift
 
@@ -221,7 +227,7 @@ python3 tasks/kit-drift.py
 ```
 
 Sjekker at kit-eide filer som skal være like i alle prosjekter (i dag `tasks/queue-status.py` og
-Køsiden-raden i `docs/loop/artifacts.md`) står som i `v3-agent-orchestrator/templates/`.
+Køsiden-raden i `docs/loop/artifacts.md`) står som i `v3-copilot-agent-orchestrator/templates/`.
 
 - Exit 0 → `kitdrift=green`.
 - Exit 1 (`AVVIK`-linjer) → `kitdrift=avvik`. Endrer ikke A6: koordinatoren tar med AVVIK-linjene til

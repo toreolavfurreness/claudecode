@@ -6,8 +6,14 @@
 # hver rad skåres mot. I PR1 er hooken uendret i begge faser — fase "pre" skal
 # være grønn (0 AVVIK), fase "post" er en RØD-fase-demonstrasjon (rader med
 # NÅ ≠ ETTER, samt post-only-rader, avviker mot dagens hook med vilje — se
-# planens § 8 / Steg 5). Fasit for hver rad = hookens EGEN exit-kode
-# (2 = BLOKKERT, 0 = SLIPPER) — ikke grep i eget skall.
+# planens § 8 / Steg 5). Fasit for hver rad = hookens EGET svar i Copilot-formen
+# (exit 0 + {"permissionDecision":"deny",…} på stdout = BLOKKERT, exit 0 + tom stdout =
+# SLIPPER, alt annet = ERROR) — ikke grep i eget skall.
+#
+# Hver rad mates som en Copilot preToolUse-payload: {"toolName":"bash","toolArgs":"<JSON-streng
+# med command>","cwd":…,"sessionId":…}. C-blokka til slutt (utenfor radtabellen og tellingene
+# under) dekker payload-variantene: toolArgs som objekt, annet toolName, aliaset run_in_terminal
+# og en toolArgs-streng som ikke er JSON.
 #
 # Radtabellen (case-uttrykkene under) er GENERERT fra planens V1-V5+V4b-tabeller
 # av implementerens autoringskript (ikke committet — se PR1-beskrivelsen for
@@ -410,7 +416,7 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 CMDEOF
       ;;
     A5) cat <<'CMDEOF'
-git push origin claude/todo-12-x
+git push origin loop/todo-12-x
 CMDEOF
       ;;
     A6) cat <<'CMDEOF'
@@ -1378,7 +1384,7 @@ build_longcmd() {
   # (128 KiB per argv-element) feller nøyaktig dette i CI.
   local kind="$1"
   local pad
-  pad="$(head -c 300000 /{{BASE_BRANCH}}/zero | tr '\0' 'x')"
+  pad="$(head -c 300000 /dev/zero | tr '\0' 'x')"
   if [ "$kind" = "git" ]; then
     printf 'echo %s; git status' "$pad"
   else
@@ -1390,7 +1396,25 @@ build_input_json() {
   # cmd via STDIN til jq (-Rs), ALDRI som --arg-argv-element (samme
   # ARG_MAX-hensyn som build_longcmd).
   local cmd="$1" cwd="$2"
-  printf '%s' "$cmd" | /usr/bin/jq -Rs --arg cwd "$cwd" '{tool_input: {command: .}, cwd: $cwd}'
+  printf '%s' "$cmd" | /usr/bin/jq -Rs --arg cwd "$cwd" \
+    '{toolName: "bash", toolArgs: ({command: .} | tojson), cwd: $cwd, sessionId: "test-session-0001", timestamp: 0}'
+}
+
+# Copilot-svaret -> BLOCK / ALLOW / ERROR(...). BLOCK krever exit 0 OG gyldig JSON med
+# permissionDecision == "deny" på stdout; ALLOW krever exit 0 OG tom stdout. Exit 2 alene
+# (fail-closed-reserven når svaret ikke lar seg skrive) teller som ERROR(2): hooken skal
+# alltid nå den vanlige formen i disse radene.
+classify_outcome() {
+  local _rc="$1" _out="$2"
+  if [ "$_rc" -ne 0 ]; then
+    printf 'ERROR(%s)' "$_rc"
+  elif [ ! -s "$_out" ]; then
+    printf 'ALLOW'
+  elif /usr/bin/jq -e '.permissionDecision == "deny" and (.permissionDecisionReason | type == "string")' "$_out" >/dev/null 2>&1; then
+    printf 'BLOCK'
+  else
+    printf 'ERROR(stdout)'
+  fi
 }
 
 # Årsakskatalog (§ 5 pkt 12, VIKTIG-7). ÅRSAK_NÅ/ÅRSAK_ETTER i radtabellen er
@@ -1415,7 +1439,7 @@ reason_pattern_for_code() {
     A-GQL-MERGE) echo 'gh api graphql med mergePullRequest \(fail-safe\)' ;;
     A-GQL-UAVGJORT) echo 'gh api graphql med query fra fil \(--input/@\) - fail-safe' ;;
     A-PUSH-HEAD-MAIN) echo 'git push uten refspec med {{PROD_BRANCH}} utsjekket' ;;
-    A-INPUT) echo 'kunne ikke lese tool_input \(jq exit=[0-9-]+\) - fail-closed' ;;
+    A-INPUT) echo 'kunne ikke lese toolArgs \(jq exit=[0-9-]+\) - fail-closed' ;;
     A-UAVGJORT) echo 'uavgjørbar kommando \(.*\) - fail-safe' ;;
     A-FOR-LANG) echo 'kommando for lang \(over 262144 byte\) - uavgjorbar innen tidsbudsjett' ;;
     A-SKANNER) echo 'skanneren ga intet resultat \(perl exit=[0-9-]+\) - fail-closed' ;;
@@ -1535,16 +1559,12 @@ run_case() {
   local start end elapsed rc actual
 
   start=$(date +%s)
-  printf '%s' "$input" | GH_ARGV_LOG="$argvlog" PATH="$BINDIR:$PATH" CLAUDE_PROJECT_DIR="$T/proj" bash "$effective_hook" >"$stdoutf" 2>"$stderrf"
+  printf '%s' "$input" | GH_ARGV_LOG="$argvlog" PATH="$BINDIR:$PATH" LOOP_PROJECT_DIR="$T/proj" bash "$effective_hook" >"$stdoutf" 2>"$stderrf"
   rc=$?
   end=$(date +%s)
   elapsed=$((end - start))
 
-  case "$rc" in
-    2) actual="BLOCK" ;;
-    0) actual="ALLOW" ;;
-    *) actual="ERROR($rc)" ;;
-  esac
+  actual="$(classify_outcome "$rc" "$stdoutf")"
 
   local dom="OK" note=""
 
@@ -1602,9 +1622,16 @@ run_case() {
     local reason_pattern
     reason_pattern="$(reason_pattern_for_code "$reason_expected")"
     # Forankret mot linjestart (r4-pålegg fix-runde 1, MINDRE-3): et uforankret
-    # grep mot HELE stderr matcher også hookens egen ekko av $CMD i
+    # grep mot HELE teksten matcher også hookens egen ekko av $CMD i
     # "kjør med vilje"-teksten — målt falsk match: en gh pr create-tittel som
     # bokstavelig inneholder årsaksfrasen ("fiks: git push direkte til {{PROD_BRANCH}}").
+    # Sjekkes i permissionDecisionReason (det agenten faktisk ser) OG i stderr (hook-loggen).
+    local reasonf="$T/reason.txt"
+    /usr/bin/jq -r '.permissionDecisionReason // empty' "$stdoutf" > "$reasonf" 2>/dev/null || : > "$reasonf"
+    if ! grep -qE -- "^Årsak: $reason_pattern" "$reasonf" 2>/dev/null; then
+      dom="AVVIK"
+      note="$note [AARSAK: kode '$reason_expected' ('$reason_pattern') ikke funnet i permissionDecisionReason]"
+    fi
     if ! grep -qE -- "^Årsak: $reason_pattern" "$stderrf" 2>/dev/null; then
       dom="AVVIK"
       note="$note [AARSAK: kode '$reason_expected' ('$reason_pattern') ikke funnet i stderr]"
@@ -1742,10 +1769,10 @@ cmd_diff() {
     effective_new="$(resolve_effective_hook "$new" "$variant")"
 
     local rc_old rc_new v_old v_new
-    printf '%s' "$input" | PATH="$BINDIR:$PATH" CLAUDE_PROJECT_DIR="$T/proj" bash "$effective_old" >/dev/null 2>/dev/null; rc_old=$?
-    printf '%s' "$input" | PATH="$BINDIR:$PATH" CLAUDE_PROJECT_DIR="$T/proj" bash "$effective_new" >/dev/null 2>/dev/null; rc_new=$?
-    case "$rc_old" in 2) v_old=BLOCK ;; 0) v_old=ALLOW ;; *) v_old="ERROR($rc_old)" ;; esac
-    case "$rc_new" in 2) v_new=BLOCK ;; 0) v_new=ALLOW ;; *) v_new="ERROR($rc_new)" ;; esac
+    printf '%s' "$input" | PATH="$BINDIR:$PATH" LOOP_PROJECT_DIR="$T/proj" bash "$effective_old" >"$T/out-old" 2>/dev/null; rc_old=$?
+    printf '%s' "$input" | PATH="$BINDIR:$PATH" LOOP_PROJECT_DIR="$T/proj" bash "$effective_new" >"$T/out-new" 2>/dev/null; rc_new=$?
+    v_old="$(classify_outcome "$rc_old" "$T/out-old")"
+    v_new="$(classify_outcome "$rc_new" "$T/out-new")"
 
     if [ "$v_old" != "$v_new" ]; then
       local ok=0
@@ -1800,8 +1827,34 @@ for id in $ALL_IDS; do
 done
 
 printf -- '----------------------------------------------------------------------------------------------------------------------\n'
+
+# ───────────────────────── C — Copilot-payloadvarianter ─────────────────────
+# Utenfor radtabellen og EXPECTED_*-tellingene: radtabellen mater alltid toolArgs som
+# JSON-streng med toolName "bash". Disse radene dekker de andre formene Copilot kan sende.
+EXPECTED_COPILOT=5
+COPILOT_COUNT=0
+COPILOT_AVVIK=0
+run_copilot_case() { # id ønsket payload beskrivelse
+  local _id="$1" _want="$2" _payload="$3" _desc="$4" _T _rc _got _dom
+  _T="$(mktemp -d)"; mkdir -p "$_T/bin" "$_T/proj"; write_gh_stub "$_T/bin/gh"
+  printf '%s' "$_payload" | PATH="$_T/bin:$PATH" LOOP_PROJECT_DIR="$_T/proj" bash "$HOOK" >"$_T/out" 2>/dev/null
+  _rc=$?
+  _got="$(classify_outcome "$_rc" "$_T/out")"
+  _dom="OK"
+  [ "$_got" = "$_want" ] || { _dom="AVVIK"; COPILOT_AVVIK=$((COPILOT_AVVIK + 1)); }
+  COPILOT_COUNT=$((COPILOT_COUNT + 1))
+  printf '%-6s %-6s %-9s %-5s %-6s %s\n' "$_id" "$_want" "$_got" "-" "$_dom" "$_desc"
+  rm -rf "$_T"
+}
+run_copilot_case C1 BLOCK '{"toolName":"bash","toolArgs":{"command":"git push origin {{PROD_BRANCH}}"},"cwd":"/tmp"}' 'toolArgs som objekt'
+run_copilot_case C2 ALLOW '{"toolName":"view","toolArgs":{"command":"git push origin {{PROD_BRANCH}}","path":"x"},"cwd":"/tmp"}' 'annet toolName enn bash slipper'
+run_copilot_case C3 BLOCK '{"toolName":"run_in_terminal","toolArgs":"{\"command\":\"git push origin {{PROD_BRANCH}}\"}","cwd":"/tmp"}' 'aliaset run_in_terminal vaktes'
+run_copilot_case C4 ALLOW '{"toolName":"bash","toolArgs":"ikke-json","cwd":"/tmp"}' 'toolArgs-streng som ikke er JSON -> tom kommando'
+run_copilot_case C5 ALLOW '{"toolName":"bash","toolArgs":{"command":"git push origin {{BASE_BRANCH}}"}}' 'objekt uten cwd, ufarlig push'
+printf -- '----------------------------------------------------------------------------------------------------------------------\n'
+
 SCORED=$((OK_COUNT + AVVIK_COUNT))
-echo "Scorede caser: $SCORED  |  OK: $OK_COUNT  |  AVVIK: $AVVIK_COUNT"
+echo "Scorede caser: $SCORED  |  OK: $OK_COUNT  |  C-rader: $COPILOT_COUNT  |  AVVIK: $((AVVIK_COUNT + COPILOT_AVVIK))"
 echo "EXPECTED_SUM=$EXPECTED_SUM EXPECTED_KNOWN=$EXPECTED_KNOWN EXPECTED_SKIP=$EXPECTED_SKIP EXPECTED_SCORED_TOTAL=$EXPECTED_SCORED_TOTAL"
 echo "ACTUAL_SUM=$TOTAL_COUNT ACTUAL_KNOWN=$KNOWN_COUNT ACTUAL_SKIP=$SKIP_COUNT ACTUAL_SCORED=$SCORED"
 
@@ -1822,7 +1875,11 @@ if [ "$SCORED" -ne "$EXPECTED_SCORED_TOTAL" ]; then
   echo "S5-BRUDD: SCORED=$SCORED != EXPECTED_SCORED_TOTAL=$EXPECTED_SCORED_TOTAL" >&2
   STATUS=1
 fi
-if [ "$AVVIK_COUNT" -ne 0 ]; then
+if [ "$COPILOT_COUNT" -ne "$EXPECTED_COPILOT" ]; then
+  echo "S5-BRUDD: COPILOT_COUNT=$COPILOT_COUNT != EXPECTED_COPILOT=$EXPECTED_COPILOT" >&2
+  STATUS=1
+fi
+if [ "$AVVIK_COUNT" -ne 0 ] || [ "$COPILOT_AVVIK" -ne 0 ]; then
   STATUS=1
 fi
 

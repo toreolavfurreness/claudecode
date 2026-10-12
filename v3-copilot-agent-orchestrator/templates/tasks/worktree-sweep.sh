@@ -23,7 +23,9 @@
 #   (ingen flagg)     destruktiv kjøring — fjerner kvalifiserte trær
 #   --dry-run         rapporterer uten å fjerne noe
 #   --gate            verifiserer at sweepen har kjørt siden forrige §6-rad; sletter ALDRI
-#   agent-<id> … navngitt kjøring: KUN de oppgitte trærne vurderes, og
+#   <rolle>-<id> … navngitt kjøring (navnet på mappa under .loop-worktrees/, slik
+#                     scripts/bootstrap-worktree.sh <id> <rolle> laget den, f.eks.
+#                     implementer-42 eller reviewer-health): KUN de oppgitte trærne vurderes, og
 #                     aldersvakten (kriterium 6) hoppes over for dem — alle andre vakter og
 #                     redningen gjelder uendret. Et navn uten tre gir «IKKE FUNNET <navn>».
 #                     Oppsummeringslinja bruker `wtsweep_named=`/`wtsweep_named_dry=`, ALDRI
@@ -40,30 +42,29 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY=1 ;;
     --gate) GATE=1 ;;
-    agent-|agent-*[!A-Za-z0-9_-]*)
-      # `agent-*` er et GLOB-mønster og matcher
-      # derfor ALT som starter med «agent-», inkludert ETT argument som inneholder mellomrom
-      # (f.eks. "agent-x graphify-…") eller en bokstavelig «*» (uekspandert p.g.a. sitering). Et
-      # slikt argument delte seg opp i flere "navn" i NAMES-listen og kunne la et ikke-agent-tre
-      # miste vakt 6. Denne grenen fanger ethvert tegn utenfor [A-Za-z0-9_-] etter «agent-» —
-      # inkludert den tomme resten («agent-» alene) — og avviser høylytt FØR agent-*-grenen under.
-      echo "UKJENT FLAGG: $arg (gyldig: --dry-run, --gate, agent-<id> …)"
+    -*|*[!A-Za-z0-9_-]*|*-|[!A-Za-z0-9]*)
+      # Et navn er <rolle>-<id> med bare [A-Za-z0-9_-]. Denne grenen fanger alt annet: flagg,
+      # stier (`/`), ETT argument som inneholder mellomrom (f.eks. "implementer-1 reviewer-1")
+      # eller en bokstavelig «*» (uekspandert p.g.a. sitering) — et slikt argument delte seg
+      # ellers opp i flere "navn" i NAMES-listen og kunne la et tre miste vakt 6 — og et navn
+      # som ender på «-» (tom id). Avvises høylytt FØR navnegrenen under.
+      echo "UKJENT FLAGG: $arg (gyldig: --dry-run, --gate, <rolle>-<id> …)"
       exit 2
       ;;
-    agent-*) NAMES="$NAMES $arg " ;;
+    *-*) NAMES="$NAMES $arg " ;;
     *)
-      echo "UKJENT FLAGG: $arg (gyldig: --dry-run, --gate, agent-<id> …)"
+      echo "UKJENT FLAGG: $arg (gyldig: --dry-run, --gate, <rolle>-<id> …)"
       exit 2
       ;;
   esac
 done
 
 # `--gate` sletter aldri noe og leser KUN
-# `wtsweep=` — å kombinere den med agent-<id> ville stille antyde at gaten også dekker den
+# `wtsweep=` — å kombinere den med <rolle>-<id> ville stille antyde at gaten også dekker den
 # navngitte kjøringen (den gjør aldri det, se `tok`-beregningen under). Avvis kombinasjonen
 # høylytt i stedet for å la den stille ignorere navnene.
 if [ "$GATE" -eq 1 ] && [ -n "$NAMES" ]; then
-  echo "UKJENT FLAGG: --gate kan ikke kombineres med agent-<id> (--gate leser kun wtsweep=, aldri wtsweep_named=; bruk --dry-run eller ingen flagg for navngitt kjøring)"
+  echo "UKJENT FLAGG: --gate kan ikke kombineres med <rolle>-<id> (--gate leser kun wtsweep=, aldri wtsweep_named=; bruk --dry-run eller ingen flagg for navngitt kjøring)"
   exit 2
 fi
 

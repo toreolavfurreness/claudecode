@@ -1,15 +1,17 @@
 ---
-description: "Planlegg neste TODO i PlanMode; ingen filendringer før godkjent."
+name: todo-plan
+description: "Planlegg neste TODO i plan-modus; ingen filendringer før godkjent."
+disable-model-invocation: true
 ---
 <!--
   GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
   Endre loop.config.yaml og kjør /setup på nytt.
 -->
-Bytt til PlanMode før du gjør noe som helst. Ingen filer skal endres i denne kommandoen.
+Bytt til plan-modus (Copilot: Plan-agenten / plan mode) før du gjør noe som helst. Ingen filer skal endres i denne kommandoen.
 
 Les følgende filer i denne rekkefølgen:
 1. `tasks/todos/README.md` — forstå frontmatter-skjema og status-enum
-2. Glob over `tasks/todos/todo-*.md`, les frontmatter (`nr`, `status`, `order`, `title`, `deps`).
+2. Gå gjennom `tasks/todos/todo-*.md` (glob), les frontmatter (`nr`, `status`, `order`, `title`, `deps`).
    Sorter på `order`. Finn første todo med `status: open`.
    **Deps-sjekk:** for hvert dep-nr: prøv å finn `tasks/todos/todo-{dep}-*.md`.
    Fil ikke funnet → dep er done (arkivert) → OK. Fil funnet med annen status enn done → hopp til neste kandidat.
@@ -67,7 +69,7 @@ Etter at du godkjenner planen:
    Vent på tilbakemelding.
 
 2. Etter at du godkjenner review:
-   - Avslutt PlanMode
+   - Avslutt plan-modus
    - Opprett tasks/plans/todo-<nr>-<slug>.md med følgende format:
 
      # TODO <nr> — <tittel>

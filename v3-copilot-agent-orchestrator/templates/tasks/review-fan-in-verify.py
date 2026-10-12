@@ -236,6 +236,11 @@ def load_live_key(path):
     mode = data.get("mode")
     if mode not in ("ledger", "worktree", "unavailable"):
         return None, ("live-key-unreadable", f"--live-key har ukjent eller manglende mode: {mode!r}")
+    # Worktrees laget av scripts/bootstrap-worktree.sh fjernes aldri automatisk,
+    # så koordinatoren skriver normalt `calibration: "persistent"`. `autoremove`
+    # (worktreen forsvinner når agenten er ferdig uten endringer) beholdes for en
+    # opprydding som gjør det. `lens_isolation: "own"` = lensen fikk sin egen
+    # worktree fra bootstrap-worktree.sh, `inherited` = den kjørte i oppdragsgiverens.
     calibration = data.get("calibration")
     if calibration not in ("autoremove", "persistent", "none"):
         calibration = "none"

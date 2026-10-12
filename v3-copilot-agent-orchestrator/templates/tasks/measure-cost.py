@@ -1,34 +1,56 @@
 #!/usr/bin/env python3
-"""Tokenbruk per todo/rolle/modell fra subagent-transkripter (denne sesjonen + evt. flere).
+"""Kostnad i AI credits per todo, økt, rolle og modell — fra Copilot-sesjonslogger og run-loggen.
 
-Bruk: python3 tasks/measure-cost.py [<since-iso>] [<session-dir>...] [--html <sti>] [--cutover <iso>]
-  session-dir = ~/.claude/projects/<kanonisert-prosjektsti>/<session-id>
-  Uten session-dir brukes alle sesjoner under prosjektmappa.
-  --html <sti>     skriver målesiden (artifact, fast lenke) — stien SKAL stå rett etter flagget.
+Bruk: python3 tasks/measure-cost.py [<since-iso>] [<session-dir>...] [flagg]
+  session-dir = $COPILOT_HOME/session-state/<session-id> (standard ~/.copilot/session-state/<id>)
+  Uten session-dir brukes alle økter under session-state som ble startet i dette repoet
+  (`cwd` i økta er repo-roten eller en mappe under den, også `.loop-worktrees/…`).
+
+Kilder:
+  1. `assistant.usage`-hendelser i øktens `events.jsonl` (model, inputTokens, outputTokens, cost,
+     cacheReadTokens, cacheWriteTokens). Formen er tolerant: hendelsen kan ligge som
+     {"type": "assistant.usage", "data": {...}} eller med feltene på toppnivå; ukjente felt ignoreres.
+     `cost` summeres som AI credits. Hendelsene er flyktige og lagres normalt IKKE i events.jsonl;
+     finnes de ikke, måler denne kilden ingenting.
+  2. Manuelle tall fra `/usage` (tokens og AI credits per modell for økta):
+     - per todo: tokenet `credits=<n>` i todoens run-log-rad (docs/loop/run-log.md), skrevet av
+       koordinatoren. Flere rader for samme todo summeres.
+     - på kommandolinja: `--credits <n>` (se flaggene under).
+  Mangler begge, står tallet som `IKKE MÅLT` — aldri 0, aldri gjettet.
+
+Flagg:
+  --html <sti>     skriver målesiden (fast lenke) — stien SKAL stå rett etter flagget.
   --trend          skriver trend-dommene som tekst (for §8c i coordinator-runbook.md) og
                    avslutter med exit 1 hvis minst én måling har gått i feil retning.
   --cutover <iso>  skillet før/etter kostnadsgrepene (standard 2026-09-15T18:30Z).
   --release <ver>  bare todoene i releasens scope (`tasks/release.py scope <ver>`): kost per release.
-  --brake <nr>     kostnadsbrems: én linje `brake todo=… class=… usd=… median=… n=… over=…`.
-                   over=yes når todoens kost > 2× medianen for arkiverte todoer i samme effort-klasse.
-                   over=few når klassen har færre enn 5 andre todoer med målt kost (ingen median).
-  --pr <n>         (med --brake) todoens åpne PR: rader tilskrevet `PR<n>` (review/fix før merge-raden
-                   finnes i run-loggen) legges til todoens sum. Uten --pr teller de ikke med.
-  --brake-self-test  6 asserts mot brake_verdict/fold_pr.
-  --calibrate      egen sum (hovedfil + underagenter) mot harnessens `cost-state.totalCostUSD` per økt:
-                   `calibrate session=… harness=… own=… diff=…% final=…% over=…`, vindu `startTime`–slutt.
-                   Exit 1 ved minst én over=yes uten KJENT HULL, exit 2 når ingen økt ble målt.
-  --calibrate-self-test  12 tilfeller, kjører CLI-en mot konstruerte økter.
-  --main-usd       kostnaden i hovedfilene (ikke underagentene), én linje per økt med meldinger i vinduet og
-                   to SUM-linjer. Uten session-dir: alle økter, også de uten underagenter. Exit 2 uten økter.
-  --until <iso>    (med --main-usd) øvre grense for vinduet, til og med. Uten --main-usd: exit 2.
-  --prices-check <fil>   sammenligner PRICES med prissiden (hent den med curl, se kommentaren ved PRICES).
+  --brake <nr>     kostnadsbrems: én linje `brake todo=… class=… credits=… median=… n=… over=…`.
+                   over=yes når todoens credits > 2× medianen for arkiverte todoer i samme effort-klasse.
+                   over=few når klassen har færre enn 5 andre todoer med målte credits (ingen median).
+                   over=unknown når effort-klassen mangler ELLER todoens credits er IKKE MÅLT.
+                   Todoens tall: `--credits <n>` (fra `/usage`, så langt i todoen) hvis gitt, ellers
+                   summen av `credits=` i run-loggen.
+  --pr <n>         (med --brake) todoens åpne PR: rader tilskrevet `PR<n>` legges til todoens sum.
+  --brake-self-test  7 asserts mot brake_verdict/fold_pr.
+  --calibrate      summen av `assistant.usage.cost` i én økt mot `/usage`-tallet for samme økt:
+                   `calibrate session=… usage=… events=… diff=…% over=…`. Krever `--credits <n>` og
+                   økta (`--session <id>`, `$COPILOT_SESSION_ID` eller nøyaktig én session-dir).
+                   Exit 1 ved over=yes (avvik > 10 %), exit 2 når en side mangler (IKKE MÅLT).
+  --calibrate-self-test  kjører CLI-en mot konstruerte økter og run-logger.
+  --main-credits   credits per økt (koordinator + underagenter i samme økt), én linje per økt med
+                   hendelser i vinduet og to SUM-linjer. Med `--session <id> --credits <n>` brukes
+                   `/usage`-tallet for den økta. Exit 2 når ingen økt er målt.
+  --until <iso>    (med --main-credits) øvre grense for vinduet, til og med. Uten --main-credits: exit 2.
+  --session <id>   økt-ID (mappe under session-state, eller en sti). Standard: $COPILOT_SESSION_ID.
+  --credits <n>    manuelt AI credits-tall fra `/usage`. Gjelder bare sammen med --brake,
+                   --calibrate eller --main-credits; et tall for en ferdig todo skrives som
+                   `credits=<n>` i run-log-raden.
   Uten <since-iso> brukes nå − 30 dager (UTC).
-  MEASURE_ROWS=<sti.json> skriver i tillegg radene som JSON (legg den i scratchpad, ikke i repoet).
-Merk: Claude Code sletter transkripter eldre enn `cleanupPeriodDays` (standard 30 dager), så et
-vindu lenger tilbake blir stille ufullstendig. Hev innstillingen før du måler lengre perioder.
-Dedupliserer usage per message.id (strømmede svar gjentar usage per content-blokk).
-Vektet = input + 1.25*cache_create + 0.1*cache_read + 5*output (relativ til input-pris, samme modell).
+  MEASURE_ROWS=<sti.json> skriver i tillegg todo-radene som JSON (legg den i scratchpad, ikke i repoet).
+UVERIFISERT: hvor lenge Copilot beholder session-state, om VS Code-økter skrives dit, og at summen av
+`cost` er lik AI credits i `/usage`. `--calibrate` er beviset for det siste; kjør den før tallene
+fra events.jsonl brukes i en beslutning.
+Dedupliserer `assistant.usage` per id (samme id to ganger telles én gang, siste linje vinner).
 """
 import json, os, re, subprocess, sys, glob
 from collections import defaultdict
@@ -36,90 +58,204 @@ from datetime import datetime, timedelta, timezone
 from statistics import median
 
 _RANK = {'S': 1, 'M': 2, 'L': 3}
+NOT_MEASURED = 'IKKE MÅLT'
+
 
 def effort_class(v):
     """Største av S < M < L i en effort-verdi (`M/L` → L). None hvis ingen."""
     found = re.findall(r'[SML]', v or '')
     return max(found, key=_RANK.get) if found else None
 
-def brake_verdict(nr, usd_by_todo, class_by_todo, cls):
-    """(median|None, n, over) — over ∈ {'yes','no','few','unknown'}."""
+
+def brake_verdict(nr, credits_by_todo, class_by_todo, cls):
+    """(median|None, n, over) — over ∈ {'yes','no','few','unknown'}.
+
+    En todo uten målte credits er `unknown`, aldri `no`: 0 er ikke en måling."""
     nr = str(nr).lower()
-    usd_l = {str(k).lower(): v for k, v in usd_by_todo.items()}
+    cr_l = {str(k).lower(): v for k, v in credits_by_todo.items()}
     cls_l = {str(k).lower(): v for k, v in class_by_todo.items()}
-    if cls is None:
+    if cls is None or nr not in cr_l:
         return None, 0, 'unknown'
-    sample = [usd_l[t] for t, c in cls_l.items() if c == cls and t != nr and t in usd_l]
+    sample = [cr_l[t] for t, c in cls_l.items() if c == cls and t != nr and t in cr_l]
     if len(sample) < 5:
         return None, len(sample), 'few'
     med = median(sample)
-    return med, len(sample), 'yes' if usd_l.get(nr, 0.0) > 2 * med else 'no'
+    return med, len(sample), 'yes' if cr_l[nr] > 2 * med else 'no'
 
-def fold_pr(nr, usd_by_todo, pr):
+
+def fold_pr(nr, credits_by_todo, pr):
     """Legg `PR<pr>`-radene til todo `nr` (en åpen PR finnes ikke i PR_TODO før merge-raden)."""
-    out = dict(usd_by_todo)
-    if pr:
+    out = dict(credits_by_todo)
+    if pr and 'PR' + str(pr) in out:
         nr = next((k for k in out if str(k).lower() == str(nr).lower()), nr)
-        out[nr] = out.get(nr, 0.0) + out.pop('PR' + str(pr), 0.0)
+        out[nr] = out.get(nr, 0.0) + out.pop('PR' + str(pr))
     return out
+
 
 def _brake_self_test():
     cl = {str(i): 'M' for i in range(1, 6)}
-    us = {str(i): 10.0 for i in range(1, 6)}
-    assert brake_verdict('99', {**us, '99': 25.0}, {**cl, '99': 'M'}, 'M') == (10.0, 5, 'yes'), 'over'
-    assert brake_verdict('99', {**us, '99': 15.0}, {**cl, '99': 'M'}, 'M') == (10.0, 5, 'no'), 'under'
+    cr = {str(i): 10.0 for i in range(1, 6)}
+    assert brake_verdict('99', {**cr, '99': 25.0}, {**cl, '99': 'M'}, 'M') == (10.0, 5, 'yes'), 'over'
+    assert brake_verdict('99', {**cr, '99': 15.0}, {**cl, '99': 'M'}, 'M') == (10.0, 5, 'no'), 'under'
     assert brake_verdict('99', {'1': 1.0, '99': 99.0}, {'1': 'M'}, 'M') == (None, 1, 'few'), 'få utvalg'
-    four = {k: v for k, v in us.items() if k != '5'}
+    four = {k: v for k, v in cr.items() if k != '5'}
     assert brake_verdict('99', {**four, '99': 99.0}, cl, 'M') == (None, 4, 'few'), 'fire er for få'
-    assert brake_verdict('99', us, cl, None)[2] == 'unknown', 'ukjent klasse'
-    assert fold_pr('99', {'99': 8.0, 'PR1091': 1.5}, '1091') == {'99': 9.5}, 'PR-rad teller i usd='
-    print('brake-self-test: 6/6')
+    assert brake_verdict('99', cr, cl, None)[2] == 'unknown', 'ukjent klasse'
+    assert brake_verdict('99', cr, cl, 'M') == (None, 0, 'unknown'), 'IKKE MÅLT er unknown, ikke no'
+    assert fold_pr('99', {'99': 8.0, 'PR1091': 1.5}, '1091') == {'99': 9.5}, 'PR-rad teller i credits='
+    print('brake-self-test: 7/7')
 
-def _calibrate_self_test():
-    import tempfile
-    def msg(ts, mid, stop=None):   # $5,00 per melding (Haiku, 1 MTok output)
-        return {'timestamp': ts, 'message': {'id': mid, 'model': 'claude-haiku-4-5', 'stop_reason': stop,
-                                             'usage': {'output_tokens': 1000000}}}
-    def session(total=10.0, stop='end_turn', sub=True, first=None, start=1788256800000):
-        d = os.path.join(tempfile.mkdtemp(), 'sess0001')
-        os.makedirs(os.path.join(d, 'subagents'))
-        main = [msg('2026-09-01T09:00:00.000Z', 'm-a'),      # før startTime: telles ikke
-                msg('2026-09-01T10:30:00.000Z', 'm-b'),
-                {'timestamp': '2026-09-01T13:00:00.000Z'}]   # gir sluttidspunktet
-        if total is not None:                                # startTime = 2026-09-01T10:00:00Z
-            main.append({'type': 'cost-state', 'startTime': start, 'totalCostUSD': total})
-        files = {d + '.jsonl': ([first] if first else []) + main}
-        if sub:
-            files[os.path.join(d, 'subagents', 'agent-x.jsonl')] = [msg('2026-09-01T12:00:00.000Z', 'm-c', stop)]
-        for path, lines in files.items():
-            with open(path, 'w', encoding='utf-8') as fh:
-                fh.write(''.join(json.dumps(x) + '\n' for x in lines))
-        return d
-    cases = [   # (navn, økter, exit, skal stå i utskriften, skal IKKE stå[, flagg — standard --calibrate])
-        ('vindu', [session()], 0, ['over=no', 'final=100%'], []),
-        ('flere cost-state', [session(first={'type': 'cost-state', 'startTime': 1788249600000, 'totalCostUSD': 20.0})],
-         0, ['over=no'], []),
-        ('over', [session(total=20.0)], 1, ['over=yes'], ['KJENT HULL']),
-        ('kjent hull', [session(total=20.0, stop=None)], 0, ['over=yes', 'final=0%', 'KJENT HULL'], []),
-        ('hull, positivt avvik', [session(total=5.0, stop=None)], 1, ['over=yes', 'final=0%'], ['KJENT HULL']),
-        ('ingen underagent-meldinger', [session(total=20.0, sub=False)], 1, ['over=yes', 'final=-'], ['KJENT HULL']),
-        ('ingen måling', [session(total=None)], 2, [], ['calibrate session=']),
-        ('uten startTime', [session(start=None)], 2, [], ['calibrate session=']),
-        # Exit-koden skal ikke settes fra siste økt alene.
-        ('over foran kjent hull', [session(total=20.0), session(total=20.0, stop=None)], 1, ['KJENT HULL'], []),
-        ('main-usd', [session()], 0, ['usd=10.00', 'agents=1', 'SUM alle hovedsesjoner: $10.00 (1 økter)'], [],
-         ['--main-usd']),
-        ('main-usd until', [session()], 0, ['usd=5.00'], ['usd=10.00'], ['--main-usd', '--until', '2026-09-01T10:00']),
-        ('until uten main-usd', [session()], 2, [], ['usd='], ['--until', '2026-09-01T10:00']),
-    ]
-    for name, dirs, code, has, hasnt, *flags in cases:
-        r = subprocess.run([sys.executable, __file__, '2020-01-01T00:00', *dirs, *(flags[0] if flags else ['--calibrate'])],
-                           capture_output=True, text=True)
-        assert (r.returncode == code and all(x in r.stdout for x in has)
-                and not any(x in r.stdout for x in hasnt)), f'{name}: exit={r.returncode} {r.stdout!r} {r.stderr[-300:]!r}'
-    print(f'calibrate-self-test: {len(cases)}/{len(cases)}')
+
+# ---------------------------------------------------------------------------
+# Copilot-sesjonslogger
+# ---------------------------------------------------------------------------
+
+def copilot_home():
+    return os.environ.get('COPILOT_HOME') or os.path.expanduser('~/.copilot')
+
+
+def session_root():
+    return os.path.join(copilot_home(), 'session-state')
+
+
+def _ts(v):
+    """Tidsstempel → 'YYYY-MM-DDTHH:MM:SS' (UTC). Godtar ISO-streng og epoch (s eller ms)."""
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        sec = v / 1000 if v > 1e11 else v
+        return datetime.fromtimestamp(sec, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+    if isinstance(v, str) and re.match(r'\d{4}-\d\d-\d\dT', v):
+        return v[:19]
+    return ''
+
+
+def _num(d, *keys):
+    for k in keys:
+        v = d.get(k)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                pass
+    return None
+
+
+def usage_of(e):
+    """Én `assistant.usage`-hendelse → dict, ellers None. Tolerant for begge formene."""
+    if not isinstance(e, dict):
+        return None
+    if (e.get('type') or e.get('event') or e.get('kind')) != 'assistant.usage':
+        return None
+    d = e.get('data') if isinstance(e.get('data'), dict) else e
+    i, o = _num(d, 'inputTokens', 'input_tokens') or 0, _num(d, 'outputTokens', 'output_tokens') or 0
+    cr = _num(d, 'cacheReadTokens', 'cache_read_tokens') or 0
+    cw = _num(d, 'cacheWriteTokens', 'cache_write_tokens') or 0
+    agent = None
+    for src in (d, e):
+        agent = agent or src.get('agentName') or src.get('agentType') or src.get('agent_type')
+    return {
+        'id': d.get('id') or e.get('id') or d.get('apiCallId') or d.get('requestId'),
+        'ts': _ts(e.get('timestamp') or d.get('timestamp') or e.get('ts')),
+        'model': d.get('model') or '?',
+        'in': int(i), 'out': int(o), 'cr': int(cr), 'cw': int(cw), 'ctx': int(i + cr + cw),
+        'credits': _num(d, 'cost', 'credits'),
+        'agent': agent if isinstance(agent, str) and agent else None,
+        'effort': d.get('reasoningEffort') or d.get('reasoning_effort') or d.get('effort'),
+    }
+
+
+def read_usage(session_dir):
+    """Unike `assistant.usage`-hendelser i én økt (siste linje vinner per id)."""
+    f = os.path.join(session_dir, 'events.jsonl')
+    seen = {}
+    if not os.path.exists(f):
+        return []
+    for n, line in enumerate(open(f, encoding='utf-8', errors='replace')):
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+        u = usage_of(e)
+        if u is None:
+            continue
+        u['session'] = os.path.basename(session_dir.rstrip('/'))
+        seen[u['id'] or ('#', n)] = u
+    return list(seen.values())
+
+
+def session_cwd(d):
+    """Arbeidsmappa økta ble startet i (workspace.yaml eller session.start-hendelsen), ellers None."""
+    ws = os.path.join(d, 'workspace.yaml')
+    if os.path.exists(ws):
+        for line in open(ws, encoding='utf-8', errors='replace'):
+            m = re.match(r'\s*cwd:\s*["\']?(.+?)["\']?\s*$', line)
+            if m:
+                return m.group(1)
+    f = os.path.join(d, 'events.jsonl')
+    if os.path.exists(f):
+        for k, line in enumerate(open(f, encoding='utf-8', errors='replace')):
+            if k > 50:
+                break
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            if not isinstance(e, dict):
+                continue
+            data = e.get('data') if isinstance(e.get('data'), dict) else {}
+            ctx = data.get('context') if isinstance(data.get('context'), dict) else {}
+            cwd = e.get('cwd') or data.get('cwd') or ctx.get('cwd')
+            if isinstance(cwd, str) and cwd:
+                return cwd
+    return None
+
+
+# Repo-roten utledes fra git-common-dir — IKKE fra cwd — så målingen treffer det samme repoet
+# fra hovedsjekkouten og fra hver worktree under .loop-worktrees/.
+def _repo_root():
+    """Hovedsjekkoutens rot, sett fra hvilken som helst worktree, ellers cwd."""
+    try:
+        common = subprocess.check_output(
+            ['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+            text=True, stderr=subprocess.DEVNULL).strip()
+        return os.path.dirname(common)          # …/repo/.git → …/repo
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return os.getcwd()
+
+
+def project_sessions():
+    """(økter i dette repoet, antall økter uten kjent cwd). Ukjent cwd tas IKKE med stille:
+    tallet meldes, så en tom måling ikke kan leses som 0."""
+    root = os.path.realpath(_repo_root())
+    out, unknown = [], 0
+    for d in sorted(glob.glob(os.path.join(session_root(), '*'))):
+        if not os.path.isdir(d):
+            continue
+        cwd = session_cwd(d)
+        if cwd is None:
+            unknown += 1
+            continue
+        cwd = os.path.realpath(cwd)
+        if cwd == root or cwd.startswith(root + os.sep):
+            out.append(d)
+    return out, unknown
+
+
+def resolve_session(sid):
+    if not sid:
+        return None
+    return sid.rstrip('/') if os.path.isdir(sid) else os.path.join(session_root(), sid)
+
+
+# ---------------------------------------------------------------------------
+# Run-loggen: credits per todo
+# ---------------------------------------------------------------------------
 
 _KEY = r'([0-9]+(?:[A-Za-z][0-9]*)?)'
+_CREDITS = re.compile(r'(?<![\w-])credits=([0-9]+(?:[.,][0-9]+)?)(?![\w.,])')
+RUN_LOG = 'docs/loop/run-log.md'
+
 
 def effort_classes():
     """({todo: klasse} for arkiverte todoer fra git-slettinger, {todo: klasse} for aktive)."""
@@ -145,353 +281,345 @@ def effort_classes():
     return archived, active
 
 
+def ledger_rows(since, path=RUN_LOG):
+    """Én rad per run-log-rad med `credits=<n>`: {todo, credits, t0, outcome, …}."""
+    rows = []
+    try:
+        lines = open(path, encoding='utf-8').read().splitlines()
+    except OSError:
+        return rows
+    for ln in lines:
+        c = [x.strip() for x in ln.split(' | ')]
+        ts = re.sub(r'^\|\s*', '', c[0])
+        if len(c) < 4 or not re.match(r'\d{4}-\d\d-\d\dT', ts):
+            continue
+        m = _CREDITS.search(ln)
+        if not m or c[1] in ('-', '') or ts < since:
+            continue
+        rows.append({'todo': c[1], 'type': 'todo', 'agent': None, 'parent': None, 'desc': c[2],
+                     'model': '-', 't0': ts, 't1': ts, 'credits': float(m.group(1).replace(',', '.')),
+                     'source': 'run-log', 'outcome': c[3]})
+    return rows
+
+
+def _sum_by_todo(rows):
+    out = defaultdict(float)
+    for r in rows:
+        out[r['todo']] += r['credits']
+    return dict(out)
+
+
+def fmt_cr(x):
+    return NOT_MEASURED if x is None else f'{x:,.2f}'
+
+
+# ---------------------------------------------------------------------------
+# Kalibrering og per økt
+# ---------------------------------------------------------------------------
+
+# Terskel 10 %: summen av `cost` i events.jsonl skal stemme med `/usage` for samme økt. Et større
+# avvik betyr at hendelsene er ufullstendige eller at `cost` ikke er AI credits, og da er
+# events-tallene ikke en måling før årsaken er funnet.
+CALIB_THRESHOLD = 10.0
+
+
+def calibrate(session_dir, usage_credits, since):
+    """Summen av `cost` i økta mot `/usage`. Exit 0 innenfor 10 %, 1 over, 2 IKKE MÅLT."""
+    if not session_dir or not os.path.isdir(session_dir):
+        print(f'calibrate: fant ikke økta ({session_dir or "ingen --session"}) — {NOT_MEASURED}.', file=sys.stderr)
+        return 2
+    sid = os.path.basename(session_dir.rstrip('/'))
+    ev = [u for u in read_usage(session_dir) if u['ts'] >= since]
+    with_cost = [u for u in ev if u['credits'] is not None]
+    if usage_credits is None:
+        print(f'calibrate session={sid[:8]} usage={NOT_MEASURED} hendelser={len(ev)} — oppgi --credits <n> fra /usage.')
+        return 2
+    if not with_cost:
+        print(f'calibrate session={sid[:8]} usage={usage_credits:.2f} events={NOT_MEASURED} '
+              f'(ingen assistant.usage med cost i events.jsonl)')
+        return 2
+    own = sum(u['credits'] for u in with_cost)
+    if usage_credits == 0:
+        diff = 0.0 if own == 0 else 100.0
+    else:
+        diff = 100.0 * (own - usage_credits) / usage_credits
+    over = abs(diff) > CALIB_THRESHOLD
+    print(f'calibrate session={sid[:8]} usage={usage_credits:.2f} events={own:.2f} n={len(with_cost)} '
+          f'uten_cost={len(ev) - len(with_cost)} diff={diff:+.1f}% over={"yes" if over else "no"}')
+    return 1 if over else 0
+
+
+def main_credits(sessions, since, until, manual_dir=None, manual=None):
+    """Credits per økt. Rollen til en økt står ikke i loggen: leseren avgjør fra agents=."""
+    tot = {True: [0.0, 0], False: [0.0, 0]}   # har underagenter → [credits, økter]
+    unmeasured = 0
+    for d in sessions:
+        sid = os.path.basename(d.rstrip('/'))
+        ev = [u for u in read_usage(d) if u['ts'] >= since and (not until or u['ts'][:len(until)] <= until)]
+        agents = len({u['agent'] for u in ev if u['agent']})
+        cost = [u['credits'] for u in ev if u['credits'] is not None]
+        if manual is not None and manual_dir and d.rstrip('/') == manual_dir.rstrip('/'):
+            val, src = manual, 'usage'
+        elif cost:
+            val, src = sum(cost), 'events'
+        else:
+            if ev:
+                unmeasured += 1
+                print(f'main session={sid[:8]} agents={agents} credits={NOT_MEASURED} n={len(ev)} '
+                      '(assistant.usage uten cost)')
+            continue
+        tot[agents > 0][0] += val; tot[agents > 0][1] += 1
+        span = (f' first={min(u["ts"] for u in ev)} last={max(u["ts"] for u in ev)}' if ev else '')
+        print(f'main session={sid[:8]} agents={agents} credits={val:.2f} kilde={src} n={len(ev)}{span}')
+    n = tot[True][1] + tot[False][1]
+    if not n:
+        print(f'main-credits: ingen økt med målte credits i vinduet — {NOT_MEASURED}. '
+              'Oppgi --session <id> --credits <n> fra /usage.', file=sys.stderr)
+        return 2
+    tail = f', {unmeasured} økter {NOT_MEASURED}' if unmeasured else ''
+    print(f'SUM økter med underagenter: {tot[True][0]:.2f} credits ({tot[True][1]} økter)')
+    print(f'SUM alle økter: {tot[True][0] + tot[False][0]:.2f} credits ({n} økter{tail})')
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Selvtest for CLI-en
+# ---------------------------------------------------------------------------
+
+def _calibrate_self_test():
+    import tempfile
+    def ev(ts, eid, cost=5.0, top=False, agent=None):
+        d = {'id': eid, 'model': 'deep-model-a', 'inputTokens': 1000, 'outputTokens': 200,
+             'cacheReadTokens': 50, 'cacheWriteTokens': 0}
+        if cost is not None:
+            d['cost'] = cost
+        if agent:
+            d['agentName'] = agent
+        return ({'type': 'assistant.usage', 'timestamp': ts, **d} if top
+                else {'type': 'assistant.usage', 'timestamp': ts, 'data': d})
+    def session(events, name='sess0001'):
+        d = os.path.join(tempfile.mkdtemp(), name)
+        os.makedirs(d)
+        lines = [{'type': 'session.start', 'timestamp': '2026-09-01T08:00:00.000Z',
+                  'data': {'sessionId': name}}] + events
+        with open(os.path.join(d, 'events.jsonl'), 'w', encoding='utf-8') as fh:
+            fh.write(''.join(json.dumps(x) + '\n' for x in lines))
+        return d
+    two = lambda **kw: session([ev('2026-09-01T10:30:00.000Z', 'u-a', **kw), ev('2026-09-01T12:00:00.000Z', 'u-b', **kw)])
+    man = session([], name='sessman')
+    runlog = ('2026-09-02T10:00 | 99 | x | merged | - | #1001 | 1 | 1 | m | - | credits=12.5; fix_rounds=0\n'
+              '2026-09-02T11:00 | 98 | y | merged | - | #1002 | 1 | 1 | m | - | fix_rounds=0\n'
+              '2026-09-02T12:00 | 97 | z | merged | - | #1003 | 1 | 1 | m | - | xcredits=99\n')
+    cases = [   # (navn, args etter since, exit, skal stå i utskriften, skal IKKE stå i stdout[, run-log])
+        ('vindu', [two(), '--calibrate', '--credits', '10'], 0, ['over=no', 'events=10.00', 'usage=10.00'], []),
+        ('toppnivå-form', [two(top=True), '--calibrate', '--credits', '10'], 0, ['over=no', 'events=10.00'], []),
+        ('over', [two(), '--calibrate', '--credits', '20'], 1, ['over=yes', 'diff=-50.0%'], []),
+        ('dedup per id', [session([ev('2026-09-01T10:30:00Z', 'u-a'), ev('2026-09-01T10:31:00Z', 'u-a')]),
+                          '--calibrate', '--credits', '5'], 0, ['events=5.00', 'n=1'], []),
+        ('før since', [session([ev('2019-01-01T10:00:00Z', 'u-0'), ev('2026-09-01T10:30:00Z', 'u-a')]),
+                       '--calibrate', '--credits', '5'], 0, ['events=5.00'], []),
+        ('epoch ms', [session([{'type': 'assistant.usage', 'timestamp': 1788258600000, 'data': {'id': 'x', 'cost': 5}}]),
+                      '--calibrate', '--credits', '5'], 0, ['over=no'], []),
+        ('uten --credits', [two(), '--calibrate'], 2, [NOT_MEASURED], ['over=']),
+        ('uten usage-hendelser', [session([]), '--calibrate', '--credits', '10'], 2, [NOT_MEASURED], ['over=']),
+        ('usage uten cost', [two(cost=None), '--calibrate', '--credits', '10'], 2, [NOT_MEASURED], ['over=']),
+        ('main-credits', [two(), '--main-credits'], 0,
+         ['credits=10.00', 'kilde=events', 'SUM alle økter: 10.00 credits (1 økter)'], []),
+        ('main-credits underagent', [session([ev('2026-09-01T10:30:00Z', 'u-a', agent='demo-planner')]), '--main-credits'],
+         0, ['agents=1', 'SUM økter med underagenter: 5.00 credits (1 økter)'], []),
+        ('main-credits until', [two(), '--main-credits', '--until', '2026-09-01T11:00'], 0, ['credits=5.00'], ['credits=10.00']),
+        ('main-credits manuelt', [man, '--main-credits', '--session', man, '--credits', '7'],
+         0, ['credits=7.00 kilde=usage', 'SUM alle økter: 7.00'], []),
+        ('main-credits uten tall', [two(cost=None), '--main-credits'], 2, [NOT_MEASURED], ['SUM ']),
+        ('until uten main-credits', [two(), '--until', '2026-09-01T10:00'], 2, [], ['credits=']),
+        ('credits uten mål', [two(), '--credits', '3'], 2, [], ['SUM ']),
+        ('rapport uten data', [session([])], 1, [NOT_MEASURED], ['SUM', '0.00']),
+        ('rapport fra run-log', [session([])], 0, ['    99', '12.50', 'SUM todoer (run-log/--credits): 12.50'],
+         ['    98', '    97', 'SUM økter (assistant.usage): 0'], runlog),
+        ('rapport fra events', [two()], 0, ['koordinator', 'deep-model-a', 'SUM økter (assistant.usage): 10.00',
+                                            f'SUM todoer (run-log/--credits): {NOT_MEASURED}'], []),
+        ('brake fra run-log', [session([]), '--brake', '99'], 0, ['credits=12.50', 'over=unknown'], [], runlog),
+        ('brake uten tall', [session([]), '--brake', '98'], 0, ['credits=IKKE-MÅLT', 'over=unknown', NOT_MEASURED], [], runlog),
+        ('brake --credits', [session([]), '--brake', '98', '--credits', '4'], 0, ['credits=4.00'], [], runlog),
+    ]
+    env = {k: v for k, v in os.environ.items() if k != 'COPILOT_SESSION_ID'}
+    for name, rest, code, has, hasnt, *log in cases:
+        cwd = tempfile.mkdtemp()
+        os.makedirs(os.path.join(cwd, 'docs', 'loop'))
+        if log:
+            open(os.path.join(cwd, RUN_LOG), 'w', encoding='utf-8').write(log[0])
+        # COPILOT_HOME peker på en tom mappe: bare øktene i argumentene teller.
+        r = subprocess.run([sys.executable, os.path.abspath(__file__), '2020-01-01T00:00', *rest],
+                           capture_output=True, text=True, cwd=cwd, env={**env, 'COPILOT_HOME': cwd})
+        out = r.stdout + r.stderr
+        assert (r.returncode == code and all(x in out for x in has)
+                and not any(x in r.stdout for x in hasnt)), f'{name}: exit={r.returncode} {r.stdout!r} {r.stderr[-300:]!r}'
+    print(f'calibrate-self-test: {len(cases)}/{len(cases)}')
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
 args = sys.argv[1:]
 def _opt(flag, default=None):
     if flag in args:
         i = args.index(flag); v = args[i + 1]; del args[i:i + 2]; return v
     return default
+def _flag(flag):
+    if flag in args:
+        args.remove(flag); return True
+    return False
 if '--brake-self-test' in args:
     _brake_self_test(); sys.exit(0)
 if '--calibrate-self-test' in args:
     _calibrate_self_test(); sys.exit(0)
-prices_check = _opt('--prices-check')
-want_calibrate = '--calibrate' in args
-if want_calibrate:
-    args.remove('--calibrate')
+want_calibrate = _flag('--calibrate')
 brake_nr = _opt('--brake')
 brake_pr = _opt('--pr')
 html_path = _opt('--html')
 release = _opt('--release')
-# Fjern flagget FRA args, ikke bare les det fra sys.argv: `dirs = args[1:]` tolker ellers
+# Fjern flagget FRA args, ikke bare les det fra sys.argv: `explicit = args[1:]` tolker ellers
 # «--trend» som en sesjonskatalog, og hele kostnadssiden blir tom uten at noe feiler.
-want_trend = '--trend' in args
-if want_trend:
-    args.remove('--trend')
+want_trend = _flag('--trend')
 cutover = _opt('--cutover', '2026-09-15T18:30')
-want_main = '--main-usd' in args
-if want_main:
-    args.remove('--main-usd')
+want_main = _flag('--main-credits')
 until = _opt('--until')
+session_arg = _opt('--session') or os.environ.get('COPILOT_SESSION_ID')
+credits_arg = _opt('--credits')
 if until and not want_main:
-    print('--until gjelder bare sammen med --main-usd', file=sys.stderr)
+    print('--until gjelder bare sammen med --main-credits', file=sys.stderr)
     sys.exit(2)
-# Claude Code kanoniserer prosjektstien ved å bytte hvert ikke-alfanumeriske tegn
-# med `-`. Utledes fra repo-roten — IKKE fra cwd — så malen verken bærer én utviklers
-# hjemmekatalog inn i et nytt prosjekt eller bommer fra en worktree.
-#
-# cwd-varianten var en vakuøs vakt: alle loop-agenter jobber i worktrees, og derfra
-# ga den `…-<repo>--claude-worktrees-agent-xxxx`, en katalog som ikke finnes.
-# Resultatet var `dirs = []` → `rows = []` → «SUM: $0.00» med exit 0, uten én advarsel.
-def _project_dir():
-    """Kanonisert sesjonskatalog for repoet vi står i, sett fra hvilken som helst worktree."""
+if credits_arg is not None:
     try:
-        common = subprocess.check_output(
-            ['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-            text=True, stderr=subprocess.DEVNULL).strip()
-        root = os.path.dirname(common)          # …/repo/.git → …/repo
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
-        root = os.getcwd()
-    return os.path.expanduser('~/.claude/projects/' + re.sub(r'[^a-zA-Z0-9]', '-', root))
+        credits_arg = float(credits_arg.replace(',', '.'))
+    except ValueError:
+        print(f'--credits må være et tall, fikk {credits_arg!r}', file=sys.stderr)
+        sys.exit(2)
+    if not (brake_nr or want_calibrate or want_main):
+        print('--credits gjelder bare sammen med --brake, --calibrate eller --main-credits. '
+              'Et tall for en ferdig todo skrives som `credits=<n>` i run-log-raden.', file=sys.stderr)
+        sys.exit(2)
 
-
-# Alle prosjektmapper som inneholder repo-stien, ikke bare hovedsjekkoutens: en koordinator som
-# kjører fra en worktree eller scratchpad får egen mappe (`…-<repo>--claude-worktrees-…`,
-# `…-<repo>-…-scratchpad-…`). Med bare hovedmappa blir mye av en release usynlig.
-PROJECT_DIR = os.path.join(os.path.dirname(_project_dir()), '*' + os.path.basename(_project_dir()) + '*')
 since = args[0] if args else (datetime.now(timezone.utc) - timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
-dirs = args[1:] or sorted(d for d in glob.glob(os.path.join(PROJECT_DIR, '*')) if os.path.isdir(os.path.join(d, 'subagents')))
-
-# Et tomt `dirs` skal ALDRI kunne leses som en måling: uten denne vakten rapporterer
-# scriptet «SUM: $0.00» med exit 0 når PROJECT_DIR peker feil.
-if not dirs and not prices_check and not want_main:
-    sys.exit(f'ingen sesjonskataloger med subagents under {PROJECT_DIR}\n'
-             f'  cwd = {os.getcwd()}\n'
-             f'  Dette er IKKE et $0-resultat — det er en manglende måling.')
-
-
-def weight(u):
-    return (u['in'] + 1.25 * u['cc'] + 0.1 * u['cr'] + 5 * u['out'])
-
-# USD per MTok, (input, cache-write 5m, cache-write 1h, cache-read, output) — samme kolonnerekkefølge
-# som https://platform.claude.com/docs/en/about-claude/pricing. Etterprøv med:
-#   curl -sL https://platform.claude.com/docs/en/about-claude/pricing.md -o <fil>
-#   python3 tasks/measure-cost.py --prices-check <fil>
-# Halekommentaren er radnavnet på siden. Cache-lesing er 0,1x input, unntatt fotnotene: Fable 5.1
-# 0,025x og Opus 5.5 0,05x. Fable 5 har egen rad fordi cache-lesing der er $1,00 mot $0,25 for
-# Fable 5.1; en ukjent Fable-variant prises som Fable 5. Hovedfiler prises av --calibrate, --trend
-# og --html, underagent-filer av rapporten og --brake: søk i begge før du sier at en modell ikke er
-# brukt. Ikke dekket: Opus 4.1/4 ($15, treffer 'opus'), fast mode og inference_geo "us" (1,1x).
-PRICES = {
-    # Opus 5.5 er billigere per token enn Opus 5. Uten egen rad prises den som 'opus', og et
-    # modellbytte ser da 25 % dyrere ut enn det er.
-    'opus-5-5': (4, 5.00, 8, 0.20, 20),    # Claude Opus 5.5
-    'opus': (5, 6.25, 10, 0.50, 25),       # Claude Opus 5 / 4.8 / 4.7 / 4.6 / 4.5
-    'sonnet-5': (2, 2.50, 4, 0.20, 10),    # Claude Sonnet 5 / 5.5
-    'sonnet': (3, 3.75, 6, 0.30, 15),      # Claude Sonnet 4.6 / 4.5
-    'haiku': (1, 1.25, 2, 0.10, 5),        # Claude Haiku 4.5
-    'fable-5-1': (10, 12.50, 20, 0.25, 50),  # Claude Fable 5.1
-    'fable': (10, 12.50, 20, 1.00, 50),    # Claude Fable 5
-}
-PRICE_ROWS = {'opus-5-5': ['Claude Opus 5.5'], 'opus': ['Claude Opus 5', 'Claude Opus 4.8'],
-              'sonnet-5': ['Claude Sonnet 5', 'Claude Sonnet 5.5'], 'sonnet': ['Claude Sonnet 4.6'],
-              'haiku': ['Claude Haiku 4.5'], 'fable-5-1': ['Claude Fable 5.1'], 'fable': ['Claude Fable 5']}
-if prices_check:
-    assert set(PRICES) == set(PRICE_ROWS), f'PRICES-nøkler {sorted(PRICES)} != {sorted(PRICE_ROWS)}'
-    page, bad = open(prices_check, encoding='utf-8').read(), 0
-    for key, name in ((k, n) for k, names in PRICE_ROWS.items() for n in names):
-        line = next((l for l in page.splitlines()
-                     if re.match(r'\|\s*' + re.escape(name) + r'\s*\|', l) and l.count('/ MTok') == 5), None)
-        assert line, f'fant ikke prisraden «{name}» med 5 priser på siden'
-        want = [float(x) for x in re.findall(r'\$([0-9.]+) / MTok', line)]
-        got = [float(x) for x in PRICES[key]]
-        bad += want != got
-        print(f"{'FEIL' if want != got else 'OK  '} {key:9} tabell={got} side={want} ({name})")
-    sys.exit(1 if bad else 0)
-
-def price_of(model):
-    m = model or ''
-    for k in ('sonnet-5', 'opus-5-5', 'opus', 'sonnet', 'haiku', 'fable-5-1', 'fable'):
-        if k in m: return PRICES[k]
-    return PRICES['opus']
-
-def usd(u, model):
-    pi, p5, p1, pr, po = price_of(model)
-    cc = u.get('cache_creation') or {}
-    c5 = cc.get('ephemeral_5m_input_tokens'); c1 = cc.get('ephemeral_1h_input_tokens')
-    if c5 is None and c1 is None:
-        c5, c1 = (u.get('cache_creation_input_tokens') or 0), 0
-    return ((u.get('input_tokens') or 0) * pi + (c5 or 0) * p5 + (c1 or 0) * p1
-            + (u.get('cache_read_input_tokens') or 0) * pr + (u.get('output_tokens') or 0) * po) / 1e6
-
-# Kalibrering. Terskel 10 %: økter fra før Claude Code 2.1.281 avviker høyst 3,5 % fra
-# harnessens tall. Fra 2.1.281 mangler underagent-transkriptene endelig usage (output-tokens), og
-# egen sum blir ~25 % for lav. Det meldes som KJENT HULL når `final` (andelen underagent-meldinger
-# med stop_reason) er under 50 %. Begrensning: KJENT HULL har ingen nedre grense og skjuler enhver
-# undermåling i de øktene: prisfeil, avkortet hovedfil, manglende underagent-filer (når minst én
-# underagent-melding er igjen) og avvik som stammer fra hovedfila. Prisene har da bare
-# --prices-check som bevis.
-CALIB_THRESHOLD = 10.0
-CALIB_FINAL_MIN = 50.0
-
-def _msgs(path):
-    """(ts, usd, har_stop_reason) per unike message.id i en JSONL — siste linje vinner."""
-    seen = {}
-    for line in open(path, encoding='utf-8', errors='replace'):
-        try:
-            e = json.loads(line)
-        except Exception:
-            continue
-        msg = e.get('message') or {}
-        if not isinstance(msg, dict) or not msg.get('usage'):
-            continue
-        seen[msg.get('id') or id(e)] = ((e.get('timestamp') or '')[:19], usd(msg['usage'], msg.get('model')),
-                                        bool(msg.get('stop_reason')))
-    return seen.values()
-
-def calibrate(dirs, since):
-    n = bad = 0
-    for d in dirs:
-        d = d.rstrip('/')
-        main = d + '.jsonl'
-        cs = end = last_ts = None
-        for line in open(main, encoding='utf-8', errors='replace') if os.path.exists(main) else ():
-            try:
-                e = json.loads(line)
-            except Exception:
-                continue
-            if e.get('type') == 'cost-state':   # siste linje vinner, med SIN startTime og slutt
-                cs, end = e, last_ts
-            elif e.get('timestamp'):
-                last_ts = e['timestamp'][:19]
-        if (not cs or not cs.get('totalCostUSD') or not end or end < since
-                or not isinstance(cs.get('startTime'), (int, float))):
-            continue
-        # startTime er epoch ms i UTC, som transkriptenes `timestamp`. Harnessen teller fra den.
-        start = datetime.fromtimestamp(cs['startTime'] / 1000, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
-        sub = [m for f in glob.glob(os.path.join(d, 'subagents', 'agent-*.jsonl'))
-               for m in _msgs(f) if start <= m[0] <= end]
-        own = sum(m[1] for m in sub) + sum(m[1] for m in _msgs(main) if start <= m[0] <= end)
-        final = 100.0 * sum(m[2] for m in sub) / len(sub) if sub else None
-        diff = 100.0 * (own - cs['totalCostUSD']) / cs['totalCostUSD']
-        over = abs(diff) > CALIB_THRESHOLD
-        hole = over and diff < 0 and final is not None and final < CALIB_FINAL_MIN
-        n += 1
-        bad += over and not hole
-        print(f"calibrate session={os.path.basename(d)[:8]} harness={cs['totalCostUSD']:.2f} own={own:.2f} "
-              f"diff={diff:+.1f}% final={'-' if final is None else f'{final:.0f}%'} over={'yes' if over else 'no'}"
-              + (' KJENT HULL: underagent-usage ufullstendig (Claude Code >= 2.1.281)' if hole else ''))
-    if not n:
-        print('calibrate: ingen økt med cost-state i vinduet — IKKE en måling.', file=sys.stderr)
-        return 2
-    return 1 if bad else 0
+explicit = [d.rstrip('/') for d in args[1:]]
+for d in explicit:
+    if not os.path.isdir(d):
+        sys.exit(f'FEIL: {d} er ikke en sesjonskatalog (forventet $COPILOT_HOME/session-state/<id>)')
+if explicit:
+    sessions, unknown_cwd = explicit, 0
+else:
+    sessions, unknown_cwd = project_sessions()
 
 if want_calibrate:
-    sys.exit(calibrate(dirs, since))
-
-def main_usd(files, since, until):
-    """Hovedfilenes kostnad per økt. Rollen til en økt står ikke i transkriptet: leseren avgjør fra dir= og agents=."""
-    tot = {True: [0.0, 0], False: [0.0, 0]}   # har underagenter → [usd, økter]
-    for f in files:
-        ms = [m for m in (_msgs(f) if os.path.exists(f) else ())
-              if m[0] >= since and (not until or m[0][:len(until)] <= until)]
-        if not ms:
-            continue
-        agents = len(glob.glob(os.path.join(f[:-len('.jsonl')], 'subagents', 'agent-*.jsonl')))
-        cost = sum(m[1] for m in ms)
-        tot[agents > 0][0] += cost; tot[agents > 0][1] += 1
-        print(f"main session={os.path.basename(f)[:8]} dir={os.path.basename(os.path.dirname(f))[-24:]} agents={agents} "
-              f"usd={cost:.2f} n={len(ms)} first={min(m[0] for m in ms)} last={max(m[0] for m in ms)}")
-    n = tot[True][1] + tot[False][1]
-    if not n:
-        print('main-usd: ingen hovedsesjon med meldinger i vinduet — IKKE en måling.', file=sys.stderr)
-        return 2
-    print(f'SUM hovedsesjoner med underagenter: ${tot[True][0]:.2f} ({tot[True][1]} økter)')
-    print(f'SUM alle hovedsesjoner: ${tot[True][0] + tot[False][0]:.2f} ({n} økter)')
-    return 0
+    target = resolve_session(session_arg) or (explicit[0] if len(explicit) == 1 else None)
+    sys.exit(calibrate(target, credits_arg, since))
 
 if want_main:
-    sys.exit(main_usd([d.rstrip('/') + '.jsonl' for d in args[1:]]
-                      or sorted(glob.glob(os.path.join(PROJECT_DIR, '*.jsonl'))), since, until))
+    manual_dir = resolve_session(session_arg) if credits_arg is not None else None
+    if manual_dir and manual_dir not in sessions:
+        sessions = sessions + [manual_dir]   # /usage-tallet står på egne ben, også uten lokal logg
+    sys.exit(main_credits(sessions, since, until, manual_dir, credits_arg))
 
-# PR-nummer → todo fra run-loggens merge-rader (`| <todo> | <slug> | merged | - | #NNNN |`). Uten dette
-# ble «PR 1007» lest som todo 100 (`\d{3}` tok de tre første sifrene).
-PR_TODO = {}
-try:
-    for _ln in open('docs/loop/run-log.md', encoding='utf-8'):
-        _c = [x.strip() for x in _ln.split(' | ')]
-        if len(_c) > 5 and _c[3] == 'merged':
-            for _pr in re.findall(r'(?:#|/pull/)(\d{3,5})', _c[5]):
-                PR_TODO[_pr] = _c[1]
-except OSError:
-    pass
-
-def todo_of(desc):
-    d = desc or ''
-    m = re.search(r'TODO\s*([0-9]+(?:[A-Za-z][0-9]*)?)', d)
-    if m:
-        return m.group(1)
-    m = re.search(r'\bPR\s*#?(\d{3,5})\b', d)
-    if m:
-        return PR_TODO.get(m.group(1), 'PR' + m.group(1))
-    m = re.search(r'\b([0-9]{2,3}(?:[A-Z][0-9]*)?)\b', d)
-    return m.group(1) if m else '-'
-
-rows = []
-for d in dirs:
-    for f in glob.glob(os.path.join(d, 'subagents', 'agent-*.jsonl')):
-        meta_p = f.replace('.jsonl', '.meta.json')
-        meta = json.load(open(meta_p)) if os.path.exists(meta_p) else {}
-        seen = {}
-        models = set()
-        t0 = t1 = None
-        for line in open(f, encoding='utf-8', errors='replace'):
-            try:
-                e = json.loads(line)
-            except Exception:
-                continue
-            ts = e.get('timestamp')
-            if ts:
-                t0 = ts if t0 is None or ts < t0 else t0
-                t1 = ts if t1 is None or ts > t1 else t1
-            msg = e.get('message') or {}
-            u = msg.get('usage')
-            if not u or not isinstance(msg, dict):
-                continue
-            mid = msg.get('id') or id(e)
-            models.add(msg.get('model', '?'))
-            seen[mid] = (u, msg.get('model', '?'))
-        if not t0 or t0 < since:
-            continue
-        # Nøklene settes eksplisitt: en agent uten usage-rader ennå (nettopp startet) ga
-        # ellers KeyError i weight() og felte hele målesiden.
-        tot = defaultdict(int, {'in': 0, 'cc': 0, 'cr': 0, 'out': 0})
-        tot_usd = 0.0
-        for u, mdl in seen.values():
-            tot_usd += usd(u, mdl)
-            tot['in'] += u.get('input_tokens', 0) or 0
-            tot['cc'] += u.get('cache_creation_input_tokens', 0) or 0
-            tot['cr'] += u.get('cache_read_input_tokens', 0) or 0
-            tot['out'] += u.get('output_tokens', 0) or 0
-        rows.append({
-            'agent': os.path.basename(f)[6:-6], 'type': meta.get('agentType', '?'),
-            'desc': meta.get('description', ''), 'parent': meta.get('parentAgentId'),
-            'model': ','.join(sorted(m for m in models if m and m != '<synthetic>')),
-            't0': t0, 't1': t1, **tot, 'w': 0, 'usd': tot_usd,
-        })
-for r in rows:
-    r['w'] = weight(r)
-
-# Knytt lens-agenter (parent = code-reviewer) til forelderens todo
-by_id = {r['agent']: r for r in rows}
-for r in rows:
-    r['todo'] = todo_of(r['desc'])
-    p = r['parent']
-    while r['todo'] == '-' and p and p in by_id:
-        r['todo'] = todo_of(by_id[p]['desc']); p = by_id[p]['parent']
+# ---- Data ----
+events = [u for d in sessions for u in read_usage(d) if u['ts'] >= since]
+rows = ledger_rows(since)
 
 if brake_nr:
-    usd_by = defaultdict(float)
-    for r in rows:
-        usd_by[r['todo']] += r['usd']
-    usd_by = fold_pr(brake_nr, usd_by, brake_pr)
+    cr_by = _sum_by_todo(rows)
+    if credits_arg is not None:
+        key0 = next((k for k in cr_by if str(k).lower() == brake_nr.lower()), brake_nr)
+        cr_by[key0] = credits_arg     # ferskeste tall: /usage så langt i todoen
+    cr_by = fold_pr(brake_nr, cr_by, brake_pr)
     archived, active = effort_classes()
     key = brake_nr.lower()
     cls = ({k.lower(): v for k, v in active.items()}.get(key)
            or {k.lower(): v for k, v in archived.items()}.get(key))
-    med, n, over = brake_verdict(brake_nr, usd_by, archived, cls)
-    mine = {k.lower(): v for k, v in usd_by.items()}.get(key, 0.0)
-    print(f"brake todo={brake_nr} class={cls or '?'} usd={mine:.2f} "
-          f"median={'-' if med is None else f'{med:.2f}'} n={n} over={over}")
+    med, n, over = brake_verdict(brake_nr, cr_by, archived, cls)
+    mine = {k.lower(): v for k, v in cr_by.items()}.get(key)
+    why = ''
+    if mine is None:
+        why = (f' {NOT_MEASURED}: ingen `credits=` i run-loggen for todoen — oppgi --credits <n> '
+               'fra /usage; manglende data er nivå A')
+    elif cls is None:
+        why = ' (effort-klassen mangler — sett `effort` i todo-fila)'
+    print(f"brake todo={brake_nr} class={cls or '?'} credits={'IKKE-MÅLT' if mine is None else f'{mine:.2f}'} "
+          f"median={'-' if med is None else f'{med:.2f}'} n={n} over={over}" + why)
     sys.exit(0)
 
 if release:
-    # Tomt scope gir ellers «SUM: $0.00» med exit 0, som ser ut som en billig release.
+    # Tomt scope gir ellers en tom tabell med exit 0, som ser ut som en billig release.
     _sc = subprocess.run([sys.executable, 'tasks/release.py', 'scope', release], capture_output=True, text=True)
     scope = set(_sc.stdout.split())
     if _sc.returncode != 0 or not scope:
         sys.exit(f"FEIL: fant ingen todoer i scope for release {release} ({_sc.stderr.strip() or 'tomt scope'})")
     rows = [r for r in rows if r['todo'] in scope]
-    print(f"Release {release}: {len(scope)} todoer i scope, {len(rows)} agenter knyttet til dem")
-
-def fmt(n): return f"{n/1000:,.0f}k"
+    print(f"Release {release}: {len(scope)} todoer i scope, {len(rows)} run-log-rader med credits= knyttet til dem")
 
 if os.environ.get('MEASURE_ROWS'):
     json.dump(rows, open(os.environ['MEASURE_ROWS'], 'w'), indent=1)
 
-print(f"Agenter siden {since}: {len(rows)}")
-agg = defaultdict(lambda: defaultdict(float))
-for r in rows:
-    for k in ('in', 'cc', 'cr', 'out', 'w', 'usd'):
-        agg[(r['todo'])][k] += r[k]
-    agg[r['todo']]['n'] += 1
-print("\n== Per todo (vektet, sortert) ==")
-for t, a in sorted(agg.items(), key=lambda x: -x[1]['w']):
-    print(f"{t:>6}  agenter={int(a['n']):3d}  vektet={fmt(a['w']):>8}  usd=${a['usd']:>7.2f}  output={fmt(a['out']):>7}  cache_read={fmt(a['cr']):>8}")
+# Ingen kilde i det hele tatt skal ALDRI kunne leses som en måling på 0.
+if not rows and not events and not release:
+    sys.exit(f'{NOT_MEASURED}: ingen `credits=` i {RUN_LOG} og ingen assistant.usage-hendelser i '
+             f'{len(sessions)} økter under {session_root()} siden {since}'
+             + (f' ({unknown_cwd} økter uten kjent cwd ble hoppet over — oppgi dem som session-dir)' if unknown_cwd else '')
+             + '.\n  Dette er IKKE et 0-resultat — det er en manglende måling. Skriv `credits=<n>` fra /usage i run-log-raden.')
 
-agg2 = defaultdict(lambda: defaultdict(float))
-for r in rows:
-    key = (r['type'], r['model'])
-    for k in ('out', 'w', 'usd'): agg2[key][k] += r[k]
-    agg2[key]['n'] += 1
-print("\n== Per rolle/modell ==")
-for (t, m), a in sorted(agg2.items(), key=lambda x: -x[1]['w']):
-    print(f"{t:>26} {m:>22}  n={int(a['n']):3d}  vektet={fmt(a['w']):>8}  snitt={fmt(a['w']/a['n']):>7}  usd=${a['usd']:>7.2f}  usd/kjøring=${a['usd']/a['n']:>5.2f}  output={fmt(a['out']):>7}")
+def fmt(n): return f"{n/1000:,.0f}k"
 
-print("\n== Enkeltagenter, topp 25 (vektet) ==")
-for r in sorted(rows, key=lambda r: -r['w'])[:25]:
-    print(f"${r['usd']:>6.2f} {fmt(r['w']):>8}  {r['todo']:>5}  {r['type']:>24}  {r['model']:>18}  {r['t0'][5:16]}  {r['desc'][:60]}")
+print(f"Kilder siden {since}: {len(rows)} run-log-rader med credits=, {len(sessions)} økter "
+      f"({len({u['session'] for u in events})} med assistant.usage, {len(events)} hendelser)"
+      + (f', {unknown_cwd} økter uten kjent cwd hoppet over' if unknown_cwd else ''))
 
-print(f"\nSUM underagenter: ${sum(r['usd'] for r in rows):.2f}")
+print("\n== Per todo (AI credits fra run-loggen / --credits, sortert) ==")
+per_todo = _sum_by_todo(rows)
+if not per_todo:
+    print(f"  {NOT_MEASURED}: ingen todo har `credits=` i run-loggen i vinduet")
+for t, v in sorted(per_todo.items(), key=lambda x: -x[1]):
+    n = sum(1 for r in rows if r['todo'] == t)
+    print(f"{t:>6}  rader={n:3d}  credits={v:>9.2f}")
+
+agg = defaultdict(lambda: {'n': 0, 'credits': 0.0, 'miss': 0, 'in': 0, 'out': 0, 'cr': 0, 'cw': 0})
+for u in events:
+    a = agg[(u['agent'] or 'koordinator', u['model'])]
+    a['n'] += 1
+    for k in ('in', 'out', 'cr', 'cw'):
+        a[k] += u[k]
+    if u['credits'] is None:
+        a['miss'] += 1
+    else:
+        a['credits'] += u['credits']
+print("\n== Per rolle/modell (assistant.usage) ==")
+if not events:
+    print(f"  {NOT_MEASURED}: ingen assistant.usage-hendelser i events.jsonl (de lagres normalt ikke — bruk /usage)")
+for (t, m), a in sorted(agg.items(), key=lambda x: -x[1]['credits']):
+    c = f"{a['credits']:>8.2f}" if a['n'] > a['miss'] else f'{NOT_MEASURED:>8}'
+    print(f"{t:>26} {m:>22}  kall={a['n']:4d}  credits={c}  input={fmt(a['in']):>7}  output={fmt(a['out']):>7}  "
+          f"cache_read={fmt(a['cr']):>8}  cache_write={fmt(a['cw']):>7}" + (f"  uten_cost={a['miss']}" if a['miss'] else ''))
+
+print("\n== Per økt (assistant.usage) ==")
+per_s = defaultdict(list)
+for u in events:
+    per_s[u['session']].append(u)
+for sid, us in sorted(per_s.items(), key=lambda x: min(u['ts'] for u in x[1])):
+    cost = [u['credits'] for u in us if u['credits'] is not None]
+    print(f"  session={sid[:8]}  kall={len(us):4d}  credits={fmt_cr(sum(cost) if cost else None)}  "
+          f"{min(u['ts'] for u in us)[:16]} – {max(u['ts'] for u in us)[:16]}")
+
+print(f"\nSUM todoer (run-log/--credits): {fmt_cr(sum(per_todo.values()) if per_todo else None)}")
+ev_cost = [u['credits'] for u in events if u['credits'] is not None]
+print(f"SUM økter (assistant.usage): {fmt_cr(sum(ev_cost) if ev_cost else None)}")
 
 if html_path or want_trend:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import measure_cost_html
 
 if html_path:
-    measure_cost_html.render(html_path, rows, dirs, since, cutover, usd)
+    measure_cost_html.render(html_path, rows, events, since, cutover)
     print(f"HTML skrevet: {html_path}")
 
 if want_trend:
-    # Samme data og samme dom som trend-seksjonen i artifactet — ÉN kilde, slik at en
+    # Samme data og samme dom som trend-seksjonen i siden — ÉN kilde, slik at en
     # graf som viser oppgang og en §8c-kjøring som sier «uendret» aldri kan sprike.
-    sys.exit(measure_cost_html.trend_report(rows, dirs, since, usd))
+    sys.exit(measure_cost_html.trend_report(rows, events, since))

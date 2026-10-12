@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# {{PROJECT_NAME}} — PreToolUse hook: blokkerer utilsiktede {{PROD_BRANCH}}-merges og {{PROD_BRANCH}}-pushes.
+# {{PROJECT_NAME}} — preToolUse-hook: blokkerer utilsiktede {{PROD_BRANCH}}-merges og {{PROD_BRANCH}}-pushes.
 # Krever eksplisitt manuell kjøring i terminal for å overstyre.
+#
+# Registreres av /setup i .github/hooks/loop-guards.json under preToolUse. Copilot-hooks har ingen
+# matcher: hooken filtrerer selv på toolName == "bash" (og aliaset run_in_terminal) og leser
+# kommandoen fra toolArgs.command (toolArgs kan komme som JSON-streng eller som objekt — begge
+# parses).
 #
 # Dekker:
 #   1. git push mot {{PROD_BRANCH}} (origin {{PROD_BRANCH}}, HEAD:{{PROD_BRANCH}}, :{{PROD_BRANCH}}, -u origin {{PROD_BRANCH}})
@@ -9,12 +14,20 @@
 #      alle flaggformer inkl. --method=PUT, -XPUT og siterte verdier) der PR-ens base er
 #      {{PROD_BRANCH}} (oppslag med timeout 5s)
 #
+# Blokkering: {"permissionDecision":"deny","permissionDecisionReason":"…"} på stdout og exit 0.
+# Samme tekst går også til stderr (synlig i hook-loggen). Lar svaret seg ikke skrive, er utfallet
+# exit 2 (fail-closed). Alt annet: tom stdout og exit 0 (tillatt).
+#
 # Logg: tasks/hook-blocks.log (ikke versjonert)
 
 set -euo pipefail
 
 INPUT=$(cat)
-CMD=$(echo "$INPUT" | /usr/bin/jq -r '.tool_input.command // ""')
+TOOL=$(echo "$INPUT" | /usr/bin/jq -r '.toolName // ""')
+# UVERIFISERT: VS Code-agentens terminalverktøy kan rapporteres som run_in_terminal i stedet for bash.
+# Begge navnene vaktes (konservativt: en ekstra vaktet alias koster ingenting).
+case "$TOOL" in bash|run_in_terminal) ;; *) exit 0 ;; esac
+CMD=$(echo "$INPUT" | /usr/bin/jq -r '.toolArgs | if type=="string" then (fromjson? // {}) else (. // {}) end | .command // ""')
 CWD=$(echo "$INPUT" | /usr/bin/jq -r '.cwd // ""')
 
 # Bruk kun første linje for pattern-matching — heredoc-innhold i commit-meldinger
@@ -22,23 +35,26 @@ CWD=$(echo "$INPUT" | /usr/bin/jq -r '.cwd // ""')
 FIRST="${CMD%%$'\n'*}"
 
 # ── Loggstiutledning ──────────────────────────────────────────────────────────
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-${CWD:-$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null || echo "/tmp")}}"
+PROJECT_DIR="${LOOP_PROJECT_DIR:-${CWD:-$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null || echo "/tmp")}}"
 LOG="$PROJECT_DIR/tasks/hook-blocks.log"
 
 block() {
   local reason="$1"
-  local ts
+  local ts msg
   ts=$(date '+%Y-%m-%dT%H:%M:%S')
   mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
   echo "$ts | BLOKKERT | $CMD | $reason" >> "$LOG" 2>/dev/null || true
-  echo "{{PROJECT_NAME}}: {{PROD_BRANCH}}-merge blokkert av sikkerhets-hook." >&2
-  echo "" >&2
-  echo "Årsak: $reason" >&2
-  echo "" >&2
-  echo "For å kjøre med vilje — kopier og kjør dette i terminal:" >&2
-  echo "" >&2
-  echo "  $CMD" >&2
-  exit 2
+  msg="{{PROJECT_NAME}}: {{PROD_BRANCH}}-merge blokkert av sikkerhets-hook.
+
+Årsak: $reason
+
+For å kjøre med vilje — kopier og kjør dette i terminal:
+
+  $CMD"
+  printf '%s\n' "$msg" >&2
+  # Copilot-svaret. Feiler jq her, blokkerer exit 2 likevel (fail-closed).
+  printf '%s' "$msg" | /usr/bin/jq -Rsc '{permissionDecision: "deny", permissionDecisionReason: .}' || exit 2
+  exit 0
 }
 
 # ── 1. git push mot {{PROD_BRANCH}} ──────────────────────────────────────────────────────

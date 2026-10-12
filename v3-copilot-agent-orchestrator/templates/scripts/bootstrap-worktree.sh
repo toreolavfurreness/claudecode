@@ -1,20 +1,37 @@
 #!/usr/bin/env bash
 # {{PROJECT_NAME}} — bootstrap-worktree.sh
 #
-# Gjør en fersk agent-worktree kjørbar:
-#   1. Synker avhengigheter mot lockfile med worktree_bootstrap.install_cmd
-#      (idempotent; kjøres kun når install_marker mangler eller er eldre enn lockfila).
-#   2. Kopierer et definert MINIMALT sett env-nøkler fra hovedsjekkuten inn i denne
-#      worktreen (nøkkel-for-nøkkel, aldri hele filer, aldri nøkler med et forbudt prefiks).
+# To moduser:
 #
-# Skriver ALDRI nøkkelverdier til stdout — kun nøkkelnavn og status.
+#   bash scripts/bootstrap-worktree.sh <todo-nr> <rolle>
+#     Lag-modus (koordinatoren, FØR dispatch). Lager `.loop-worktrees/<rolle>-<todo-nr>` under
+#     hovedsjekkuten på en egen branch `loop/<rolle>-<todo-nr>` fra `origin/{{BASE_BRANCH}}`
+#     (gjenbruker worktreen hvis den allerede finnes — f.eks. en fersk fix-dispatch for samme
+#     rolle), kjører bootstrap-modus inni den, og skriver worktree-stien (fysisk, absolutt) som
+#     ENESTE linje på stdout, så `WT=$(bash scripts/bootstrap-worktree.sh 42 implementer)` virker.
+#     All logg går til stderr. Stien sendes til workeren i prompten som `WORKTREE: <sti>`.
+#     <todo-nr> er et todo-nummer eller en annen id som matcher ^[a-z0-9-]+$ (f.eks. `health`
+#     for helsesjekken); <rolle> matcher også ^[a-z0-9-]+$ (planner, reviewer, implementer,
+#     code-reviewer, et tech-review-agentnavn …).
+#
+#   bash scripts/bootstrap-worktree.sh
+#     Bootstrap-modus (uten argumenter, idempotent) i GJELDENDE worktree — kjøres fra worktree-
+#     roten av workeren selv (Steg 0) og av skills som trenger avhengigheter:
+#       1. Synker avhengigheter mot lockfile med worktree_bootstrap.install_cmd
+#          (idempotent; kjøres kun når install_marker mangler eller er eldre enn lockfila).
+#       2. Kopierer et definert MINIMALT sett env-nøkler fra hovedsjekkuten inn i denne
+#          worktreen (nøkkel-for-nøkkel, aldri hele filer, aldri nøkler med et forbudt prefiks).
+#     Logger til stdout som før.
+#
+# Skriver ALDRI nøkkelverdier — kun nøkkelnavn og status.
 #
 # Alle verdier kommer fra worktree_bootstrap i loop.config.yaml, substituert av /setup.
-# Mangler seksjonen, er både installasjon og env-kopi tomme — skriptet er da en trygg no-op.
+# Mangler seksjonen, er både installasjon og env-kopi tomme — bootstrap-modus er da en trygg no-op.
 #
 # Bakgrunn: avhengighets- og env-friksjon i agent-worktrees ble
 # re-diagnostisert runde etter runde før oppskriften ble en lesson. Dette skriptet gjør
-# lessonen kjørbar.
+# lessonen kjørbar. Copilot-subagenter deler filsystem og arbeidskatalog med koordinatoren, så
+# isolasjonen er en worktree koordinatoren lager før dispatch — ikke noe harnessen gjør.
 
 set -euo pipefail
 
@@ -37,6 +54,68 @@ ALLOWED_KEYS=(
 # Forsvar i dybden: en worktree-fil som likevel inneholder en nøkkel som matcher denne
 # regexen, slettes. Tom = ingen denylist.
 DENY_RE="{{BOOTSTRAP_ENV_DENY_REGEX}}"
+
+# --- 0. Lag-modus: <todo-nr> <rolle> ----------------------------------------
+
+BASE_BRANCH="{{BASE_BRANCH}}"
+SELF_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/$(basename "${BASH_SOURCE[0]}")"
+
+if [ $# -gt 0 ]; then
+  if [ $# -ne 2 ]; then
+    echo "Bruk: bash scripts/bootstrap-worktree.sh [<todo-nr> <rolle>]" >&2
+    exit 2
+  fi
+  ID="$1"; ROLE="$2"
+  for v in "$ID" "$ROLE"; do
+    if ! printf '%s' "$v" | grep -Eq '^[a-z0-9-]+$' || [ "${v#-}" != "$v" ]; then
+      echo "FEIL: ugyldig id/rolle '$v' (må matche ^[a-z0-9-]+$ og ikke starte med -)." >&2
+      exit 2
+    fi
+  done
+  if ! COMMON=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
+    echo "FEIL: ikke et git-repo (git rev-parse --git-common-dir feilet)." >&2
+    exit 1
+  fi
+  MAIN=$(cd "$COMMON/.." && pwd -P)
+  NAME="$ROLE-$ID"
+  WT="$MAIN/.loop-worktrees/$NAME"
+  BRANCH="loop/$NAME"
+
+  if [ -e "$WT" ]; then
+    # Gjenbruk kun en REGISTRERT worktree med egen rot — en løs mappe med samme navn er en feil.
+    if ! git -C "$MAIN" worktree list --porcelain | grep -qxF "worktree $WT"; then
+      echo "FEIL: $WT finnes, men er ikke en registrert worktree. Sjekk innholdet og fjern den manuelt før ny dispatch." >&2
+      exit 1
+    fi
+    echo "worktree: gjenbruker $WT ($(git -C "$WT" rev-parse --abbrev-ref HEAD))" >&2
+  else
+    if ! git -C "$MAIN" fetch -q origin "$BASE_BRANCH" >&2; then
+      echo "ADVARSEL: git fetch origin $BASE_BRANCH feilet — bruker eksisterende origin/$BASE_BRANCH." >&2
+    fi
+    if ! git -C "$MAIN" rev-parse --verify --quiet "origin/$BASE_BRANCH^{commit}" >/dev/null; then
+      echo "FEIL: origin/$BASE_BRANCH finnes ikke — kan ikke lage $WT." >&2
+      exit 1
+    fi
+    mkdir -p "$MAIN/.loop-worktrees"
+    if git -C "$MAIN" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null; then
+      # Branchen finnes fra en tidligere runde (worktreen er ryddet) — sjekk den ut igjen, ikke
+      # nullstill den: den kan bære arbeid.
+      git -C "$MAIN" worktree add -q "$WT" "$BRANCH" >&2 || { echo "FEIL: git worktree add $WT $BRANCH feilet." >&2; exit 1; }
+    else
+      git -C "$MAIN" worktree add -q -b "$BRANCH" "$WT" "origin/$BASE_BRANCH" >&2 \
+        || { echo "FEIL: git worktree add -b $BRANCH $WT origin/$BASE_BRANCH feilet." >&2; exit 1; }
+    fi
+    echo "worktree: laget $WT på $BRANCH fra origin/$BASE_BRANCH" >&2
+  fi
+  WT=$(cd "$WT" && pwd -P)
+  # Bootstrap-modus inni den nye worktreen; all utskrift til stderr så stdout bare er stien.
+  if ! (cd "$WT" && bash "$SELF_SCRIPT") >&2; then
+    echo "FEIL: bootstrap av $WT feilet (se over)." >&2
+    exit 1
+  fi
+  printf '%s\n' "$WT"
+  exit 0
+fi
 
 # --- 1. Root-finding -------------------------------------------------------
 

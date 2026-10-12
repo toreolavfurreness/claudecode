@@ -1,5 +1,8 @@
 ---
-description: 'Skriv én lesson-fil: duplikatsøk, riktig kunnskapsbase, filnavn fra skript, format og tagger, docs/-PR.'
+name: lesson-new
+description: "Skriv én lesson-fil: duplikatsøk, riktig kunnskapsbase, filnavn fra skript, format og tagger, docs/-PR."
+argument-hint: "hva som skjedde, kort (valgfri)"
+disable-model-invocation: true
 ---
 
 # /lesson-new — skriv en lesson
@@ -9,17 +12,17 @@ feil, en fallgruve kostet tid, eller en bug ble fikset på en ikke-åpenbar måt
 `/todo-done` lessons selv. Workers (planner, implementer, reviewere) kjører aldri denne — de
 melder lessons i rapporten, og koordinatoren skriver.
 
-Skrive-protokollen er `tasks/lessons.md`, formatet er `AGENTS.md` § «Lessons learned». Denne
-kommandoen følger dem; ved konflikt gjelder de.
+Skrive-protokollen er `tasks/lessons.md`, formatet er `docs/loop-rules.md` § «Lessons learned» (AGENTS.md peker dit). Denne
+skillen følger dem; ved konflikt gjelder de.
 
-Argument: hva som skjedde, kort (tomt: spør eieren).
+Argument (det brukeren skrev etter `/lesson-new`): hva som skjedde, kort (tomt: spør eieren).
 
 ## 1. Hører det hjemme i lessons?
 
-Splitt først setningen i atomiske påstander. Så, per påstand (detaljer i `AGENTS.md` § «Tre kunnskapsbaser»):
+Splitt først setningen i atomiske påstander. Så, per påstand (detaljer i `docs/loop-rules.md` § «Tre kunnskapsbaser»):
 
-- **Samarbeidspreferanse** («eieren vil ha …») → `MEMORY.md`, ikke lessons. Stopp.
-- **Statistikk om egen atferd** (signalord «de siste N rundene», «gir oftest», «pleier å») → agent-minne. Stopp.
+- **Samarbeidspreferanse** («eieren vil ha …») → eierens egne instruksjoner/minne (se § «Tre kunnskapsbaser»), ikke lessons. Stopp.
+- **Statistikk om egen atferd** (signalord «de siste N rundene», «gir oftest», «pleier å») → agent-minne (`tasks/agent-memory/<agent>/MEMORY.md`, skrives av koordinatoren). Stopp.
 - **Sann påstand om kodebasen, plattformen eller verktøyet** → lessons. Fortsett.
 - **Uavgjort** → lessons.
 
@@ -73,7 +76,7 @@ kilder: [TODO-NN, BUG-NNN]
 ## 5. Branch og PR
 
 ```bash
-git worktree add <scratchpad>/wt-lesson -b docs/lesson-<slug> origin/{{BASE_BRANCH}}
+git worktree add "${TMPDIR:-/tmp}/wt-lesson" -b docs/lesson-<slug> origin/{{BASE_BRANCH}}
 # skriv fila der
 npx prettier --check <fil>
 git add <fil> && git commit -m "docs(lessons): <tittel>"

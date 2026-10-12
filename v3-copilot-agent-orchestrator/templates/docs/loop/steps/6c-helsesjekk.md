@@ -34,8 +34,8 @@ nullstillings-markøren. Ingen health-rad ennå → tell fra toppen av fila.
 **Persistering:** health-raden appendes til `docs/loop/run-log.md` (ingen dedup-guard
 her, se «Re-kjørbarhet»-noten under §6 steg 6 for hvorfor det ikke trengs), deretter kjøres
 **Delt-state-git-halen** (§6, steg 6 — samme blokk, `$MSG="chore(loop): helsesjekk — health-rad"`).
-`loop-health-check.md` Del C appender kun raden selv — commit/push skjer via denne halen; ingen
-edit i `loop-health-check.md` er nødvendig.
+`.github/skills/loop-health-check/SKILL.md` Del C appender kun raden selv — commit/push skjer via denne halen; ingen
+edit i `.github/skills/loop-health-check/SKILL.md` er nødvendig.
 
 ### Release-fremdrift
 
@@ -55,5 +55,5 @@ er en rød helsesjekk.
 
 **Del D:** `/loop-health-check` kjører i tillegg Del D (regelmotor-selvtest,
 regel-paritet, monoton decision-log, nivå-B-oppsummering + avstemming mot run-loggen, treffsikkerhet per type (D5)) som en del av
-DENNE helsesjekken, FØR «Etter §6c» over evalueres — se `loop-health-check.md` Del D. Rødt i Del D
+DENNE helsesjekken, FØR «Etter §6c» over evalueres — se `.github/skills/loop-health-check/SKILL.md` Del D. Rødt i Del D
 er samme klasse som Del A/A6: rød helsesjekk, §8b kjøres IKKE.

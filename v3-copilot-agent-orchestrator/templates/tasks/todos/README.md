@@ -26,7 +26,7 @@ claimed_by: null                  # branch/worktree som jobber med den (ADVISORY
 phase: null                       # valgfri — fasen til en claimet todo, settes av koordinatoren (se «Fase»)
 plan: null                        # tasks/plans/todo-NN-slug.md (settes når en plan finnes — også for en pipelinet, u-claimet todo)
 effort: M                         # valgfri — S | M | L, implementeringskost (se Verdifelter)
-saves: "≈2 opus-dispatcher per todo"   # valgfri — hva den sparer, i loopens egne enheter
+saves: "≈2 dyre dispatcher per todo"   # valgfri — hva den sparer, i loopens egne enheter
 observed: "run-log: 22/49 pause_event" # valgfri — observasjonen som motiverer todoen
 bugs:    ["BUG-001", "BUG-002"]   # valgfri — kantbærende, se «Kantbærende felt»
 files:   ["components/AddItemModal.tsx"]     # valgfri — repo-relativ sti, kantbærende
@@ -100,7 +100,7 @@ for automatisk sortering. Ingen kø-skript skal bygge auto-prioritering på dem.
     `M` som går rett gjennom. Feltet er fortsatt kun til menneskelig rangering; ingen kø-skript
     skal auto-sortere på det.
 - **`saves`** — fri tekst: hva todoen sparer, uttrykt i loopens egne enheter (f.eks.
-  «≈2 opus-dispatcher per todo», «1 pausepunkt-runde mindre per uke»).
+  «≈2 dyre dispatcher per todo», «1 pausepunkt-runde mindre per uke»).
 - **`observed`** — fri tekst: observasjonen som motiverer todoen (f.eks. et run-log-utdrag).
   Kalles bevisst **ikke** `evidence` — det ordet er allerede reservert til anti-fabrikasjons-
   objektet i ferdig-rapportene (se `report-schema.md`); å gjenbruke det her ville skapt

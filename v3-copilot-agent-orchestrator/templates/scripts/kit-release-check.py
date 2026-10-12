@@ -4,9 +4,9 @@
   python3 scripts/kit-release-check.py [--range A..B]   releasevakt (standard: origin/{{PROD_BRANCH}}..origin/{{BASE_BRANCH}})
   python3 scripts/kit-release-check.py --pr <nr>        review-sjekk av én PR
   python3 scripts/kit-release-check.py --self-test
-  (--kit-repo <eier/navn> bytter kit-repo, standard toreolavfurreness/claudecode)
+  (--kit-repo <eier/navn> bytter kit-repo, standard repoet i KIT_REPO_URL under)
 
-Regelen: en PR eller direktecommit som endrer en kitfil, har linja «Kit: claudecode#NN» eller
+Regelen: en PR eller direktecommit som endrer en kitfil, har linja «Kit: <kit-repo>#NN» eller
 «Kit: ingen endring – <begrunnelse>» i PR-teksten (commit-meldingen når commiten ikke har en PR).
 «Kit: porteres …» godtas i review (pending), men er et brudd i releasevakten.
 Kitfil-lista leses fra kit-repoets tre med ett gh api-kall. Skriptet bare leser (git og gh).
@@ -17,7 +17,10 @@ PR-oppslaget gir HTTP 422 og FEIL for en commit GitHub ikke kjenner.
 """
 import argparse, json, re, subprocess, sys
 
-KIT_ROOT = 'v3-agent-orchestrator/'
+# Kit-repoet. Navnet (siste ledd) er det «Kit: <navn>#NN»-linja skal nevne; eier/navn godtas også.
+KIT_REPO_URL = 'https://github.com/toreolavfurreness/claudecode'
+KIT_REPO = KIT_REPO_URL.split('github.com/', 1)[1]
+KIT_ROOT = 'v3-copilot-agent-orchestrator/'
 # Stien er lastbærende: «regel i kraft» for en commit = denne stien finnes i forelderen.
 SELF = 'scripts/kit-release-check.py'
 # Kitfiler som bare er skjelett eller tom mal i kitet og prosjektinnhold her: sti -> begrunnelse.
@@ -30,14 +33,22 @@ EXCEPTIONS = {
     'docs/loop/retro-log.md': 'prosjektlogg, tom mal i kitet',
 }
 # Brudd i en direktecommit (meldingen kan ikke rettes): full sha -> begrunnelse, som navngir
-# kit-PR-en (claudecode#NN) eller sier hvorfor kitet ikke trenger endringen.
+# kit-PR-en (<kit-repo>#NN) eller sier hvorfor kitet ikke trenger endringen.
 # En sha som har en PR, frafalles ikke her: den rettes med gh pr edit.
 WAIVED = {}
 # ponytail: regexen ser ikke markdown-struktur, så en Kit-linje i en kodeblokk eller et sitat (>)
 # teller også. Fjern fenced blokker før søket hvis det viser seg å bli et hull.
 _PREFIX = r'^[ \t>*_-]*Kit:[*_]*[ \t]*'
-KIT_LINE = re.compile(
-    _PREFIX + r'(?:(?:toreolavfurreness/)?claudecode#\d+|ingen endring[ \t]*[–—-][ \t]*\S)', re.M | re.I)
+
+
+def kit_line(repo):
+    """«Kit: [eier/]navn#NN» eller «Kit: ingen endring – <begrunnelse>» for kit-repoet `repo` (eier/navn)."""
+    owner, name = repo.split('/', 1)
+    return re.compile(_PREFIX + r'(?:(?:' + re.escape(owner) + r'/)?' + re.escape(name)
+                      + r'#\d+|ingen endring[ \t]*[–—-][ \t]*\S)', re.M | re.I)
+
+
+KIT_LINE = kit_line(KIT_REPO)
 PENDING_LINE = re.compile(_PREFIX + r'porteres\b', re.M | re.I)
 
 
@@ -55,7 +66,7 @@ def kit_paths(tree_paths):
         elif p.startswith('examples/hooks/') and p.endswith('.example.sh'):
             out.add('.github/hooks/scripts/' + p[len('examples/hooks/'):-len('.example.sh')] + '.sh')
         elif p.startswith('examples/tech-review-agents/') and p.endswith('.example.md'):
-            out.add('.github/agents/' + p[len('examples/tech-review-agents/'):-len('.example.md')] + '.md')
+            out.add('.github/agents/' + p[len('examples/tech-review-agents/'):-len('.example.md')] + '.agent.md')
     return out
 
 
@@ -70,14 +81,14 @@ def load_kit(fetch):
     return kit - set(EXCEPTIONS)
 
 
-def verdict(pr, kit, waived=WAIVED):
+def verdict(pr, kit, waived=WAIVED, kit_line_re=None):
     """pr = {sha, files, body, rule_in_force} -> skip | waived | ok | pending | offender | backlog."""
     if not any(f in kit for f in pr['files']):
         return 'skip'
     if pr.get('sha') in waived:
         return 'waived'
     body = pr['body'] or ''
-    if KIT_LINE.search(body):
+    if (kit_line_re or KIT_LINE).search(body):
         return 'ok'
     if not pr['rule_in_force']:
         return 'backlog'
@@ -181,20 +192,21 @@ def self_test():
         raise RuntimeError('gh: Not Found (HTTP 404)')
 
     kf = '.github/skills/run-loop/SKILL.md'
+    owner, name = KIT_REPO.split('/', 1)
     kit = load_kit(tree('templates/AGENTS.md', 'templates/' + kf))
     base = {'sha': 'abc', 'files': [kf], 'body': '', 'rule_in_force': True}
     v = lambda waived={}, **kw: verdict({**base, **kw}, kit, waived)
     cases = [
-        ('K1', v(body='Kit: claudecode#24'), 'ok'),
+        ('K1', v(body=f'Kit: {name}#24'), 'ok'),
         ('K2', v(body='Kit: ingen endring – FH-spesifikk'), 'ok'),
         ('K3', v(), 'offender'),
         ('K4', v(files=['AGENTS.md']), 'skip'),
         ('K5', raises(lambda: load_kit(boom)), 'RuntimeError'),
-        ('K6', v(body='Tekst\n\nKit: toreolavfurreness/claudecode#18. Mer tekst'), 'ok'),
+        ('K6', v(body=f'Tekst\n\nKit: {owner}/{name}#18. Mer tekst'), 'ok'),
         ('K7', v(body='Kit: porteres av koordinator etter merge til x'), 'pending'),
         ('K8', v(body='Kit: ingen endring –\n\nMer tekst'), 'offender'),
-        ('K9', v(body='Kit: claudecode#'), 'offender'),
-        ('K10', v(body='Se Kit: claudecode#1'), 'offender'),
+        ('K9', v(body=f'Kit: {name}#'), 'offender'),
+        ('K10', v(body=f'Se Kit: {name}#1'), 'offender'),
         ('K11', v(files=['AGENTS.md', kf]), 'offender'),
         ('K12', v(files=['lib/x.ts']), 'skip'),
         ('K13', v(rule_in_force=False), 'backlog'),
@@ -212,14 +224,16 @@ def self_test():
         ('K18', all(isinstance(r, str) and r.strip() for r in [*EXCEPTIONS.values(), *WAIVED.values()]), True),
         ('K19', v(waived={'abc': 'x'}), 'waived'),
         ('K20', v(waived={'def': 'x'}), 'offender'),
-        ('K21', row('commit abc', [kf], 'waived', 'abc', {'abc': 'claudecode#9'}),
-         f'commit abc ({kf}) → waived: claudecode#9'),
+        ('K21', row('commit abc', [kf], 'waived', 'abc', {'abc': f'{name}#9'}),
+         f'commit abc ({kf}) → waived: {name}#9'),
         ('K22', summary(96, ['skip', 'ok', 'waived', 'backlog', 'pending', 'offender']),
          'kit-release-check: kitfiler=96 commits=6 etterslep=1 frafalt=1 brudd=2'),
         ('K23', raises(lambda: subject(None, 'abc', True)), 'RuntimeError'),
         ('K24', [subject(None, 'abc', False), subject({'number': 5}, 'abc', True)],
          [('commit abc', 'abc'), ('PR #5', None)]),
         ('K25', v(sha=subject({'number': 5}, 'abc', False)[1], waived={'abc': 'x'}), 'offender'),
+        ('K27', [verdict({**base, 'body': 'Kit: annet-kit#3'}, kit, {}, kit_line('eier/annet-kit')),
+                 verdict({**base, 'body': f'Kit: {name}#3'}, kit, {}, kit_line('eier/annet-kit'))], ['ok', 'offender']),
         ('K26', [pick_pr([{'number': 1, 'merge_commit_sha': 'zzz', 'base': {'ref': '{{BASE_BRANCH}}'}},
                           {'number': 2, 'merge_commit_sha': 'abc', 'base': {'ref': 'main'}}], 'abc'),
                  pick_pr([{'number': 3, 'merge_commit_sha': 'abc', 'base': {'ref': '{{BASE_BRANCH}}'}}], 'abc')['number']],
@@ -238,12 +252,13 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--range', default='origin/{{PROD_BRANCH}}..origin/{{BASE_BRANCH}}')
     ap.add_argument('--pr')
-    ap.add_argument('--kit-repo', default='toreolavfurreness/claudecode')
+    ap.add_argument('--kit-repo', default=KIT_REPO)
     ap.add_argument('--self-test', action='store_true')
     args = ap.parse_args()
     try:
         if args.self_test:
             sys.exit(self_test())
+        KIT_LINE = kit_line(args.kit_repo)   # Kit-linja nevner det kit-repoet som faktisk sjekkes
         kit = load_kit(lambda: run('gh', 'api', f'repos/{args.kit_repo}/git/trees/main?recursive=1').stdout)
         sys.exit(review(args.pr, kit) if args.pr else main(args.range, kit))
     except (RuntimeError, ValueError, KeyError, OSError) as e:

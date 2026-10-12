@@ -12,7 +12,8 @@ stdout linje 1: ci=<green|red|cancelled|pending|missing|error> (run-log-tokenet,
 kopieres ordrett), linje 2: sha=<head-sha>, deretter én linje per sjekk som ikke er
 grønn. Exit 0 KUN ved ci=green; 1 = ikke grønn; 2 = bruks-/API-feil (ci=error).
 Merge med `-f sha=<sha>` fra linje 2, så dommen ikke kan gli til en nyere commit.
-Standardtaket 540 s holder hele kallet under Bash-verktøyets tak på 600 s.
+Standardtaket 540 s holder hele kallet under 600 s, en konservativ grense for ett `execute`-kall
+(UVERIFISERT: Copilots eksakte tak per shell-kall).
 Forutsetter minst én GitHub Actions-workflow på PR-er (ellers alltid ci=missing).
 """
 import argparse, json, subprocess, sys, time
@@ -152,7 +153,7 @@ def self_test():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pr", nargs="?")
-    # ponytail: fast tak 540 s < Bash-verktøyets 600 s; 95 av 100 CI-kjøringer tok ≤ 218 s. Tregere CI ⇒ ci=pending
+    # ponytail: fast tak 540 s < 600 s (konservativ grense for ett execute-kall); 95 av 100 CI-kjøringer tok ≤ 218 s. Tregere CI ⇒ ci=pending
     ap.add_argument("--timeout-s", type=int, default=540)
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()

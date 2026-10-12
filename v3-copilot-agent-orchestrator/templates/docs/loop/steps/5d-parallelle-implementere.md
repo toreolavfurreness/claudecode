@@ -9,9 +9,12 @@
 
 **Trigger:** når B sin plan står `go` (§4, ordinært ELLER pipelinet via §5c) og B derfor ville blitt
 claimet i EN SENERE runde. §5d avgjør om B i stedet claimes MED ÉN GANG og implementeres SAMTIDIG
-med A, i stedet for å vente. §5d er en utvidelse av §5c (samme par-dispatch-mekanikk, «`§5
+med A, i stedet for å vente. §5d er en utvidelse av §5c (samme par-dispatch-mekanikk: to
+`task`-kall med `mode: "background"` i samme tur, hentet med `read_agent`, og par-barrieren; «`§5
 implementer(A)` + `§3 planner(B)`» byttes ut med «`§5 implementer(A)` + `§5 implementer(B)`»), ikke
-en ny mekanisme. Taket er `parallel_implementers.max` i `loop.config.yaml`. Nøkkelen er valgfri;
+en ny mekanisme. Hver implementer har sitt EGET tre fra `scripts/bootstrap-worktree.sh` (§0b
+«Worktree per dispatch»): B får `bash scripts/bootstrap-worktree.sh <B> implementer` etter parets
+snapshot, og A beholder sitt `implementer`-tre fra §5c/§5 (fix-runder gjenbruker det, §5b). Taket er `parallel_implementers.max` i `loop.config.yaml`. Nøkkelen er valgfri;
 mangler den, er verdien `1` — nøyaktig dagens sekvensielle atferd, og hele §5d hoppes over. Verdien
 i dette prosjektet er `{{PARALLEL_IMPLEMENTERS_MAX}}`.
 
@@ -93,7 +96,7 @@ python3 tasks/parallel-disjoint.py --a <scratch>/gate-m-a-<runde>.txt --b <scrat
 - `ok` ⇒ videre til MERGEABLE-sjekken (§6).
 - **`overlap`/`empty-a`/`empty-b` ⇒ DROP TIL SERIELT** (ikke pausepunkt): B settes til
   `stadium: serialized`, og B-implementeren dispatches i fix-mode-stien
-  `todo-finish-worker.md:46–47` (`git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}`) + re-kjøring av
+  fix-mode-stien i `.github/skills/todo-finish-worker/SKILL.md` (`git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}`) + re-kjøring av
   verifiseringssettet (`npm run build:web`, `npx tsc --noEmit`, `npm run format:check`,
   `npm run test:unit`) + push. **Ny kode-review-runde kreves KUN hvis merge-en måtte
   konfliktløses** — en ren merge endrer ingen linje B har skrevet, og §5b sitt trigger-sett er
@@ -140,8 +143,10 @@ Holdes i koordinatorens **scratchpad** — ALDRI som repo-relativ fil (§0bs reg
 |---|---|---|
 | `todo` | §1/§5c | nøkkel |
 | `rolle` | `A` \| `B` | merge-rekkefølge |
-| `wt_path` | ferdig-rapportens `evidence.toplevel` | §0b vakt 1 krever EKSAKT sti |
-| `pre_snapshot` | `<scratch>/wt-pre-5d-par<n>-<runde>.txt` | §0b vakt 5 krever PAR (sti, snapshot) |
+| `wt_path` | WORKTREE fra bootstrap-skriptet, bekreftet av ferdig-rapportens `evidence.toplevel` | §0b vakt 1 krever EKSAKT sti |
+| `pre_snapshot` | `<scratch>/wt-pre-5d-par<n>-<runde>.txt` (tatt før parets bootstrap-kall) | §0b vakt 5 krever PAR (sti, snapshot) |
+| `bootstrap_branch` | `git -C <wt_path> branch --show-current` før dispatch | §0b punkt 7 (b) |
+| `agent_id` | `task`-kallet (`mode: "background"`) | `read_agent`/`write_agent` mens workeren kjører |
 | `branch` | ferdig-rapportens `branch` | §0b `<branch_kryss_sjekk>` |
 | `pr` | ferdig-rapportens `pr_url` | gate M, MERGEABLE, §6 |
 | `pinned_sha` | `gh pr view <pr> --json headRefOid` | §5b trigger-sett + fix-runde-diff |
@@ -167,6 +172,8 @@ invokasjons egen delmengde: dedupliser på STIEN, behold FØRSTE rundes snapshot
 Legges i dispatch-prompten til BEGGE implementere når §5d er armet (samme mønster som
 tillegget for pipelinede par):
 
+- **Egen WORKTREE:** `WORKTREE: <sti>` som første linje i hver prompt; to implementere deler aldri
+  tre.
 - **Ref-lock (delt `.git`):** koordinatorens egen `git fetch origin {{BASE_BRANCH}}` FØR paret
   dispatches, PLUSS `git merge-base --is-ancestor origin/{{BASE_BRANCH}} HEAD` etter Steg 0 i
   BEGGE prompter.
@@ -174,11 +181,11 @@ tillegget for pipelinede par):
   implementere denne runden; bruk en midlertidig WIP-commit i stedet. Koordinatoren tar
   `git stash list | wc -l` som baseline FØR par 1 og sammenligner etter hvert par; avvik ⇒
   ADVARSEL med SHA + branch til mennesket.
-- **Pre-commit-re-synk (delt-state-push midt i flukt):** rett før `todo-finish-worker.md` steg 6
+- **Pre-commit-re-synk (delt-state-push midt i flukt):** rett før `.github/skills/todo-finish-worker/SKILL.md` steg 6
   («Commit + PR mot dev»), kjør `git fetch origin {{BASE_BRANCH}} && git diff origin/{{BASE_BRANCH}} --stat`;
   ikke-tom med filer implementeren ikke selv rørte ⇒ merge FØR commit.
 - **e2e:** steg 2 og 2a kjøres som normalt når egen diff rører `app/`, `components/` eller `lib/`,
-  med egen port og e2e-låsen fra `todo-finish-worker.md` steg 2. Låsen serialiserer
+  med egen port og e2e-låsen fra `.github/skills/todo-finish-worker/SKILL.md` steg 2. Låsen serialiserer
   kjøringene, så de delte testbrukerne brukes aldri samtidig.
 
 **Release claim med to claimede todos.** «Release claim» i §3/§4/§5b refererer normalt til DEN ENE

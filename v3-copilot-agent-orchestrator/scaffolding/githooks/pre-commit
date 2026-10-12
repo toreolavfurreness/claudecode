@@ -28,7 +28,7 @@ abs_common_dir=$(git rev-parse --path-format=absolute --git-common-dir) || exit 
 abs_git_dir=$(git rev-parse --absolute-git-dir) || exit 0
 
 if [ "$abs_git_dir" != "$abs_common_dir" ]; then
-  # Linked worktree (agent-worktree) — committer feature-kode legitimt. No-op.
+  # Linked worktree (.loop-worktrees/<rolle>-<nr>) — committer feature-kode legitimt. No-op.
   exit 0
 fi
 
@@ -43,8 +43,10 @@ fi
 # TILPASS denne lista til prosjektets faktiske delt-state-flate):
 #   tasks/                  koordinatorens delt state (lessons/bugs/arkiv/todos/plans)
 #   docs/                   bl.a. run-log + plan-/beslutnings-dokumentasjon
-#   .claude/                /setup-regenererte agenter/kommandoer
-#   v3-agent-orchestrator/  loop-config/templates/scaffolding (loop-infra)
+#   .github/agents/         /setup-regenererte agenter
+#   .github/skills/         /setup-regenererte skills
+#   .github/hooks/          /setup-regenerert loop-guards.json + hook-skript
+#   v3-copilot-agent-orchestrator/  loop-config/templates/scaffolding (loop-infra)
 #   .gitignore              loop-infra-config, kan ikke bære app-kode
 # Bevisst UTENFOR (eksempel — tilpass per prosjekt): migrasjonskatalogen (går
 # via feat-branch + PR — en staget migrasjonsfil på base-branchen i
@@ -67,7 +69,7 @@ violations=""
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in
-    tasks/*|docs/*|.claude/*|v3-agent-orchestrator/*|.gitignore) ;;
+    tasks/*|docs/*|.github/agents/*|.github/skills/*|.github/hooks/*|v3-copilot-agent-orchestrator/*|.gitignore) ;;
     *) violations="${violations}${violations:+ }$f" ;;
   esac
 done < "$staged_list"

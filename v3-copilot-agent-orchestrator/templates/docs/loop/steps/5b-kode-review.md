@@ -9,12 +9,20 @@
 
 ### Minne-gate (før dispatch)
 
-Endrer PR-diffen `tasks/agent-memory/` (`gh pr diff <n> --name-only | grep -c '^tasks/agent-memory/'` ≥ 1),
-SKAL ferdig-rapporten ha `memory_check` med grep-kommando og output per ny linje (implementer-charteret
-§ Rollehukommelse). Mangler feltet, send implementeren tilbake med SendMessage FØR kode-review.
+Rollehukommelsen skrives KUN av koordinatoren (single-writer, §6 steg 1b); workeren foreslår linjer
+i ferdig-rapportens `memory_candidates` (`report-schema.md`). To sjekker FØR kode-review:
+
+- Har ferdig-rapporten ikke-tom `memory_candidates`, SKAL hver kandidat ha `memory_check` med
+  grep-kommando og output (implementer-charteret § Rollehukommelse). Mangler feltet, send
+  implementeren tilbake FØR kode-review (`coordinator-runbook.md` § «Sende en worker tilbake»:
+  fersk dispatch med samme WORKTREE som standard).
+- Endrer PR-diffen likevel `tasks/agent-memory/` (`gh pr diff <n> --name-only | grep -c '^tasks/agent-memory/'` ≥ 1),
+  har workeren skrevet fila selv: send implementeren tilbake for å fjerne endringen fra PR-en og
+  levere linjene som `memory_candidates` i stedet.
+
 En kopi i minnet gir fort en ekstra runde.
 
-<!-- mekanisk-kandidat: Minne-gate — gh pr diff --name-only mot tasks/agent-memory/ + memory_check i rapporten (mangler) -->
+<!-- mekanisk-kandidat: Minne-gate — gh pr diff --name-only mot tasks/agent-memory/ + memory_check i memory_candidates (mangler) -->
 
 ### Probe (dekket av preflight — én gang per sesjon)
 
@@ -27,7 +35,7 @@ preflight (§ «Forutsetning»), ikke her.
 og nå — samme prompt og samme eskaleringsregel som preflight-proben, før review-dispatchen under.
 
 - Får du `{"ok": true}` → fortsett til review-dispatch.
-- «Agent type not found» (eller manglende `ok`) → ⚠️ STOPP, release claim, eskalér til mennesket: «§5b krever en koordinator-sesjon startet ETTER at `.github/agents/{{PROJECT_NAME}}-code-reviewer.agent.md` ble merget til `{{BASE_BRANCH}}`; start en fersk sesjon».
+- `Unknown agent_type: …` (eller manglende `ok`) → ⚠️ STOPP, release claim, eskalér til mennesket: «§5b krever en koordinator-sesjon startet ETTER at `.github/agents/{{PROJECT_NAME}}-code-reviewer.agent.md` ble merget til `{{BASE_BRANCH}}`; start en fersk sesjon».
 
 ### Trigger-sett (kode, ikke skjønn)
 
@@ -47,9 +55,9 @@ under-dispatch rapportert ærlig som `2/2` (svakheten i den tidligere charter-va
    som R1 (fail-høyt, aldri fail-open). Fallback KUN hvis `gh api` feiler: `gh pr diff <pr>
    --name-only` (merk: denne følger PR-ens nåværende HEAD og kan ha driftet siden steg 1 — bruk
    kun når compare-endepunktet er utilgjengelig).
-3. **Kjør selektoren selv — ikke revieweren.** `python3` er ikke i read-only-rollenes
-   Bash-allowlist (`guard-reviewer-readonly.sh` `@STANDALONE`),
-   så reduksjonen må kjøres her. Rør filstiene fra steg 2 direkte gjennom et rør — ingen
+3. **Kjør selektoren selv — ikke revieweren.** Resultatet er koordinatorens UAVHENGIGE kilde, og
+   read-only-rollene kjører ikke prosjektets skript (charter-regel; read-only-sjekken etter
+   dispatchen fanger skriving), så reduksjonen må kjøres her. Rør filstiene fra steg 2 direkte gjennom et rør — ingen
    mellomfil nødvendig:
    `gh api --paginate "repos/{owner}/{repo}/compare/{{BASE_BRANCH}}...<sha>" --jq '.files[].filename' | python3 tasks/review-lens-select.py --files -`
    → JSON med `triggered`. Dette blir `fan_in.expected_by_selector` i gaten under.
@@ -57,15 +65,27 @@ under-dispatch rapportert ærlig som `2/2` (svakheten i den tidligere charter-va
 
 ### Review-dispatch
 
-**Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR `Agent`-blokken under. Én fil per
+**Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR bootstrap-kallet under. Én fil per
 kode-review-runde:**
 ```bash
 git worktree list --porcelain > "<scratch>/wt-pre-5b-code-reviewer-<runde>.txt"
 ```
 Sjekk exit-koden med det samme; ikke-null ⇒ noter paret som `snapshot-missing`.
 
-`Agent`: `subagent_type: {{PROJECT_NAME}}-code-reviewer`. Prompt:
-> TODO <nr>. PR: `<pr_url>` (fra ferdig-rapporten). Relevante lessons-tema: <liste>. Følg charteret ditt. Returner code_review-rapport som JSON.
+**Worktree på PR-hodet (§0b «Worktree per dispatch»):** `bash scripts/bootstrap-worktree.sh <nr>
+code-reviewer-r<runde>` (re-dispatch: `-f<n>`) → `WORKTREE`; noter `<bootstrap_branch>`. Sett så
+treet på den pinnede SHA-en fra Trigger-sett steg 1, hver som eget kall:
+```bash
+git -C <WORKTREE> fetch origin pull/<pr>/head
+```
+```bash
+git -C <WORKTREE> checkout --detach <sha>
+```
+`<base_sha>` for read-only-sjekken er da `<sha>`. Kode-revieweren skal ikke synke eller merge, og
+avslutter på samme HEAD med ren `git status` (også etter L2-replay).
+
+`task`: `agent_type: "{{PROJECT_NAME}}-code-reviewer"`, `mode: "sync"`, `{{DISPATCH_ARGS_CODE_REVIEWER}}`. Prompt:
+> WORKTREE: `<WORKTREE>` (detached på PR-hodet `<sha>`, read-only, ikke synk). TODO <nr>. PR: `<pr_url>` (fra ferdig-rapporten). Relevante lessons-tema: <liste>. Følg charteret ditt. Returner code_review-rapport som JSON.
 
 **Fra runde 2: deltareview.** Skriv fix-diffen selv før dispatch (kode-revieweren er read-only), avgrenset til PR-ens egne filer: fix-mode merger `origin/{{BASE_BRANCH}}` i hver runde, så en bar `<forrige>..<ny>` inneholder alt andre har merget. Stiene sendes NUL-skilt, så `app/(auth)/…` tåles:
 ```bash
@@ -73,15 +93,20 @@ git fetch origin <branch>
 gh pr diff <pr> --name-only | tr '\n' '\0' | xargs -0 git diff <forrige_pr_head_sha>..<pr_head_sha> -- > "<scratch>/todo-<nr>-fixdiff-r<N>.diff"
 ```
 `<forrige_pr_head_sha>` er `evidence.pr_head_sha` fra runde N−1, `<pr_head_sha>` er `gh pr view <pr> --json headRefOid` nå. Mangler forrige rundes funn eller en av SHA-ene, feiler kommandoen, eller gir den tom diff, brukes runde 1-prompten (full review). Ellers prompt:
-> TODO <nr>. PR: `<pr_url>`. DELTAREVIEW runde <N>. Forrige rundes gate-funn etter severity-gulvet: <JSON>. Fix-diff: `<scratch>/todo-<nr>-fixdiff-r<N>.diff` (les den med Read). Relevante lessons-tema: <liste>. Følg charteret ditt, § Deltareview. Returner code_review-rapport som JSON.
+> WORKTREE: `<WORKTREE>` (detached på PR-hodet `<sha>`, read-only, ikke synk). TODO <nr>. PR: `<pr_url>`. DELTAREVIEW runde <N>. Forrige rundes gate-funn etter severity-gulvet: <JSON>. Fix-diff: `<scratch>/todo-<nr>-fixdiff-r<N>.diff` (les fila). Relevante lessons-tema: <liste>. Følg charteret ditt, § Deltareview. Returner code_review-rapport som JSON.
 
-**Bevis-sjekk (`evidence`):** match `evidence.pr_head_sha` (PRIMÆR) mot din egen `gh pr view <pr> --json headRefOid` — bekrefter at revieweren faktisk reviewet siste commit (ikke en stale versjon av PR-en). Mismatch → re-dispatch reviewen. `evidence.toplevel` er SVAKT for code-reviewer (leser via `gh`, ikke worktree-filer).
+**Read-only-sjekk FØRST (BINDENDE):** `bash scripts/readonly-check.sh <WORKTREE> <sha>` umiddelbart
+etter at rapporten er mottatt, før den leses. Exit ≠ 0 ⇒ rapporten forkastes, nivå A (⚠️ STOPP,
+release claim, eskalér med skriptets utskrift); treet beholdes som bevis (§0b `dirty`).
+
+**Bevis-sjekk (`evidence`):** match `evidence.pr_head_sha` (PRIMÆR) mot din egen `gh pr view <pr> --json headRefOid` — bekrefter at revieweren faktisk reviewet siste commit (ikke en stale versjon av PR-en). Mismatch → re-dispatch reviewen. `evidence.toplevel` er SVAKT for code-reviewer (leser via `gh`, ikke worktree-filer), men MÅ likevel være lik WORKTREE.
 
 **Rydding av kode-reviewerens worktree:** §0b kalles her — etter bevis-sjekken og FØR
 Fan-in-verifiseringen, FØR severity-gulv-steget og FØR revise-gaten (som per «Rekkefølge (TODO
 180B)» evalueres ETTER gulv-steget). Kode-revieweren er død i det rapporten er returnert, så
 ryddingen er uavhengig av både gulvet og gate-utfallet. Kall §0b UBETINGET (244 beholder fersk
-kode-reviewer i ALLE §5b-runder, inkludert revisjonsrunder) med `<rolle> = code-reviewer`,
+kode-reviewer i ALLE §5b-runder, inkludert revisjonsrunder) med `<wt_path> = <WORKTREE>`,
+`<rolle> = code-reviewer`,
 `<pre_snapshot> = <scratch>/wt-pre-5b-code-reviewer-<runde>.txt` — også i fix-mode-runder
 (§0bs Inngangsdata-regel: fila som ble skrevet umiddelbart FØR DENNE code-reviewer-dispatchen — se
 §0b for den generelle regelen og §5s Fix-mode-dispatch-mal for implementer-PARETS egen,
@@ -89,8 +114,8 @@ IKKE-relaterte fil) — ingen `<forventet_fil>` — rollen «skriver ingenting»
 `cp`-binding) er den eneste bindingen mellom rapport og sti her. **Snapshotet er per
 DISPATCH-FORSØK, ikke per runde:** en re-dispatch etter bevis-mismatch (`evidence.pr_head_sha`
 over) skjer FØR nettopp DETTE §0b-kallet nås for den dispatchen — den forkastede kode-revieweren
-har da sitt EGET pre-snapshot (tatt umiddelbart før nettopp DEN dispatchen, ikke gjenbrukt fra
-runden), og §0b kalles UBETINGET for den også, ikke bare for dispatch-forsøket som til slutt går
+har da sitt EGET tre og sitt EGET pre-snapshot (tatt umiddelbart før bootstrap-kallet for nettopp
+DEN dispatchen, ikke gjenbrukt fra runden), og §0b kalles UBETINGET for den også, ikke bare for dispatch-forsøket som til slutt går
 videre til gate-evalueringen.
 
 ### Riving og migrasjon — tre ekstra gater
@@ -140,7 +165,7 @@ python3 tasks/decision-level.py --event revise_gate_choice --context code_review
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
 ```
 
-- **Rotårsaksanalyse før eskalering .** Når gate-funnene ikke går ned, en ny feilklasse dukker opp, eller klassifiseringen gir A0 på §5b, dispatches én skrivebeskyttet analyse med dyp modell (`{{PROJECT_NAME}}-planner` med `model: "{{DEEP_MODEL_ALIAS}}"`, uten skriving) som svarer på tre spørsmål: (1) hvilken feilklasse hører funnene fra r1+r2 til, (2) kan omfanget kuttes i stedet for å fikses (skip + telling, avvis formen), (3) er tilnærmingen feil (f.eks. forutsi et biblioteks feil vs. kontrollere resultatet). Svaret er grunnlaget for koordinatorens eget B1-valg (ny fix-runde, merge med carry-forwards eller stopp). Ved A0 blir det `Anbefaling:` i A-spørsmålet til mennesket. En runde der funnene går ned uten ny feilklasse trenger ingen analyse (283A-mønsteret, «hver fix-runde åpnet en ny feilklasse», er `new_class=yes` og gir nå B1, og analysen kjører fortsatt der). **Hvorfor:** hver fix-runde som utvidet semantikken åpnet en ny feilklasse; kuttet i r7 burde kommet ved r3. Fix-runde 3+ går i tillegg alltid med modell-override (se «Modell-eskalering fra fix-runde 3») — sjekk at `model` faktisk står i `Agent`-kallet.
+- **Rotårsaksanalyse før eskalering .** Når gate-funnene ikke går ned, en ny feilklasse dukker opp, eller klassifiseringen gir A0 på §5b, dispatches én skrivebeskyttet analyse med dyp modell (`task` med `agent_type: "{{PROJECT_NAME}}-planner"`, `mode: "sync"`, `model: "{{DEEP_MODEL_ALIAS}}"`, uten skriving, i eget tre `rca-r<runde>` etter §0b «Worktree per dispatch» og med `bash scripts/readonly-check.sh <WORKTREE> <base_sha>` før svaret leses) som svarer på tre spørsmål: (1) hvilken feilklasse hører funnene fra r1+r2 til, (2) kan omfanget kuttes i stedet for å fikses (skip + telling, avvis formen), (3) er tilnærmingen feil (f.eks. forutsi et biblioteks feil vs. kontrollere resultatet). Svaret er grunnlaget for koordinatorens eget B1-valg (ny fix-runde, merge med carry-forwards eller stopp). Ved A0 blir det `Anbefaling:` i A-spørsmålet til mennesket. En runde der funnene går ned uten ny feilklasse trenger ingen analyse (283A-mønsteret, «hver fix-runde åpnet en ny feilklasse», er `new_class=yes` og gir nå B1, og analysen kjører fortsatt der). **Hvorfor:** hver fix-runde som utvidet semantikken åpnet en ny feilklasse; kuttet i r7 burde kommet ved r3. Fix-runde 3+ går i tillegg alltid med modell-override (se «Modell-eskalering fra fix-runde 3») — sjekk at `model` faktisk står i `task`-kallet.
 - Kun MINDRE eller ingen funn (`verdict = "go"`, revise-gate ikke trigget) → fortsett til §6.
 - Teknisk risiko som dukker opp i rapporten → ⚠️ STOPP, release claim, rapporter (samme som §4-gaten).
 
@@ -194,7 +219,7 @@ et eget, eksplisitt vedtak, IKKE noe koordinatoren gjør stille av seg selv i me
 **Invokasjon.** **Sjekk FØRST session-predikatet i «Kontrakt-vakt» under: er det SANT, hopp dit og kjør form B — er det USANT (eller uregistrert), kjør blokka under (form A) uendret** (avgjørelsen står FØR den ubetingede form A-fenced-blokka under, ikke etter, slik at blokka aldri ser ut til å gjelde ubetinget). Skriv `code_review.fan_in` (med `expected_by_selector` fylt i steget over) til
 `<scratch>/fan-in.json` — samme mønster som `<scratch>/findings-5b-<nr>-<runde>.json` i steget
 under (`fan-in.json` selv er IKKE navngitt per todo/runde) —
-og kjør (koordinatoren, aldri revieweren; `python3` er ikke i read-only-rollenes Bash-allowlist, M6)
+og kjør (koordinatoren, aldri revieweren — read-only-rollene kjører ikke prosjektets skript, M6)
 kommandoen i den fenced blokka under. Det finnes **to** frosne CLI-former i denne fila,
 og **hver av dem er entydig innenfor sin egen fensede kodeblokk**: **form A (uarmert)** er blokka
 rett under, med det fakultative hakeparentes-leddet for PR-head-SHA;
@@ -286,9 +311,8 @@ lens dispatchet.
 I motsetning til fan-in-sammenligningen over (som kun logger i `observe`), er severity-gulvet
 bindende fra denne PR-en av: `rls-migration-reviewer` og `edge-function-reviewer` var
 `funn→BLOKKERENDE` er ikke automatisk; det er et steg NOEN må ta. Etter at
-`fan_in.expected_by_selector` er fylt over, kjør (`python3` er ikke i read-only-rollenes
-Bash-allowlist, `guard-reviewer-readonly.sh`, så dette kjøres her,
-av koordinatoren, aldri av revieweren), tre separate kall — de to fetchene gjør både `{{BASE_BRANCH}}` og
+`fan_in.expected_by_selector` er fylt over, kjør (read-only-rollene kjører ikke prosjektets skript,
+så dette kjøres her, av koordinatoren, aldri av revieweren), tre separate kall — de to fetchene gjør både `{{BASE_BRANCH}}` og
 PR-hodet (`<sha>`) lesbare lokalt FØR selve skriptkallet:
 
 ```bash
@@ -434,7 +458,7 @@ gulvet lens faktisk overlevde synthesizeren) er ikke noe denne runbook-linja ale
 - Ingen nivå-B-valg ⇒ kallet gir `auto_decided=<rad-eier>:0`, som skrives uansett. Fravær av
   tokenet er et kontraktbrudd, ikke «tomt betyr null» (samme prinsipp som `floor=` over).
 - `outcome=health`-rader bærer ALDRI `auto_decided=` — avstemmingen ligger i
-  `loop-health-check.md` Del D4 i stedet.
+  `.github/skills/loop-health-check/SKILL.md` Del D4 i stedet.
 - **Legacy:** `auto_decided=<nr>` UTEN kolon (eldre rader) IGNORERES av alle gater.
 
 **Flere rader i samme runde eller for samme todo (§5d, eller pauset og så merget).** En oppføring
@@ -518,7 +542,8 @@ grep -c -F 'ATTESTASJONSPÅBUD' .github/agents/{{PROJECT_NAME}}-code-reviewer.ag
   blokka). Begge er epoch-sekunder — sammenlign tallene direkte, ingen dato-parsing. Finnes ingen
   registrert `T_start`, er ledd (b) USANT.
 - (c) tallet fra tredje kommando er `≥ 1`, kjørt UTEN `git show`, i koordinatorens EGET arbeidstre —
-  den fila `Agent`-verktøyet faktisk laster charteret fra. (a)/(b) måler `origin/{{BASE_BRANCH}}`, som er en
+  den fila `task`-verktøyet faktisk laster charteret fra (custom agents lastes fra `.github/agents/`
+  i koordinatorens arbeidstre ved sesjonsstart). (a)/(b) måler `origin/{{BASE_BRANCH}}`, som er en
   PROXY: en sjekkut som ligger bak `origin/{{BASE_BRANCH}}` kan ha et charter uten påbudet mens (a) og (b) begge
   er sanne.
 - (d) alle tre målingene (a)–(c) ble utført FØR sesjonens FØRSTE `git merge origin/{{BASE_BRANCH}}` (i
@@ -583,24 +608,28 @@ runbooken midt i en runde.
 
 ### Liveness-vakt
 
-Worktree-semantikken er harness- OG rolleavhengig. `live.mode` er derfor en **per-sesjon**-verdi
-koordinatoren fastsetter på nytt hver sesjon, ALDRI en konstant i koden.
+Worktree-semantikken er rolleavhengig (bare koordinatoren lager trær, se pkt. 7). `live.mode` er
+derfor en **per-sesjon**-verdi koordinatoren fastsetter på nytt hver sesjon, ALDRI en konstant i
+koden.
 
 **1. Per-sesjon-fastsettelsen — GRATIS, ingen probe.** Default er `unavailable`. Oppgradering er
 KUN lovlig på en BEKREFTET observasjon i DENNE sesjonen:
 
-- `ledger` krever at koordinatoren faktisk mottok task-notifikasjoner for lensene i denne sesjonen,
-  ført ordrett i `<scratch>/lens-ledger.txt`, og at ledgeren er ikke-tom NÅR rapporten ankommer. Tom
-  ledger ⇒ `unavailable`, aldri `ledger`.
-- `worktree` krever i tillegg `isolation: worktree` på lens-charterne (⇒ `lens_isolation: "own"`) OG
-  at et mid-snapshot faktisk er mulig. **Ingen av delene er sanne i dag.**
+- `ledger` krever at koordinatoren faktisk mottok subagent-hendelser for lensene i denne sesjonen
+  (lensene dispatches av kode-revieweren, ikke av deg — en kilde kan være `subagentStart`/
+  `subagentStop`-hendelser logget av en hook; UVERIFISERT at hendelsene fyrer for nestede
+  subagenter), ført ordrett i `<scratch>/lens-ledger.txt`, og at ledgeren er ikke-tom NÅR rapporten
+  ankommer. Tom ledger ⇒ `unavailable`, aldri `ledger`.
+- `worktree` krever i tillegg at hver lens fikk sitt EGET tre fra `scripts/bootstrap-worktree.sh`
+  (⇒ `lens_isolation: "own"`) OG at et mid-snapshot faktisk er mulig. **Ingen av delene er sanne i
+  dag.**
 - **Uregistrert ⇒ `unavailable`.** Et ledd som ikke ble målt teller aldri som oppfylt (samme
   fail-open-form som kontrakt-vaktens session-predikat).
 
 **2. Invokasjon — INGEN tredje frossen CLI-form.** `--live-key <scratch>/live-key.json` legges til
 som siste argument på den formen session-predikatet allerede valgte (form A eller form B) — se
 «Invokasjon»-avsnittet og planens entydighets-invariant. Nøkkelfila skrives av koordinatoren, fra
-EGNE `git worktree list`-snapshots og EGNE task-notifikasjoner — ALDRI avledet fra rapportens egen
+EGNE `git worktree list`-snapshots og EGNE subagent-hendelser — ALDRI avledet fra rapportens egen
 `evidence`.
 
 **3. `live=`-tokenet — uttømmende mapping fra maskinlest tilstand.** Les ALDRI tokenet av
@@ -656,11 +685,14 @@ på raden, ikke skriv nøkkelfila på nytt, og la mennesket avgjøre om vakten s
 uoppnåelig i dette prosjektet i dag (R12 fyrer kun i `mode=ledger`, som er målt uoppnåelig, pkt. 7) —
 den står her fordi fila er en TEMPLATE og shippes til prosjekter der `mode=ledger` ER oppnåelig.
 
-**7. Den målte tilstanden.** En måling i én harness ga `live.mode =
-unavailable` (`live=unavailable:no-signal`) — worktree-signalet er målt DØDT, ikke bare umålt: en
-nestet lens arver reviewerens worktree i stedet for å få sitt eget. `isolation: worktree` på
-lens-charterne er det eneste kjente inngrepet som kan gjøre `mode=worktree` oppnåelig. Denne
-observasjonen er HARNESS-BETINGET, ikke universell — fila er en template.
+**7. Den målte tilstanden.** En subagent deler filsystem og arbeidskatalog med den som dispatcher
+den, og isolasjon er bootstrap-skriptets jobb — som bare koordinatoren kjører. En lens som
+kode-revieweren dispatcher, kjører derfor i kode-reviewerens WORKTREE og får ikke et eget tre:
+worktree-signalet er DØDT, ikke bare umålt, og normaltilstanden er `live.mode = unavailable`
+(`live=unavailable:no-signal`). Det eneste kjente inngrepet som kan gjøre `mode=worktree`
+oppnåelig, er at koordinatoren lager et tre per lens før kode-review-dispatchen og gir stiene i
+prompten — det gjøres ikke i dag. Fila er en template: et prosjekt som innfører lens-trær, må måle
+tilstanden på nytt.
 
 ### Fix-mode-dispatch-mal (revise-runde)
 
@@ -673,23 +705,31 @@ med flere commits, men med hull der runder manglet nummer (196A: 4 av 5 funnet, 
 En koordinator-utført runde har ingen implementer å pålegge dette — koordinatoren skriver den selv.
 
 
-**Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR `Agent`-blokken under. Hver fix-runde
-er en NY implementer-worktree (K4) og får derfor sin EGEN fil:**
+**Worktree — gjenbruk implementerens tre (K4).** Hver fix-runde er en FERSK implementer-dispatch
+(implementeren som leverte forrige rapport er ferdig og kan ikke vekkes), men den kjører i SAMME
+WORKTREE som §5-dispatchen: treet bærer PR-branchen og er rent etter push. Ingen ny bootstrap, intet
+nytt snapshot, intet nytt par. Bare hvis treet er borte (`git worktree list --porcelain` mangler
+stien, f.eks. etter en sesjonsdød): ta et nytt snapshot og lag et nytt tre, og akkumuler det nye
+paret (se «Akkumulering + bevaring» under):
 ```bash
 git worktree list --porcelain > "<scratch>/wt-pre-5b-fixmode-<runde>.txt"
 ```
-Sjekk exit-koden med det samme; ikke-null ⇒ noter paret som `snapshot-missing`.
+```bash
+bash scripts/bootstrap-worktree.sh <nr> implementer-fix<N>
+```
+Sjekk exit-koden fra snapshotet med det samme; ikke-null ⇒ noter paret som `snapshot-missing`.
 
-`Agent`: `subagent_type: {{PROJECT_NAME}}-implementer`, **`model` alltid eksplisitt:** `"{{IMPLEMENTER_MODEL_ALIAS}}"` i fix-runde 1–2, `"{{DEEP_MODEL_ALIAS}}"` fra fix-runde 3 (se «Modell-eskalering fra fix-runde 3»); håndhevet av `.github/hooks/scripts/guard-fix-round-model.sh`, som leser `fix-runde <N>` i prompten. Prompt:
+`task`: `agent_type: "{{PROJECT_NAME}}-implementer"`, `mode: "sync"`, **`model` alltid eksplisitt:** `"{{IMPLEMENTER_MODEL_ALIAS}}"` i fix-runde 1–2, `"{{DEEP_MODEL_ALIAS}}"` fra fix-runde 3 (se «Modell-eskalering fra fix-runde 3»); håndhevet av `.github/hooks/scripts/guard-fix-round-model.sh`, som leser `fix-runde <N>` i prompten. Prompt:
 
-> FIX-MODE for TODO `<nr>`. Du har ALLEREDE implementert denne og laget PR `<pr_url>` på branch `<branch>`. IKKE re-implementer og IKKE kjør `todo-execute.md` på nytt. Gjør KUN dette: (1) `git fetch origin <branch> && git checkout <branch>` og `git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}` for å bygge på ferskeste delt state før re-push (konflikt i planfila: behold BEGGE siders fix-runde-seksjoner, aldri `--ours`/`--theirs` på hele fila); (2) rett UTELUKKENDE disse kode-review-funnene: `<liste med severity + file:line + issue + fix>`. Navngir et funn flere mekanismer, rett hver av dem og kvitter per mekanisme i rapporten — funnet er ikke lukket før alle mekanismene det navngir er rettet; (2b) **SANNHETSKRAV FOR NY TEKST (BINDENDE).** Endrer eller legger du til en brukersynlig streng eller en kodekommentar som PÅSTÅR noe om systemets tilstand eller oppførsel: før du skriver den, finn ALLE kodeveier som når linja, og skriv ordrett i ferdig-rapporten (i) hvilke skriveoperasjoner som ALLEREDE er utført når linja emitteres, og (ii) hvilke som IKKE er det. Teksten må være sann på HVER slik vei — er den sann på én gren og usann på en annen, er den en defekt, ikke en unøyaktighet. Gjelder særlig feilmeldinger i en flerstegs skrivekjede uten transaksjon («ingenting ble lagret» er usant hvis steg 1 av 3 gikk gjennom) og kommentarer skrevet i presens om invarianter som ikke lenger holder. Bruker du en delt mapper/hjelpefunksjon, sjekk også at den nye grenen ikke kaprer kallstedets egen tekst; (2c) **RØD-MÅLING AV RETTELSEN (BINDENDE).** For hver rettelse du beviser med en test: kjør testen mot koden uten rettelsen, og lim kommandoen og feilårsaken ordrett inn i en kodeblokk under den V-ID-en testen hører til i fix-runde-seksjonen. Testen skal være målt rød uten rettelsen, og av riktig grunn: en krasj, en manglende import eller en tom testseleksjon er ikke en måling. Ingen ny overskrift og ingen ny `**V…**`-linje; (3) kjør `{{CMD_BUILD}}` + `{{CMD_TYPE_CHECK}}` + relevante tester på nytt; (4) **re-kjør HELE V-blokken i planen mot HEAD og lim ordrett kommando + output inn i planfilas `#### V-blokk re-kjørt mot HEAD (fix-runde <N>)`-seksjon, med hvert `**V<id>**` på egen linje ved linjestart og minst én fenced kodeblokk under hvert, og med attestasjonslinjen ORDRETT til slutt: Ingen tall arves fra en tidligere runde. Rundens lesson-kandidater skrives i samme seksjon**; (4b) kjør `tasks/gate-f.sh tasks/plans/todo-<nr>-<slug>.md <N> <F3a_ref>` og lim output-linja inn i rapporten — RØD ⇒ rett seksjonen før push; (5) `git push` til samme branch (samme PR — IKKE ny PR, IKKE ny `gh pr create`); (6) returner oppdatert ferdig-rapport. Rør ingenting utenom de oppgitte funnene (unntak: planfilas fix-runde-seksjon, jf. steg 4).
+> WORKTREE: `<WORKTREE>`. FIX-MODE for TODO `<nr>`. Forrige ferdig-rapport: `<scratch>/todo-<nr>-done-r<N-1>.json`. Du har ALLEREDE implementert denne og laget PR `<pr_url>` på branch `<branch>`. IKKE re-implementer og IKKE kjør `.github/skills/todo-execute/SKILL.md` på nytt. Gjør KUN dette: (1) `git fetch origin <branch> && git checkout <branch>` og `git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}` for å bygge på ferskeste delt state før re-push (konflikt i planfila: behold BEGGE siders fix-runde-seksjoner, aldri `--ours`/`--theirs` på hele fila); (2) rett UTELUKKENDE disse kode-review-funnene: `<liste med severity + file:line + issue + fix>`. Navngir et funn flere mekanismer, rett hver av dem og kvitter per mekanisme i rapporten — funnet er ikke lukket før alle mekanismene det navngir er rettet; (2b) **SANNHETSKRAV FOR NY TEKST (BINDENDE).** Endrer eller legger du til en brukersynlig streng eller en kodekommentar som PÅSTÅR noe om systemets tilstand eller oppførsel: før du skriver den, finn ALLE kodeveier som når linja, og skriv ordrett i ferdig-rapporten (i) hvilke skriveoperasjoner som ALLEREDE er utført når linja emitteres, og (ii) hvilke som IKKE er det. Teksten må være sann på HVER slik vei — er den sann på én gren og usann på en annen, er den en defekt, ikke en unøyaktighet. Gjelder særlig feilmeldinger i en flerstegs skrivekjede uten transaksjon («ingenting ble lagret» er usant hvis steg 1 av 3 gikk gjennom) og kommentarer skrevet i presens om invarianter som ikke lenger holder. Bruker du en delt mapper/hjelpefunksjon, sjekk også at den nye grenen ikke kaprer kallstedets egen tekst; (2c) **RØD-MÅLING AV RETTELSEN (BINDENDE).** For hver rettelse du beviser med en test: kjør testen mot koden uten rettelsen, og lim kommandoen og feilårsaken ordrett inn i en kodeblokk under den V-ID-en testen hører til i fix-runde-seksjonen. Testen skal være målt rød uten rettelsen, og av riktig grunn: en krasj, en manglende import eller en tom testseleksjon er ikke en måling. Ingen ny overskrift og ingen ny `**V…**`-linje; (3) kjør `{{CMD_BUILD}}` + `{{CMD_TYPE_CHECK}}` + relevante tester på nytt; (4) **re-kjør HELE V-blokken i planen mot HEAD og lim ordrett kommando + output inn i planfilas `#### V-blokk re-kjørt mot HEAD (fix-runde <N>)`-seksjon, med hvert `**V<id>**` på egen linje ved linjestart og minst én fenced kodeblokk under hvert, og med attestasjonslinjen ORDRETT til slutt: Ingen tall arves fra en tidligere runde. Rundens lesson-kandidater skrives i samme seksjon**; (4b) kjør `tasks/gate-f.sh tasks/plans/todo-<nr>-<slug>.md <N> <F3a_ref>` og lim output-linja inn i rapporten — RØD ⇒ rett seksjonen før push; (5) `git push` til samme branch (samme PR — IKKE ny PR, IKKE ny `gh pr create`); (6) returner oppdatert ferdig-rapport. Rør ingenting utenom de oppgitte funnene (unntak: planfilas fix-runde-seksjon, jf. steg 4).
 
 <!-- mekanisk-kandidat: commit-emnet i fix-runden bærer fix-runde <N> — commit-msg-sjekk eller gh api pulls/<nr>/commits (mangler) -->
 
 **Akkumulering + bevaring (peker, ikke kopi):** samme regel som §5, «Akkumulering for §6s
-rydding»/«Bevaringsregel ved abort» — denne fix-runden er en NY implementer-worktree (K4) og
-akkumuleres i SAMME liste med sitt eget PAR (`evidence.toplevel`, denne rundens
-`wt-pre-5b-fixmode-<runde>.txt`).
+rydding»/«Bevaringsregel ved abort» — en fix-runde i §5-treet legger ikke til noe par (stien er
+allerede i lista med §5-parets snapshot). Måtte runden lage et NYTT tre, akkumuleres det i SAMME
+liste med sitt eget PAR (WORKTREE, denne rundens `wt-pre-5b-fixmode-<runde>.txt`).
+`evidence.toplevel` MÅ være lik WORKTREE i begge tilfeller.
 
 ### Gate F — V-blokk-re-verifisering (BINDENDE)
 
@@ -835,14 +875,14 @@ releasen (samme klasse som `attest=`/`pipelined_from=`, ikke som `floor=`/`auto_
 **Modell-eskalering fra fix-runde 3 (nivå B).** Fix-runde 1 og 2 dispatches med
 `models.implementer`. **Fix-runde 3 og senere** — dispatches med prosjektets DYPE modell
 (`models.reviewer`/`models.code_reviewer`-klassen i `loop.config.yaml`), ikke `models.implementer`.
-Mekanismen er en per-dispatch modell-override i `Agent`-blokken; charterets `model:`-frontmatter
-står uendret (den leses ved sesjonsstart, ikke per dispatch). **Mekaniske gate F-returer teller
+Mekanismen er en per-dispatch modell-override (`model:`) i `task`-kallet; charterets
+`model:`-frontmatter står uendret (den leses ved sesjonsstart, ikke per dispatch). **Mekaniske gate F-returer teller
 IKKE med i fix-rundetallet** — bare review-drevne fix-runder gjør det. **Støtter ikke
 dispatch-verktøyet en per-kall-override, er dette nivå A0 — eskalér til mennesket. ALDRI stille
 fallback til `models.implementer`.** Logg avviket i `run-log.md` felt 9 på formen
 `<rask>(r1-rN)+<dyp>(fix rN+1, modellavvik)`, og som nivå-B-entry i `decision-log.md`.
 
-<!-- mekanisk-kandidat: fix-runde ≥3 krever dyp modell i Agent-kallet (finnes: .github/hooks/scripts/guard-fix-round-model.sh) -->
+<!-- mekanisk-kandidat: fix-runde ≥3 krever dyp modell i task-kallet (finnes: .github/hooks/scripts/guard-fix-round-model.sh) -->
 
 **Re-vurdering.** Regelen re-vurderes etter **5** MERGE-rader med gate F i drift. Tell KUN
 `merged`-rader ETTER denne todoens egen merge-rad, og `paused`-rader for samme todo teller ikke:

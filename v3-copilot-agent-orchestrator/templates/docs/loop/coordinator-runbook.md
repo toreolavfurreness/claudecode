@@ -5,20 +5,20 @@
 
 # Koordinator-runbook (fase 0, live-sesjon)
 
-Du er koordinatoren. Du er eneste skriver til delt state. Workers gjør tungt arbeid i isolerte worktrees og returnerer rapporter (`report-schema.md`).
+Du er koordinatoren. Du er eneste skriver til delt state. Workers gjør tungt arbeid i egne worktrees som du lager før hver dispatch (`scripts/bootstrap-worktree.sh`, se § Dispatch under), og returnerer rapporter (`report-schema.md`).
 
-> ⚠️ **Forutsetning:** koordinatoren MÅ kjøre i en sesjon som ble startet ETTER at `.github/agents/{{PROJECT_NAME}}-*.md` finnes på disk. Claude Code snapshotter agent-registeret ved sesjonsstart — nyopprettede custom agenter er ikke tilgjengelige i en allerede kjørende sesjon. Verifiser med to trivielle probe-dispatcher (`subagent_type: {{PROJECT_NAME}}-planner`, prompt: «Svar kun: {"ok": true}. Ikke les filer.» — ordrett identisk med preflight-proben i `run-loop.md`, som utløser planner-charterets probe-modus-unntak; og `subagent_type: {{PROJECT_NAME}}-code-reviewer`, prompt: «Svar kun: {"ok": true}. Ikke synk, ikke les filer.» — dekker §5b sitt register-oppslag for hele sesjonen, se §5b) før du starter en runde; «Agent type not found» betyr at du må starte en fersk sesjon. **Sesjonsstart-epoch:** rett etter probe-dispatchene kjører du `date -u +%s` ÉN gang og noterer tallet som sesjonens `T_start`; umiddelbart etter kjører du i tillegg de tre kommandoene i «Kontrakt-vakt»s session-predikat (ledd (a)–(c)) og noterer resultatet HER — ikke først når §5b nås. `T_start` er ledd (b) i predikatet og re-måles ALDRI senere i sesjonen. Finnes ingen registrert `T_start`, er predikatet USANT og form A kjøres.
+> ⚠️ **Forutsetning:** koordinatoren MÅ kjøre i en Copilot-sesjon (VS Code, Session Target = Copilot) som ble startet ETTER at `.github/agents/{{PROJECT_NAME}}-*.agent.md` finnes på disk. Copilot laster custom agents ved sesjonsstart — nyopprettede eller endrede `.agent.md`-filer er ikke tilgjengelige i en allerede kjørende sesjon. Verifiser med to trivielle probe-dispatcher (`task` med `agent_type: "{{PROJECT_NAME}}-planner"`, `mode: "sync"`, prompt: «Svar kun: {"ok": true}. Ikke les filer.» — ordrett identisk med preflight-proben i `/run-loop` (`.github/skills/run-loop/SKILL.md`), som utløser planner-charterets probe-modus-unntak; og `agent_type: "{{PROJECT_NAME}}-code-reviewer"`, prompt: «Svar kun: {"ok": true}. Ikke synk, ikke les filer.» — dekker §5b sitt register-oppslag for hele sesjonen, se §5b) før du starter en runde. Prober får ingen WORKTREE. `Unknown agent_type: …` betyr at du må starte en fersk sesjon. **Sesjonsstart-epoch:** rett etter probe-dispatchene kjører du `date -u +%s` ÉN gang og noterer tallet som sesjonens `T_start`; umiddelbart etter kjører du i tillegg de tre kommandoene i «Kontrakt-vakt»s session-predikat (ledd (a)–(c)) og noterer resultatet HER — ikke først når §5b nås. `T_start` er ledd (b) i predikatet og re-måles ALDRI senere i sesjonen. Finnes ingen registrert `T_start`, er predikatet USANT og form A kjøres.
 
 ## Slik leser du denne fila (kjerne, stegfiler, hvorfor)
 
 Denne fila er kjernen: hvert steg står som sjekkliste med én peker til stegfilen under
 `docs/loop/steps/`. Stegfilen er den bindende prosedyren for steget — les hele stegfilen FØR
-steget kjøres, hver gang, også etter kontekst-komprimering; sjekklisten her er ikke et sammendrag du kan
+steget kjøres, hver gang, også etter kontekst-komprimering (sammen med sjekkpunktfila når §0c er på); sjekklisten her er ikke et sammendrag du kan
 kjøre steget fra. Begrunnelser og målinger står i `runbook-hvorfor.md`; en regel gjelder uten at
 begrunnelsen er lest. Stegfilene er utsnitt av én runbook: relative henvisninger («over», «under», «denne
 fila», «øverst») gjelder runbooken som helhet — §-nummeret eller seksjonsnavnet i samme setning er den
 bindende referansen. Ved motstrid mellom sjekklisten her og stegfilen vinner stegfilen; rett kjernen.
-<!-- mekanisk-kandidat: hook som krever at steps/<id>-*.md er lest (Read) i sesjonen før en Agent-dispatch for rollen steget eier (mangler) -->
+<!-- mekanisk-kandidat: preToolUse-hook som krever at steps/<id>-*.md er lest i sesjonen før en task-dispatch for rollen steget eier (mangler) -->
 
 
 ## Bevis-regel (global, jf. `report-schema.md`)
@@ -30,7 +30,28 @@ som er etterprøvbar i motsetning til ordet «minimale»: **review-funn siteres 
 fix-/revisjons-dispatch.** Skriv rapporten til fil og pek på stien. Prompten skal bære oppdraget og
 pekeren, ikke innholdet. Dette er ikke en ny regel — det er den gamle, gjort målbar.
 
-<!-- mekanisk-kandidat: review-funn siteres ALDRI inline i en fix-dispatch — PreToolUse-hook på Agent som måler promptlengde og BLOKKERENDE-blokk (mangler) -->
+<!-- mekanisk-kandidat: review-funn siteres ALDRI inline i en fix-dispatch — preToolUse-hook på task som måler promptlengde og BLOKKERENDE-blokk (mangler) -->
+
+## Dispatch: `task`, WORKTREE og å sende en worker tilbake
+
+- **Kallet.** En worker dispatches med `task`-verktøyet: `agent_type: "{{PROJECT_NAME}}-<rolle>"`,
+  `mode: "sync"` (eller `"background"` i §5c/§5d, resultatet hentes da med `read_agent`), og `model` (+ `reasoning_effort` når config har effort for rollen) slik stegfila
+  oppgir dem. Verdiene er kompilert inn av `/setup`; les dem aldri fra `loop.config.yaml` under kjøring.
+- **WORKTREE.** En subagent deler filsystem og arbeidskatalog med deg. Før hver dispatch (unntatt
+  prober) lager du derfor workerens tre med `bash scripts/bootstrap-worktree.sh <todo-nr> <etikett>`
+  og sender stien som `WORKTREE: <sti>` i prompten. Prosedyren (snapshot først, etiketter,
+  `evidence.toplevel` = WORKTREE) står ÉTT sted: `steps/0b-rydd-worker-worktree.md` «Worktree per
+  dispatch».
+- **Read-only-sjekk.** Etter hver dispatch av en read-only-rolle (plan-reviewer, code-reviewer,
+  rotårsaksanalysen i §5b) kjører du `bash scripts/readonly-check.sh <WORKTREE> <base-sha>` før
+  rapporten leses. Exit ≠ 0 ⇒ rapporten forkastes, nivå A.
+- **Sende en worker tilbake** (alle steder stegfilene sier «send tilbake» eller «be workeren om»):
+  en worker som har levert sluttrapporten, er ferdig og kan ikke vekkes. Standard er en FERSK
+  `task` for samme rolle, med samme `agent_type`/`model`, `WORKTREE: <samme sti>`, en peker til
+  forrige rapport (skrevet til `<scratch>`) og funnene/oppdraget som peker — aldri sitert inline
+  (Bevis-regelen over). `write_agent(agent_id=…, message=…)` brukes BARE mens en bakgrunnsworker
+  fortsatt kjører (bekreft med `read_agent` at den ikke har levert). Et tre som er ryddet (§0b) eller
+  navngitt i en navngitt sweep (§6 steg 4b), gjenbrukes aldri; da får den ferske workeren et nytt tre.
 
 ## Egen sesjon, ikke agent
 
@@ -60,8 +81,8 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 
 ## 0c. Sjekkpunkt ved komprimering (valgfri)
 → `steps/0c-sjekkpunkt.md` — finnes bare når `hooks.compaction_checkpoint` er på. Les hele fila FØR §0.
-- [ ] Hva: egen sjekkpunkt-fil per sesjon, skrevet ved hver steg-overgang og lagt tilbake i konteksten etter en komprimering; sjekkpunktet vinner over sammendraget.
-- [ ] Vakt/kommando: `sessionstart-checkpoint.sh` (SessionStart/`compact`), `precompact-checkpoint.sh` (PreCompact/`auto`); ser du ingen `KOORDINATOR-CHECKPOINT GJENOPPRETTET`-blokk etter komprimering, les fila selv
+- [ ] Hva: egen sjekkpunkt-fil per sesjon, skrevet ved hver steg-overgang; ingen hook legger den tilbake etter en komprimering, så du LESER den før hvert steg, når du gjenopptar og når du er usikker på tilstanden; sjekkpunktet vinner over sammendraget.
+- [ ] Vakt/kommando: `cat tasks/.loop-state/checkpoint-<session_id>.md` før hvert steg; `precompact-checkpoint.sh` (`preCompact`) logger bare ferskheten
 
 ## 0b. Rydd en worker-worktree (gjenbrukbar prosedyre)
 → `steps/0b-rydd-worker-worktree.md` — les hele fila FØR steget kjøres.
@@ -90,36 +111,36 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 ## 3. Dispatch planner
 → `steps/3-dispatch-planner.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: sett `phase: plan` (`plan-revisjon` ved revisjonsrunde); velg canary, ta pre-snapshot, dispatch, verifiser canary + `evidence.toplevel`, overlever planfila (`cp` + `cmp -s`), commit/push med speil-guard, §0b-rydding; re-dispatch akkumulerer per forsøk.
-- [ ] Vakt/kommando: proporsjonalitetsport (grep etter eksisterende løsning, kjerne-anslag, budsjett i dispatchen); canary med linjenummer; `git worktree list --porcelain > "<scratch>/wt-pre-3-planner-<runde>.txt"`; `cmp -s`
+- [ ] Vakt/kommando: proporsjonalitetsport (grep etter eksisterende løsning, kjerne-anslag, budsjett i dispatchen); canary med linjenummer; `git worktree list --porcelain > "<scratch>/wt-pre-3-planner-<runde>.txt"`; `bash scripts/bootstrap-worktree.sh <nr> planner-r<runde>`; `cmp -s`
 - [ ] Pausepunkt: `canary`-mismatch som ikke løses (§3)
 
 ## 4. Dispatch reviewer + gate
 → `steps/4-dispatch-reviewer.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: sett `phase: plan-review`; pre-snapshot, dispatch, bevis-sjekk (`evidence.reviewed_head`), gate på `verdict` (no-go → Konsolideringsgate (≥ 400 linjer og tidligere runde) → bremsen + konvergensregelen, så §3-revisjon; go → re-mål `effort`, bær VIKTIG/MINDRE til §5); `technical_risk` → STOPP med mindre klassifiseringen gir B5 eller B8.
-- [ ] Vakt/kommando: `python3 tasks/vblock-lint.py <plan> --log` FØR dispatch (exit 1 ⇒ tilbake til planneren, teller ikke som runde); `planned_diff` > ~5× budsjettet ⇒ pausepunkt; `python3 tasks/decision-level.py --event technical_risk`
+- [ ] Hva: sett `phase: plan-review`; pre-snapshot, WORKTREE, dispatch, read-only-sjekk, bevis-sjekk (`evidence.reviewed_head`), gate på `verdict` (no-go → Konsolideringsgate (≥ 400 linjer og tidligere runde) → bremsen + konvergensregelen, så §3-revisjon; go → re-mål `effort`, bær VIKTIG/MINDRE til §5); `technical_risk` → STOPP med mindre klassifiseringen gir B5 eller B8.
+- [ ] Vakt/kommando: `bash scripts/readonly-check.sh <WORKTREE> <base-sha>` etter dispatch (exit ≠ 0 ⇒ nivå A); `python3 tasks/vblock-lint.py <plan> --log` FØR dispatch (exit 1 ⇒ tilbake til planneren, teller ikke som runde); `planned_diff` > ~5× budsjettet ⇒ pausepunkt; `python3 tasks/decision-level.py --event technical_risk`
 - [ ] Pausepunkt: Reviewer no-go med innholdsfunn, manglende data eller over kostnadstaket (§4, se Konvergensregel). Ellers nivå B7 (koordinatoren bestemmer selv og logger); Proporsjonalitet: `planned_diff` > ~5× budsjettet (§4); Teknisk risiko flagget (§4) eller truffet (§5/§6); B5; B7; B8
 
 ## 5. Dispatch implementer
 → `steps/5-dispatch-implementer.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: sett `phase: implementering` (`fix <n>` ved fix-runde); pipelining på → §5c dispatcher par 1; ellers pre-snapshot + dispatch med plan-review-funnene; `status: failed|blocked` → STOPP; noter `F3a_ref`; akkumuler (toplevel, snapshot)-par for §6; bevaringsregel ved abort; B8 eller eierens A3-go på en `kind: native`-plan → skriv `kind: native` i implementer-prompten, og ved A3 også `A3-go` med eierens ord.
-- [ ] Vakt/kommando: `git worktree list --porcelain > "<scratch>/wt-pre-5-implementer-<runde>.txt"`; `F3a_ref`
+- [ ] Vakt/kommando: `git worktree list --porcelain > "<scratch>/wt-pre-5-implementer-<runde>.txt"`; `bash scripts/bootstrap-worktree.sh <nr> implementer`; `F3a_ref`
 - [ ] Pausepunkt: Teknisk risiko flagget (§4) eller truffet (§5/§6); andre `plan_invalid` på samme todo (§5); ingen egen rad for STOPP ved `status: failed|blocked` (pre-eksisterende — står kun i stegfilen)
 
 ## 5b. Uavhengig kode-review
 → `steps/5b-kode-review.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: sett `phase: kode-review r<n> PR <nr>`; Minne-gate → trigger-sett beregnet SELV → dispatch kode-reviewer → gate på severity (revise-gate) med kontrakt-vakt og liveness-vakt → fix-mode-dispatch («Rotårsaksanalyse før eskalering»; «Modell-eskalering fra fix-runde 3»: dyp modell fra runde 3) → Gate F re-verifisering av V-blokken før neste runde. Riving/migrering av brukervendt flate: gatene G1–G3.
-- [ ] Vakt/kommando: `tasks/review-lens-select.py`; `tasks/review-severity-floor.py` (se «Gulvunntak for ordlyd»); `tasks/review-fan-in-verify.py`; `python3 tasks/decision-level.py --event revise_gate_choice`; `.github/hooks/scripts/guard-fix-round-model.sh` (krever eksplisitt `model` på HVER implementer-dispatch, dyp modell fra fix-runde 3)
+- [ ] Hva: sett `phase: kode-review r<n> PR <nr>`; Minne-gate → trigger-sett beregnet SELV → dispatch kode-reviewer (eget tre på PR-hodet) → read-only-sjekk → gate på severity (revise-gate) med kontrakt-vakt og liveness-vakt → fix-mode-dispatch (fersk implementer i SAMME WORKTREE; «Rotårsaksanalyse før eskalering»; «Modell-eskalering fra fix-runde 3»: dyp modell fra runde 3) → Gate F re-verifisering av V-blokken før neste runde. Riving/migrering av brukervendt flate: gatene G1–G3.
+- [ ] Vakt/kommando: `bash scripts/readonly-check.sh <WORKTREE> <pr-head-sha>`; `tasks/review-lens-select.py`; `tasks/review-severity-floor.py` (se «Gulvunntak for ordlyd»); `tasks/review-fan-in-verify.py`; `python3 tasks/decision-level.py --event revise_gate_choice`; `.github/hooks/scripts/guard-fix-round-model.sh` (krever eksplisitt `model` på HVER implementer-dispatch, dyp modell fra fix-runde 3)
 - [ ] Pausepunkt: Kode-reviewer revise-gate — **nivå B1; nivå A bare ved innholdsfunn, manglende data, kostnad over 2× medianen eller, fra runde 2, for få sammenlignbare todoer (`over=few`)**; Agent-probe i preflight feiler; B1
 
 ## 5c. Pipelining (plan neste todo mens denne implementeres)
 → `steps/5c-pipelining.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: ved §5-dispatch av A: velg B, par 1 = implementer(A) + planner(B) i ÉN melding, par 2 = kode-reviewer(A) + reviewer(B); B sin plan committes i pre-par-2-halen; ferskhets-gate ved gjenopptakelse i §2; pausepunkt på B ⇒ B droppes, A fortsetter (B4).
+- [ ] Hva: ved §5-dispatch av A: velg B, par 1 = implementer(A) + planner(B) som to `task`-er med `mode: "background"` i samme tur (hentet med `read_agent`, par-barriere: begge ferdige før neste par), par 2 = kode-reviewer(A) + reviewer(B), hver worker i eget tre; B sin plan committes i pre-par-2-halen; ferskhets-gate ved gjenopptakelse i §2; pausepunkt på B ⇒ B droppes, A fortsetter (B4).
 - [ ] Vakt/kommando: `pipelining.max_in_flight`; `tasks/review-lens-select.py`
 - [ ] Pausepunkt: Ferskhets-gaten for en pipelinet plan er fortsatt ikke-tom etter én re-plan-runde (§5c); B4
 
 ## 5d. Parallelle implementere (fil-disjunkt-gate)
 → `steps/5d-parallelle-implementere.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: når B er `go`: §1-filter (kan kun avvise) → gate P (fil-disjunkt) → claim B og dispatch implementer(B) sammen med A; in-flight-tabell; gate M før B sin merge; B eskalert til nivå A etter claim ⇒ frys B.
+- [ ] Hva: når B er `go`: §1-filter (kan kun avvise) → gate P (fil-disjunkt) → claim B og dispatch implementer(B) i eget tre sammen med A (`mode: "background"` + `read_agent`); in-flight-tabell; gate M før B sin merge; B eskalert til nivå A etter claim ⇒ frys B.
 - [ ] Vakt/kommando: `tasks/parallel-disjoint.py`; `parallel_implementers.max`
 - [ ] Pausepunkt: ingen egen rad — gate M-utfall og B-eskalering håndteres i stegfilen (§5d/§6)
 
@@ -193,7 +214,7 @@ stdout: `{"level":"A"|"B","rule":"<id>","trigger":"…","obligations":[…],"vio
 `rule = "A0"` er fail-closed (ukjent hendelse, manglende påkrevd kontekst, eller brudd på
 § Konvergensregel under) — `level` er da ALLTID `"A"`, exit-koden ≠ 0, og valget behandles som et vanlig
 nivå-A-pausepunkt under. Et ikke-klassifiserbart valg blir ALDRI stilltiende et nivå-B-valg.
-`--dump-rules`/`--self-test` finnes for verifisering — se `loop-health-check.md` Del D.
+`--dump-rules`/`--self-test` finnes for verifisering — se `.github/skills/loop-health-check/SKILL.md` Del D.
 
 **Nivå A-oppføringen skrives i det spørsmålet sendes**, med `- **Type:** <slag>` og `- **Eierens svar:** venter (spurt <tid fra date '+%Y-%m-%d %H:%M'>)`, og linja byttes når svaret kommer (formene står i `decision-log.md` § Format).
 
@@ -209,7 +230,8 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A | Reviewer no-go med innholdsfunn, manglende data eller over kostnadstaket (§4, se Konvergensregel). Ellers nivå B7 (koordinatoren bestemmer selv og logger) |
 | A | Kode-reviewer revise-gate med innholdsfunn, manglende data eller over kostnadstaket (§5b, se Konvergensregel). Ellers nivå B1 (koordinatoren bestemmer selv og logger) |
 | A | Juridisk tekst (personvern) eller kutt som endrer det todoen lover brukeren |
-| A | Agent-probe i preflight feiler («Agent type not found», dekker §5b) → fersk koordinator-sesjon kreves |
+| A | Agent-probe i preflight feiler (`Unknown agent_type: …`, dekker §5b) → fersk koordinator-sesjon kreves |
+| A | Read-only-sjekken (`scripts/readonly-check.sh`) feiler etter en read-only-dispatch (§4/§5b) — rapporten forkastes |
 | A | Merge-konflikt (§6.4) |
 | A | CI-gaten ikke `ci=green` (§6 steg 0) — unntatt `ci=red` fra PR-ens egen diff, som går til §5b fix-mode |
 | A | Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b) |
@@ -284,7 +306,11 @@ Det finnes ikke noe fast rundetak. Evalueres FØR alt annet i `decision-level.py
   kjører koordinatoren `python3 tasks/measure-cost.py --brake <nr>` først (i §5b med `--pr <PR-nr>`,
   ellers telles ikke review/fix-radene for den åpne PR-en med). Deretter kjøres
   `decision-level.py` med `cost_over=<over>`. Verdien sendes ordrett slik bremsen skrev den.
-  `over=yes` betyr at todoens kost er over 2× medianen for effort-klassen, og gir A0. `over=few`
+  Kost måles i AI credits (bremse-linja: `brake todo=… class=… credits=… median=… n=… over=…`). Finnes ingen tall for todoen
+  — verken `assistant.usage` i sesjonsloggen eller manuelle tall fra `/usage` ført inn med
+  `measure-cost.py --credits <n>` — skriver bremsen `IKKE MÅLT`, aldri 0, og `over=` blir verken
+  `no` eller `few`: det er manglende data og gir A0. Før derfor `/usage`-tallet inn ved hver
+  todo-overgang. `over=yes` betyr at todoens kost er over 2× medianen for effort-klassen, og gir A0. `over=few`
   betyr at effort-klassen har færre enn 5 andre todoer med målt kost, så bremsen har ingen median
   å måle mot. `over=few` gir A0 fra runde 2 i begge gater, og teller som `no` i runde 1. Alt annet enn
   `no` og `few`, også manglende verdi, gir A0 (fail-closed). `class=?` (todoen mangler `effort:`)
@@ -310,7 +336,7 @@ vanlig språk. Hver `[B1]`/`[B7]` fra runde 2 bærer en
 
 ### Kalibrering
 
-- Del D5-forslaget `flytt-til-B` (`loop-health-check.md`) er et nivå A-spørsmål (`Type: calibration`).
+- Del D5-forslaget `flytt-til-B` (`.github/skills/loop-health-check/SKILL.md`) er et nivå A-spørsmål (`Type: calibration`).
 - En godkjent flytting registreres som en `[B, calibration]`-entry med `Type: <typen>` og
   `Reversibel til: første VETO`. Regelendringen i `decision-level.py` kommer i en egen PR.
 - En `[VETO av …]` mot en flyttet type gir et A-forslag om å flytte typen tilbake.
@@ -327,9 +353,9 @@ V14/V16 er konsistenskontroller mellom to selvrapporter, ikke verifisering mot e
 (plan-review r2, VIKTIG-funn 2). Forberedt, men IKKE koblet inn: hver `[B1]`/`[A0]`-decision-log-
 entry for en `revise_gate_choice`-beslutning bærer i tillegg **`Runde-SHA:`** — den samme
 `pr_head_sha` §5b «Trigger-sett»-steget allerede pinner for den runden (§5b over, `gh pr view <pr>
---json headRefOid`). En fremtidig todo kan la `loop-health-check.md` Del D4 verifisere at hver slik
+--json headRefOid`). En fremtidig todo kan la `.github/skills/loop-health-check/SKILL.md` Del D4 verifisere at hver slik
 SHA faktisk finnes (`git cat-file -e`) og at antall DISTINKTE runde-SHA-er for todoen er
-`>= code_review_rounds - 1`; **denne PR-en skriver kun feltet** — se `loop-health-check.md` Del D4
+`>= code_review_rounds - 1`; **denne PR-en skriver kun feltet** — se `.github/skills/loop-health-check/SKILL.md` Del D4
 «Residual» for den eksplisitte, dokumenterte avgrensningen (ingen `git log`-avhengig gate er lagt
 til Del D ennå).
 

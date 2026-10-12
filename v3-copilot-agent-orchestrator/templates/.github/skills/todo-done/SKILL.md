@@ -1,5 +1,7 @@
 ---
+name: todo-done
 description: "Avslutt en TODO: verifiser, arkiver, lessons, bugs, commit og push."
+disable-model-invocation: true
 ---
 <!--
   GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
@@ -15,22 +17,25 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
 
 2. **Verifiser** at alle steg i planfilen tasks/plans/todo-<nr>-<slug>.md er merket [x]
 
-3. **Testkriterier:** Bruk /verification-before-completion fra Superpowers.
+3. **Testkriterier:** Bruk skillen `/verification-before-completion`
+   (`.github/skills/verification-before-completion/SKILL.md`) hvis den finnes i prosjektet; ellers gjør sjekken under selv.
    Les faktisk output og bekreft at hvert verifiseringskriterium i planfilen er bestått.
    "Burde fungere" er ikke godkjent — bevis det med output.
 
-4. **Forenkle:** Bruk /simplify fra Superpowers.
+4. **Forenkle:** Bruk skillen `/simplify` (`.github/skills/simplify/SKILL.md`) hvis den finnes i prosjektet; ellers gjør gjennomgangen under selv.
    Se gjennom diffen for duplisering, ubrukt kode, unødvendige abstraksjoner
    eller "just in case"-logikk. Fiks det før code review.
 
 5. **Sikkerhetssjekk:**
    - Hvis diffen berører de stiene som er konfigurert for en tech-review-agent: kjør prosjektets
-     relevante tech-review-agent (se loop.config tech_review_agents). Eksempler:
+     relevante tech-review-agent (se loop.config tech_review_agents) som subagent via `task` med
+     `agent_type` lik agentnavnet. Eksempler:
      `rls-auditor` hvis migrasjons-/skjemastier er berørt; `security-reviewer` hvis auth-/
      server-action-/klientkode er berørt.
    - Funn merket KRITISK eller HØY blokkerer — fiks og verifiser på nytt
 
-6. **Code review:** Bruk /requesting-code-review fra Superpowers.
+6. **Code review:** Bruk skillen `/requesting-code-review` (`.github/skills/requesting-code-review/SKILL.md`)
+   hvis den finnes i prosjektet; ellers se kritisk gjennom diffen selv.
    Fiks alle funn merket Critical eller Important før du går videre.
    Minor-funn noteres men blokkerer ikke.
 

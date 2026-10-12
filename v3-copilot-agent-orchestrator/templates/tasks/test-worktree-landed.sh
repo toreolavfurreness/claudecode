@@ -163,13 +163,13 @@ seed_common() {
   git_ok "$d" init -q -b {{BASE_BRANCH}} || return 1
   git -C "$d" config user.email "test@example.com" || return 1
   git -C "$d" config user.name "Test Harness" || return 1
-  mkdir -p "$d/tasks/plans/archive" "$d/lib" "$d/v3-agent-orchestrator/templates/tasks" || return 1
+  mkdir -p "$d/tasks/plans/archive" "$d/lib" "$d/v3-copilot-agent-orchestrator/templates/tasks" || return 1
   printf 'seed\n' > "$d/README.md"
   printf '' > "$d/.gitkeep-empty"
   printf 'value=42\n' > "$d/config.txt"
   printf 'will be moved\n' > "$d/mv-source.md"
   printf 'original graph builder v1\n' > "$d/tasks/graph-build.py"
-  printf 'kit template mirrored body\n' > "$d/v3-agent-orchestrator/templates/tasks/graph-build.py"
+  printf 'kit template mirrored body\n' > "$d/v3-copilot-agent-orchestrator/templates/tasks/graph-build.py"
   printf '*.secret\n' > "$d/.gitignore"
   git_ok "$d" add -A || return 1
   git_ok "$d" commit -q -m "seed" || return 1

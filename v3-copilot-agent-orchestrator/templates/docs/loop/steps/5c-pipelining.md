@@ -22,25 +22,37 @@ u-claimede planer går mot 0 og taket forblir `1`. Taket finnes for
 koordinator-konteksten, ikke for maskinen: plan- og review-rapportene for B lander i samme sesjon
 som A-arbeidet.
 
-**Mekanikk: parvis dispatch i ÉN melding — det finnes ingen «bakgrunn».** Parallelle subagenter
-kjøres ved å sende flere `Agent`-blokker i SAMME melding; meldingen returnerer først når alle
-blokkene i den er ferdige. Pipelining er derfor to par:
+**Mekanikk: parvis dispatch i bakgrunnen, med en par-barriere.** Parallelle subagenter kjøres som
+`task`-kall med `mode: "background"`, begge sendt i SAMME tur; hvert kall gir en `agent_id`, og
+resultatet hentes med `read_agent(agent_id=…)`. Et par er ferdig først når `read_agent` har levert
+sluttrapporten fra BEGGE workerne — det er par-barrieren, og den er bindende (snapshotene,
+pre-par-2-halen og §0b-kallene under forutsetter at begge i paret har returnert). Pipelining er
+derfor to par:
 
-- **Par 1 (én melding):** `§5 implementer(A)` + `§3 planner(B)`.
-- **Par 2 (én melding):** `§5b kode-reviewer(A)` + `§4 reviewer(B)`.
+- **Par 1 (samme tur, begge `mode: "background"`):** `§5 implementer(A)` + `§3 planner(B)`.
+- **Par 2 (samme tur, begge `mode: "background"`):** `§5b kode-reviewer(A)` + `§4 reviewer(B)`.
 
-**Pre-dispatch-snapshot for par 2 (§0b vakt 5, R21) — rett før par 2 dispatches, ETT nytt sett,
+Hver worker i et par har sitt EGET tre fra `scripts/bootstrap-worktree.sh` (§0b «Worktree per
+dispatch»), laget etter parets snapshot og før parets `task`-kall: implementer(A) får etiketten
+`implementer` (todo A), planner(B) `planner-r<runde>` (todo B), kode-reviewer(A)
+`code-reviewer-r<runde>` (todo A, satt på PR-hodet som i §5b) og reviewer(B)
+`plan-reviewer-r<runde>` (todo B). Read-only-sjekken (§0b punkt 6) kjøres for kode-reviewer(A) og
+reviewer(B) når `read_agent` har levert deres rapport. Mens et par er i flukt kan en worker som
+fortsatt kjører, få en melding med `write_agent(agent_id=…, message=…)`; når den har levert, er den
+ferdig (se `coordinator-runbook.md` § «Sende en worker tilbake»).
+
+**Pre-dispatch-snapshot for par 2 (§0b vakt 5, R21) — rett før par 2s bootstrap-kall, ETT nytt sett,
 ALDRI par 1s fil gjenbrukt:** par 1s worktrees (implementer(A), planner(B)) er per konstruksjon
 fortsatt registrerte når par 2 dispatches, så par 1s snapshot ville avvist BEGGE som `preexisting`.
 Kode-reviewer(A) bruker `<scratch>/wt-pre-5b-code-reviewer-<runde>.txt` (se §5b, «Review-dispatch»)
 og reviewer(B) bruker `<scratch>/wt-pre-4-plan-reviewer-<runde>.txt` (se §4) — begge tatt PÅ NYTT,
-rett før DENNE par-2-meldingen sendes, ikke gjenbrukt fra en tidligere runde.
+rett før DENNE par-2-turen (og før de to bootstrap-kallene), ikke gjenbrukt fra en tidligere runde.
 
-**Par-meldingen returnerer først når BEGGE blokkene er ferdige.** A sin §5b starter derfor tidligst
-når planner(B) også er ferdig: pipelining reduserer total tid for to todos, men øker latensen for A
-isolert sett. Vent ikke en umiddelbar §5b — det er ikke en hengt agent. Trenger A en fix-mode-runde
-samtidig som B trenger en revisjonsrunde, pares de på samme måte. Er det ingenting å pare med på
-B-siden, dispatch A-blokken alene.
+**Paret er ferdig først når BEGGE rapportene er hentet.** A sin §5b starter derfor tidligst når
+planner(B) også er ferdig: pipelining reduserer total tid for to todos, men øker latensen for A
+isolert sett. Vent ikke en umiddelbar §5b — det er ikke en hengt agent; `read_agent` viser om en
+worker fortsatt kjører. Trenger A en fix-mode-runde samtidig som B trenger en revisjonsrunde, pares
+de på samme måte. Er det ingenting å pare med på B-siden, dispatch A alene (`mode: "sync"`).
 
 I det serielle vinduet MELLOM par 1 og par 2 gjør du arbeid på begge spor: for A — §5b sitt
 Trigger-sett (`gh pr view --json headRefOid` → `gh api compare` → `tasks/review-lens-select.py`); for
@@ -52,8 +64,8 @@ B — uavhengig verifisering av plan-rapporten og commit-halen under.
 git fetch origin {{BASE_BRANCH}}
 ```
 
-**Pre-dispatch-snapshot for par 1 (§0b vakt 5, R21) — rett etter fetchen over, FØR par 1
-dispatches:**
+**Pre-dispatch-snapshot for par 1 (§0b vakt 5, R21) — rett etter fetchen over, FØR par 1s
+bootstrap-kall:**
 ```bash
 git worktree list --porcelain > "<scratch>/wt-pre-5c-par1-<runde>.txt"
 ```
@@ -61,14 +73,14 @@ Sjekk exit-koden med det samme; ikke-null ⇒ noter paret som `snapshot-missing`
 BÅDE planner(B)s pre-snapshot for §0b-kallet lenger ned i denne seksjonen OG — i pipelinet modus —
 implementer(A)s pre-snapshot for §6s rydding:** siden implementer(A) dispatches herfra og ikke fra
 §5, finnes det ingen egen `wt-pre-5-implementer-`-fil for A i pipelinet modus. Koordinatoren
-akkumulerer derfor paret (A sin `evidence.toplevel`, DENNE filen) inn i §6s liste på nøyaktig samme
+akkumulerer derfor paret (A sin WORKTREE, bekreftet av `evidence.toplevel`; DENNE filen) inn i §6s liste på nøyaktig samme
 måte som §5 gjør i den ikke-pipelinede grenen (se §5, «Dispatch implementer», og §6 steg 4).
 
 Noter `F3a_ref` = F3a-kommandoen (gate F, §5b) kjørt mot planfila du nå dispatcher; bær tallet i
 kontekst sammen med `<N>`-telleren.
 
 Worker-worktreene er LINKEDE worktrees mot en delt `--git-common-dir`. Begge workerne i par 1 åpner
-Steg 0 med `git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}`. To samtidige
+Steg 0 (etter `cd "<WORKTREE>"`) med `git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}`. To samtidige
 fetches konkurrerer om `refs/remotes/origin/{{BASE_BRANCH}}.lock`, `FETCH_HEAD` og `packed-refs`;
 taperen får ikke-null exit, `&&` kortslutter, merge kjøres ALDRI, og workeren fortsetter STILLE mot
 stale state. Din fetch gjør begge workernes Steg 0 til en no-op-fetch mot en allerede fersk ref.
@@ -76,7 +88,7 @@ stale state. Din fetch gjør begge workernes Steg 0 til en no-op-fetch mot en al
 **Par-1-dispatch: legg dette tillegget i BEGGE promptene** (ordrett; det hører til paret, ikke til
 charterne):
 
-> Du kjører i et PIPELINET PAR (to workers samtidig, delt git-common-dir). Etter Steg 0, verifiser
+> Du kjører i et PIPELINET PAR (to workers samtidig, hver i sin WORKTREE, delt git-common-dir). Etter Steg 0, verifiser
 > synken før du gjør noe annet: `git merge-base --is-ancestor origin/{{BASE_BRANCH}} HEAD` skal gi
 > exit 0. Ikke-null exit betyr at fetch/merge tapte et ref-lock-kappløp — kjør
 > `git fetch origin {{BASE_BRANCH}}` og `git merge origin/{{BASE_BRANCH}}` på nytt (hver som eget
@@ -139,7 +151,8 @@ planner-rollen (§0b vakt 5b), ordrett samme prinsipp som §3 (a).
 
 **§0b-kall — rett ETTER pushen (steg 5) over, for den OPPRINNELIGE par-1-runden:** kall §0b med
 `<rolle> = planner`, `<forventet_fil> = tasks/plans/todo-<B>-<slug>.md`, `<pre_snapshot> =
-<scratch>/wt-pre-5c-par1-<runde>.txt`. Par 1 har returnert, så planner(B) er død (R1 vakt 1), og
+<scratch>/wt-pre-5c-par1-<runde>.txt`, `<wt_path>` = planner(B)s WORKTREE. Par 1 har returnert, så
+planner(B) er ferdig (R1 vakt 1), og
 artefakt-gaten er nettopp blitt oppfyllbar av pushen over. (For påfølgende revisjonsrunder, se
 under — `<pre_snapshot>` er DA en annen fil.)
 
@@ -286,7 +299,7 @@ exit 1 hvis alt filtreres bort.
 **Alle utskrifter tomme ⇒ planen er fersk ⇒ gå til §5.** Minst én ikke-tom ⇒ nøyaktig ÉN
 re-plan-runde: dispatch §3 på nytt med plan_path, plan-SHA og den ordrette diffen som input,
 deretter §4 på nytt (samme revisjonsteller som ellers). Den reviderte planen skal bære en NY
-`**Plan-SHA:**` (regelen står i plan-malen, `todo-plan.md` § «Plan-SHA», og gjelder enhver
+`**Plan-SHA:**` (regelen står i plan-malen, `.github/skills/todo-plan/SKILL.md` § «Plan-SHA», og gjelder enhver
 revisjonsrunde — ikke bare denne) = `{{BASE_BRANCH}}`-tippen planneren synket mot. Kjør gaten om
 igjen etterpå; andre kjøring er en kontroll på at `{{BASE_BRANCH}}` ikke flyttet seg UNDER
 re-planen, ikke en uavhengig ferskhetssjekk. Er den fortsatt ikke-tom, har delt state flyttet seg
@@ -366,7 +379,7 @@ eskalerer uansett til mennesket. Ryddes av mennesket, aldri av §0b.
 **Pausepunkt-samspill: A treffer et pausepunkt.** Et pausepunkt stopper loopen. B claimes ALDRI
 automatisk — heller ikke når A sin claim er frigitt. Gjør dette, i rekkefølge:
 
-1. Er B sin blokk fortsatt i flukt i samme melding, la den fullføre. Planner og reviewer skriver
+1. Er B sin worker fortsatt i flukt (`read_agent` viser at den kjører), la den fullføre. Planner og reviewer skriver
    ikke delt state, så det er trygt.
 2. Har B en ferdig, `go`-et plan (§4 ga `go`): kjør commit-halen over (pipelinet-markør + push),
    slik at arbeidet overlever at sesjonen dør. Har B IKKE passert §4 ennå: sjekk om planfila

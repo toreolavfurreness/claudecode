@@ -12,7 +12,7 @@
 # er oppfølging 2: OID-ancestry-grenen i vakt 5 ga falskt treff når wt_head allerede var
 # forgjenger til {{BASE_BRANCH}}, siden `git merge-base --is-ancestor` da er sann for ENHVER åpen PR laget
 # fra {{BASE_BRANCH}}.
-# N-blokken dekker navngitt kjøring (agent-<id> …): aldersvakten hoppes over kun for
+# N-blokken dekker navngitt kjøring (<rolle>-<id> …): aldersvakten hoppes over kun for
 # navngitte trær, lås/åpen-PR-vaktene gjelder uendret, et navn uten tre gir «IKKE FUNNET», og
 # oppsummeringslinja bruker wtsweep_named=/wtsweep_named_dry= — aldri wtsweep=. D-seksjonen
 # beviser at docker aldri blokkerer sweepen (global stub, ingen ekte docker-CLI kalles noe sted i
@@ -423,7 +423,7 @@ new_harness W5a
 git -C "$W5a" branch case-live {{BASE_BRANCH}}
 git -C "$W5a" worktree add -q ".loop-worktrees/case-live" case-live
 backdate_wt "$W5a/.loop-worktrees/case-live"
-git -C "$W5a" worktree lock ".loop-worktrees/case-live" --reason "claude agent case-live (pid $$ start now)"
+git -C "$W5a" worktree lock ".loop-worktrees/case-live" --reason "loop case-live (pid $$ start now)"
 printf '[]\n' > "$W5a/pr-fixture.json"
 mkgh "$W5a/pr-fixture.json" 0
 out=$(run_sweep "$W5a" --dry-run)
@@ -778,13 +778,13 @@ git -C "$WN" checkout -q {{BASE_BRANCH}}
 git -C "$WN" branch n1 {{BASE_BRANCH}}
 git -C "$WN" branch n2 {{BASE_BRANCH}}
 git -C "$WN" branch other {{BASE_BRANCH}}
-git -C "$WN" worktree add -q ".loop-worktrees/agent-n1" n1
-git -C "$WN" worktree add -q ".loop-worktrees/agent-n2" n2
-git -C "$WN" worktree add -q ".loop-worktrees/agent-n3" feat/n3
-git -C "$WN" worktree add -q ".loop-worktrees/agent-other" other
-backdate_wt "$WN/.loop-worktrees/agent-other"
-touch -t 203001010000 "$WN/.loop-worktrees/agent-n1/README.md"   # fremtidig mtime: treffer -mmin -N for alle N >= 0, også -mmin -0
-git -C "$WN" worktree lock ".loop-worktrees/agent-n2" --reason "claude agent agent-n2 (pid $$ start now)"
+git -C "$WN" worktree add -q ".loop-worktrees/implementer-401" n1
+git -C "$WN" worktree add -q ".loop-worktrees/reviewer-402" n2
+git -C "$WN" worktree add -q ".loop-worktrees/planner-403" feat/n3
+git -C "$WN" worktree add -q ".loop-worktrees/code-reviewer-404" other
+backdate_wt "$WN/.loop-worktrees/code-reviewer-404"
+touch -t 203001010000 "$WN/.loop-worktrees/implementer-401/README.md"   # fremtidig mtime: treffer -mmin -N for alle N >= 0, også -mmin -0
+git -C "$WN" worktree lock ".loop-worktrees/reviewer-402" --reason "loop reviewer-402 (pid $$ start now)"
 printf '[{"headRefName":"feat/n3","headRefOid":"%s"}]\n' "$n3_head" > "$WN/pr-fixture.json"
 mkgh "$WN/pr-fixture.json" 0
 run_wn() { AGE_MIN_OVERRIDE=1440 run_sweep "$WN" "$@"; }
@@ -794,47 +794,47 @@ out=$(run_wn --dry-run)
 echo "FULLOUT>>>"
 echo "$out"
 echo "<<<FULLOUT"
-if printf '%s' "$out" | grep -qF "BEHOLDT  agent-n1 — rørt for"; then
+if printf '%s' "$out" | grep -qF "BEHOLDT  implementer-401 — rørt for"; then
   echo "N1-uten-navn=PASS"
 else
-  fail "N1-uten-navn: agent-n1 ikke BEHOLDT via aldersvakt uten navn"
+  fail "N1-uten-navn: implementer-401 ikke BEHOLDT via aldersvakt uten navn"
 fi
-if printf '%s' "$out" | grep -qF "VILLE FJERNET agent-other"; then
+if printf '%s' "$out" | grep -qF "VILLE FJERNET code-reviewer-404"; then
   echo "N4-kontroll=PASS"
 else
-  fail "N4-kontroll: agent-other ikke VILLE FJERNET uten navn"
+  fail "N4-kontroll: code-reviewer-404 ikke VILLE FJERNET uten navn"
 fi
 
-echo "--- R2: run_wn --dry-run agent-n1 agent-n2 agent-n3 agent-nx (navngitt) ---"
-out=$(run_wn --dry-run agent-n1 agent-n2 agent-n3 agent-nx)
+echo "--- R2: run_wn --dry-run implementer-401 reviewer-402 planner-403 implementer-499 (navngitt) ---"
+out=$(run_wn --dry-run implementer-401 reviewer-402 planner-403 implementer-499)
 echo "FULLOUT>>>"
 echo "$out"
 echo "<<<FULLOUT"
-if printf '%s' "$out" | grep -qF "VILLE FJERNET agent-n1"; then
+if printf '%s' "$out" | grep -qF "VILLE FJERNET implementer-401"; then
   echo "N1-navngitt=PASS"
 else
-  fail "N1-navngitt: agent-n1 ikke VILLE FJERNET i navngitt modus"
+  fail "N1-navngitt: implementer-401 ikke VILLE FJERNET i navngitt modus"
 fi
-if printf '%s' "$out" | grep -qF "BEHOLDT  agent-n2 — låst av levende pid $$"; then
+if printf '%s' "$out" | grep -qF "BEHOLDT  reviewer-402 — låst av levende pid $$"; then
   echo "N2-lås=PASS"
 else
-  fail "N2-lås: agent-n2 ikke BEHOLDT via lås i navngitt modus"
+  fail "N2-lås: reviewer-402 ikke BEHOLDT via lås i navngitt modus"
 fi
-if printf '%s' "$out" | grep -qF "BEHOLDT  agent-n3 — bærer HEAD/branch for en åpen PR"; then
+if printf '%s' "$out" | grep -qF "BEHOLDT  planner-403 — bærer HEAD/branch for en åpen PR"; then
   echo "N3-åpen-PR=PASS"
 else
-  fail "N3-åpen-PR: agent-n3 ikke BEHOLDT via åpen PR i navngitt modus"
+  fail "N3-åpen-PR: planner-403 ikke BEHOLDT via åpen PR i navngitt modus"
 fi
-if printf '%s' "$out" | grep -qF "agent-other"; then
-  fail "N4-filter: agent-other dukket opp i navngitt kjøring"
+if printf '%s' "$out" | grep -qF "code-reviewer-404"; then
+  fail "N4-filter: code-reviewer-404 dukket opp i navngitt kjøring"
 else
   echo "N4-filter=PASS"
 fi
 ikke_funnet_lines=$(printf '%s\n' "$out" | grep -c '^IKKE FUNNET')
-if [ "$ikke_funnet_lines" -eq 1 ] && printf '%s' "$out" | grep -qF "IKKE FUNNET agent-nx"; then
+if [ "$ikke_funnet_lines" -eq 1 ] && printf '%s' "$out" | grep -qF "IKKE FUNNET implementer-499"; then
   echo "N-ikke-funnet=PASS"
 else
-  fail "N-ikke-funnet: forventet nøyaktig én linje 'IKKE FUNNET agent-nx', fikk $ikke_funnet_lines"
+  fail "N-ikke-funnet: forventet nøyaktig én linje 'IKKE FUNNET implementer-499', fikk $ikke_funnet_lines"
 fi
 if printf '%s' "$out" | grep -qE '^wtsweep_named_dry=[0-9]+/[0-9]+ ' \
   && [ "$(printf '%s' "$out" | grep -cF 'wtsweep=')" -eq 0 ] \
@@ -844,26 +844,26 @@ else
   fail "N-oppsummering: oppsummeringslinja i navngitt tørrkjøring var ikke som forventet"
 fi
 
-echo "--- R3: run_wn agent-n1 (destruktiv, i sandkassen) ---"
-out3=$(run_wn agent-n1)
+echo "--- R3: run_wn implementer-401 (destruktiv, i sandkassen) ---"
+out3=$(run_wn implementer-401)
 echo "FULLOUT>>>"
 echo "$out3"
 echo "<<<FULLOUT"
-if printf '%s' "$out3" | grep -qF "FJERNET  agent-n1" \
-  && [ ! -d "$WN/.loop-worktrees/agent-n1" ] \
-  && [ -d "$WN/.loop-worktrees/agent-other" ] \
+if printf '%s' "$out3" | grep -qF "FJERNET  implementer-401" \
+  && [ ! -d "$WN/.loop-worktrees/implementer-401" ] \
+  && [ -d "$WN/.loop-worktrees/code-reviewer-404" ] \
   && printf '%s' "$out3" | grep -qE '^wtsweep_named=1/0 '; then
   echo "N1-destruktiv=PASS"
 else
-  fail "N1-destruktiv: navngitt destruktiv fjerning av agent-n1 ga ikke forventet utfall"
+  fail "N1-destruktiv: navngitt destruktiv fjerning av implementer-401 ga ikke forventet utfall"
 fi
 
 echo "--- R4: run_wn (døgnsweep, destruktiv) ---"
 out4=$(run_wn)
-if printf '%s' "$out4" | grep -qF "FJERNET  agent-other"; then
-  echo "R4-oppsett=PASS (agent-other fjernet av døgnsweepen)"
+if printf '%s' "$out4" | grep -qF "FJERNET  code-reviewer-404"; then
+  echo "R4-oppsett=PASS (code-reviewer-404 fjernet av døgnsweepen)"
 else
-  fail "R4-oppsett: agent-other ikke fjernet av døgnsweepen (grunnlag for N6)"
+  fail "R4-oppsett: code-reviewer-404 ikke fjernet av døgnsweepen (grunnlag for N6)"
 fi
 
 echo "--- N6: run-log-rader bygd av faktiske token fra R3/R4 ---"
@@ -889,7 +889,7 @@ else
 fi
 
 echo "--- N5: run_wn --dry-run <sti> (avvises) ---"
-out=$(run_wn --dry-run "$WN/.loop-worktrees/agent-n2")
+out=$(run_wn --dry-run "$WN/.loop-worktrees/reviewer-402")
 rc=$?
 if [ "$rc" -eq 2 ] \
   && printf '%s' "$out" | grep -qF "UKJENT FLAGG:" \
@@ -899,20 +899,23 @@ else
   fail "N5-sti-avvist: en sti som argument ble ikke avvist høylytt (rc=$rc)"
 fi
 
-echo "--- N5b (VIKTIG): 'agent-*' og et navn med internt mellomrom avvises ---"
-out=$(run_wn --dry-run 'agent-*')
+echo "--- N5b (VIKTIG): 'implementer-*' og et navn med internt mellomrom avvises ---"
+out=$(run_wn --dry-run 'implementer-*')
 rc_wild=$?
-out2=$(run_wn --dry-run 'agent-n1 agent-other')
+out2=$(run_wn --dry-run 'implementer-401 code-reviewer-404')
 rc_space=$?
+out3=$(run_wn --dry-run 'implementer-')
+rc_tom=$?
 if [ "$rc_wild" -eq 2 ] && ! printf '%s' "$out" | grep -qE '^(VILLE FJERNET|BEHOLDT)' \
-  && [ "$rc_space" -eq 2 ] && ! printf '%s' "$out2" | grep -qE '^(VILLE FJERNET|BEHOLDT)'; then
+  && [ "$rc_space" -eq 2 ] && ! printf '%s' "$out2" | grep -qE '^(VILLE FJERNET|BEHOLDT)' \
+  && [ "$rc_tom" -eq 2 ] && ! printf '%s' "$out3" | grep -qE '^(VILLE FJERNET|BEHOLDT)'; then
   echo "N5b=PASS"
 else
-  fail "N5b: 'agent-*' (rc=$rc_wild) eller 'agent-n1 agent-other' (rc=$rc_space) ble ikke avvist høylytt"
+  fail "N5b: 'implementer-*' (rc=$rc_wild) eller 'implementer-401 code-reviewer-404' (rc=$rc_space) eller 'implementer-' (rc=$rc_tom) ble ikke avvist høylytt"
 fi
 
 echo "--- N-gate-navngitt (MINDRE): --gate + navn avvises ---"
-out=$(run_wn --gate agent-n2)
+out=$(run_wn --gate reviewer-402)
 rc=$?
 if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF "UKJENT FLAGG:" \
   && ! printf '%s' "$out" | grep -qE '^GATE (RØD|GRØNN)'; then

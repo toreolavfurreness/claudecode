@@ -50,13 +50,14 @@ Overskriften limes inn ordrett fra `header`-feltet i svaret fra `decision-level.
   Alle tider tas fra `date`, aldri fra hukommelsen. To redigeringer av en eksisterende entry er tillatt: å bytte
   ut `venter`-linja når svaret kommer, og at helsesjekkens D4 setter `Type`-linja ved `MANGLER_TYPE`/`UKJENT_TYPE`.
 - `[B7]` fra runde 2 får `- **Konvergens:** gate-funn <prev>→<now>, ny feilklasse ja|nei, innhold
-  nei, kost <usd>/<median>` (se `coordinator-runbook.md` § Konvergensregel).
+  nei, kost <credits>/<median>` (se `coordinator-runbook.md` § Konvergensregel; AI credits, eller
+  `IKKE MÅLT` når bremsen ikke har tall).
 - `[B1]` fra runde 2 får `- **Konvergens:** gate-funn <prev>→<now>, ny feilklasse ja|nei, innhold nei,
-  kost <usd>/<median>`.
+  kost <credits>/<median>`.
 
 - `<regel-id>` ∈ `A1`…`A8` | `A0` | `B1`…`B8` | `D4` (helsesjekkens retting, `loop [D4]: rettet`) | `VETO av <B-id>` — hentet fra
   `python3 tasks/decision-level.py`, aldri fra hukommelsen. A-valg logges også (de bærer menneskets
-  svar); `[B…]` er den greppbare diskriminatoren for nivå-B-avstemmingen i `loop-health-check.md`
+  svar); `[B…]` er den greppbare diskriminatoren for nivå-B-avstemmingen i `.github/skills/loop-health-check/SKILL.md`
   Del D4.
 - For `revise_gate_choice`-beslutninger (`[B1]`/`[A0]` på §5b-siden) ved `code_review_rounds >= 2`:
   legg til en femte linje, `- **Runde-SHA:** <pr_head_sha for runden>` — den samme SHA-en §5b
@@ -68,7 +69,7 @@ Overskriften limes inn ordrett fra `header`-feltet i svaret fra `decision-level.
 - **Splitt-terskel:** når loggen passerer ~400 linjer, periode-splitt den som `tasks/lessons/`-
   filene (kronologisk, `decision-log-<mnd><år>.md`). En `git mv` fjerner filen fra `SEED_ONLY` i
   `.github/skills/setup/SKILL.md` — splitt-todoen MÅ oppdatere `SEED_ONLY` (begge tvillinger) i SAMME
-  PR, ellers seeder neste `/setup` en tom fil stille. `loop-health-check.md` Del D3 (monoton
+  PR, ellers seeder neste `/setup` en tom fil stille. `.github/skills/loop-health-check/SKILL.md` Del D3 (monoton
   entry-telling) fanger tapet hvis det likevel skjer.
 
 Entries **OVER** markøren (skrevet i et annet, eldre format) er legacy —

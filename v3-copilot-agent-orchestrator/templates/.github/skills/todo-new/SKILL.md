@@ -1,14 +1,17 @@
 ---
-description: 'Opprett én ny todo-fil: søk etter duplikat, neste ledige nr, frontmatter etter skjemaet, docs/-branch + PR.'
+name: todo-new
+description: "Opprett én ny todo-fil: søk etter duplikat, neste ledige nr, frontmatter etter skjemaet, docs/-branch + PR."
+argument-hint: "kort beskrivelse av saken (valgfri)"
+disable-model-invocation: true
 ---
 
 # /todo-new — opprett en todo
 
-Bruk når eieren ber om en ny todo, eller når et funn må leve videre som egen jobb. Kommandoen
+Bruk når eieren ber om en ny todo, eller når et funn må leve videre som egen jobb. Skillen
 oppretter én fil i `tasks/todos/` og en PR. Den planlegger ikke, claimer ikke og endrer ingen
 andre todoer. Skjemaet er `tasks/todos/README.md`; les det hvis et felt er uklart.
 
-Argument: en kort beskrivelse av saken (kan være tomt — spør da eieren hva todoen gjelder).
+Argument (det brukeren skrev etter `/todo-new`): en kort beskrivelse av saken (kan være tomt — spør da eieren hva todoen gjelder).
 
 ## 1. Trengs en ny todo?
 
@@ -87,7 +90,7 @@ Regler for feltene:
 ## 4. Branch og PR
 
 ```bash
-git worktree add <scratchpad>/wt-todo-<nr> -b docs/todo-<nr>-<slug> origin/{{BASE_BRANCH}}
+git worktree add "${TMPDIR:-/tmp}/wt-todo-<nr>" -b docs/todo-<nr>-<slug> origin/{{BASE_BRANCH}}
 # skriv fila der
 npx prettier --check tasks/todos/todo-<nr>-<slug>.md
 git add tasks/todos/todo-<nr>-<slug>.md

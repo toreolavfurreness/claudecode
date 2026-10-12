@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drift-vakt: melder når et prosjekt har gått bort fra kit-malen i filer som skal være like overalt.
 
-  python3 tasks/kit-drift.py                 sammenlign mot v3-agent-orchestrator/templates/
+  python3 tasks/kit-drift.py                 sammenlign mot v3-copilot-agent-orchestrator/templates/
   python3 tasks/kit-drift.py --kit <dir>     sammenlign mot en annen templates-mappe (f.eks. en fersk
                                              klone av kit-repoet, for å se om prosjektet ligger bak)
   python3 tasks/kit-drift.py --diff          skriv også selve diffen
@@ -103,7 +103,7 @@ def check_row(rel, first, cols, kit):
 
 
 def main(argv):
-    kit = argv[argv.index("--kit") + 1] if "--kit" in argv else "v3-agent-orchestrator/templates"
+    kit = argv[argv.index("--kit") + 1] if "--kit" in argv else "v3-copilot-agent-orchestrator/templates"
     if not os.path.isdir(kit):
         print(f"UKJENT: fant ikke kit-malen i {kit}. Oppgi den med --kit <templates-mappe>.")
         return 2
@@ -135,8 +135,8 @@ def self_test():
               "| Køsiden | (fylles inn) | `gen > x` | `grep -c a \\| wc` = 1 |\n")
     proj_py = 'TITLE = "demo-køen"\nREF = "origin/dev"\nprint(1)\n'
     proj_md = ("| Side | URL | Generator (`origin/dev`) | Vakt |\n|---|---|---|---|\n"
-               "| Køsiden | https://claude.ai/artifact/x | `gen > x` | `grep -c a \\| wc` = 1 |\n"
-               "| Egen side | https://claude.ai/artifact/y | `annet` | `x` |\n")
+               "| Køsiden | https://example.org/side/x | `gen > x` | `grep -c a \\| wc` = 1 |\n"
+               "| Egen side | https://example.org/side/y | `annet` | `x` |\n")
 
     def run(py=proj_py, md=proj_md, kit=True):
         tmp = tempfile.mkdtemp()
@@ -144,7 +144,7 @@ def self_test():
             if kit:
                 for rel, txt in (("tasks/queue-status.py", tpl_py),
                                  ("docs/loop/artifacts.md", tpl_md)):
-                    p = os.path.join(tmp, "v3-agent-orchestrator/templates", rel)
+                    p = os.path.join(tmp, "v3-copilot-agent-orchestrator/templates", rel)
                     os.makedirs(os.path.dirname(p), exist_ok=True)
                     open(p, "w", encoding="utf-8").write(txt)
             for rel, txt in (("tasks/queue-status.py", py), ("docs/loop/artifacts.md", md)):

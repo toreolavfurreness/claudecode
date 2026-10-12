@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """split-lessons.py — migrer tema-filer til én fil per lesson (v3.1-formatet).
 
-  python3 v3-agent-orchestrator/scripts/split-lessons.py            # tørrkjøring: viser planen
-  python3 v3-agent-orchestrator/scripts/split-lessons.py --apply    # skriver filene, sletter temafilene
-  python3 v3-agent-orchestrator/scripts/split-lessons.py --map react-native-web-modal=react-native-web
-  python3 v3-agent-orchestrator/scripts/split-lessons.py --self-test
+  python3 v3-copilot-agent-orchestrator/scripts/split-lessons.py            # tørrkjøring: viser planen
+  python3 v3-copilot-agent-orchestrator/scripts/split-lessons.py --apply    # skriver filene, sletter temafilene
+  python3 v3-copilot-agent-orchestrator/scripts/split-lessons.py --map react-native-web-modal=react-native-web
+  python3 v3-copilot-agent-orchestrator/scripts/split-lessons.py --self-test
 
 Kjøres fra prosjektroten. Leser `tasks/lessons/<fil>.md` med blokker på formen
 `## YYYY-MM-DD — tittel` (også `## [YYYY-MM-DD] — tittel`) og skriver

@@ -22,12 +22,12 @@ ett `grep` unna.
 
 Velg et **canary-mål** workeren ikke kan gjette: en fil+linje som ikke er en invariant og ikke gjentas i prompten (f.eks. `{{CANARY_FILE}}` linje N — varier N per dispatch). Noter den faktiske teksten selv (`sed -n 'Np' {{CANARY_FILE}}`).
 
-**Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR `Agent`-blokken under:**
+**Pre-dispatch-snapshot (§0b vakt 5, R21) — umiddelbart FØR bootstrap-kallet under:**
 ```bash
 git worktree list --porcelain > "<scratch>/wt-pre-3-planner-<runde>.txt"
 ```
 
-<!-- mekanisk-kandidat: pre-dispatch snapshot — hook som skriver git worktree list --porcelain før hver isolation: worktree-dispatch (mangler) -->
+<!-- mekanisk-kandidat: pre-dispatch snapshot — preToolUse-hook som skriver git worktree list --porcelain før hver bootstrap-worktree.sh-kjøring (mangler) -->
 
 Sjekk exit-koden fra DENNE kommandoen med det samme: ikke-null exit ⇒ dispatchen fortsetter uendret
 (worktreen skal ikke droppes fordi et snapshot feilet), men noter paret som `snapshot-missing` — §0b
@@ -35,8 +35,12 @@ vil da selv gi ADVARSEL (`snapshot-missing`) og INGEN rydding for nettopp dette 
 stille anta at et tomt/manglende snapshot betyr «ren». Én fil per dispatch — gjenbruk ALDRI én fil på
 tvers av dispatches (se §0b, R21).
 
-`Agent`: `subagent_type: {{PROJECT_NAME}}-planner`. Prompt:
-> TODO <nr> (`tasks/todos/todo-<nr>-<slug>.md`). Relevante lessons-tema: <liste>. Eksisterende løsning: <`sti:linje` eller «ingen funnet»>. Kjerne-anslag: <linjer>/<filer>. Budsjett: <linjer>/<filer>. Release-mål: <`goal` fra den aktive releasen, eller «ingen aktiv release»> — planen tjener målet, og arbeid utover todoen blir funn i rapporten, ikke steg. Canary: tell til linje <N> i `{{CANARY_FILE}}` og returner BÅDE linjenummeret du landet på OG de første 8 ordene på den linja. Følg charteret ditt. Returner plan-rapport som JSON.
+**Worktree (§0b «Worktree per dispatch»):** rett etter snapshotet,
+`bash scripts/bootstrap-worktree.sh <nr> planner-r<runde>` (re-dispatch i samme runde:
+`planner-r<runde>-f<n>`) → `WORKTREE`; noter `<bootstrap_branch>`.
+
+`task`: `agent_type: "{{PROJECT_NAME}}-planner"`, `mode: "sync"`, `{{DISPATCH_ARGS_PLANNER}}`. Prompt:
+> WORKTREE: `<WORKTREE>`. TODO <nr> (`tasks/todos/todo-<nr>-<slug>.md`). Relevante lessons-tema: <liste>. Eksisterende løsning: <`sti:linje` eller «ingen funnet»>. Kjerne-anslag: <linjer>/<filer>. Budsjett: <linjer>/<filer>. Release-mål: <`goal` fra den aktive releasen, eller «ingen aktiv release»> — planen tjener målet, og arbeid utover todoen blir funn i rapporten, ikke steg. Canary: tell til linje <N> i `{{CANARY_FILE}}` og returner BÅDE linjenummeret du landet på OG de første 8 ordene på den linja. Følg charteret ditt. Returner plan-rapport som JSON.
 
 Verifiser `canary` mot den faktiske teksten du noterte. Riktig tekst og riktig nummer → OK. Teksten
 er ekte, men fra en annen linje enn <N> (nummeret workeren oppga stemmer med teksten) → telle-drift,
@@ -47,11 +51,15 @@ ekte tekst fra ±2–4 linjer feil, og uten nummeret så det ut som manglende le
 <!-- mekanisk-kandidat: canary i rapporten matcher fila — sammenlign med sed -n Np (mangler) -->
 
 **Re-dispatch etter canary- eller bevis-mismatch:** akkumuleringen er per DISPATCH-FORSØK, ikke per
-runde — en re-dispatch legger den forkastede workerens `evidence.toplevel` inn i §0b-lista med SITT
-EGET pre-snapshot (fila tatt umiddelbart før nettopp DEN dispatchen), og §0b kalles for den også,
-ikke bare for dispatch-forsøket som til slutt lyktes.
+runde — en re-dispatch får sitt EGET tre (ny etikett, `-f<n>`) og legger den forkastede workerens
+WORKTREE inn i §0b-lista med SITT EGET pre-snapshot (fila tatt umiddelbart før bootstrap-kallet for
+nettopp DEN dispatchen), og §0b kalles for den også, ikke bare for dispatch-forsøket som til slutt
+lyktes.
 
-**Bevis-sjekk (`evidence`, se `report-schema.md`):** verifiser `evidence.toplevel` mot et **a-priori-kjennbart predikat** (du kjenner IKKE den harness-genererte worktree-stien på forhånd): stien MÅ inneholde `.loop-worktrees/` OG MÅ IKKE være hovedsjekkut-roten. Brudd → workeren skrev sannsynligvis planfilen til feil sted (2026-07-11-bug-klassen) — re-dispatch eller eskalér. `evidence` erstatter IKKE din egen uavhengige sjekk (`git status --porcelain` + `wc -l`/`tail` i workerens oppgitte worktree) — den er en billig førstelinje-tripwire, ikke et substitutt.
+**Bevis-sjekk (`evidence`, se `report-schema.md`):** du kjenner worktree-stien på forhånd, så
+predikatet er eksakt: `evidence.toplevel` MÅ være lik WORKTREE (som per konstruksjon inneholder
+`.loop-worktrees/` og ikke er hovedsjekkut-roten). Brudd → workeren skrev sannsynligvis planfilen
+til feil sted (2026-07-11-bug-klassen) — re-dispatch eller eskalér. `evidence` erstatter IKKE din egen uavhengige sjekk (`git status --porcelain` + `wc -l`/`tail` i workerens oppgitte worktree) — den er en billig førstelinje-tripwire, ikke et substitutt.
 
 **Overlevering + commit + §0b-kall (eies av rydde-kontrakten — utvid
 denne blokken, ikke legg til en ny).** Gjelder HVER runde, inkludert hver revisjonsrunde.
@@ -105,5 +113,5 @@ blokk er da en no-op» som «hele blokken hoppes over», forsvinner `cp`-en, `gi
 ingenting, artefakt-gaten feiler, og B sin plan når aldri `origin/{{BASE_BRANCH}}` — en regresjon av
 selve pipelinen i standardmodus (`max_in_flight: 1`).
 
-(c) **Rydding:** kall §0b med `<rolle> = planner`, `<forventet_fil> = tasks/plans/<fil>`,
-`<pre_snapshot> = <scratch>/wt-pre-3-planner-<runde>.txt`.
+(c) **Rydding:** kall §0b med `<wt_path> = <WORKTREE>`, `<rolle> = planner`,
+`<forventet_fil> = tasks/plans/<fil>`, `<pre_snapshot> = <scratch>/wt-pre-3-planner-<runde>.txt`.

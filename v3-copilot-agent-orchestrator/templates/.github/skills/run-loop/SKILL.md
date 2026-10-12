@@ -1,5 +1,8 @@
 ---
+name: run-loop
 description: "KOORDINATOR: kjør den autonome orkestreringsloopen (planner→reviewer→implementer→kode-review→merge). Arg: tomt | todo-nr | once."
+argument-hint: "tomt | todo-nr | once"
+disable-model-invocation: true
 ---
 {{GENERATED_HEADER}}
 
@@ -14,12 +17,13 @@ Du er nå **KOORDINATOR** for den autonome orkestreringsloopen. Du er eneste skr
 
 ## Forutsetning: verifiser at agentene er lastet
 
-Dispatch disse trivielle probene før du starter:
-- `Agent` med `subagent_type: {{PROJECT_NAME}}-planner`, prompt «Svar kun: {"ok": true}. Ikke les filer.»
-- `Agent` med `subagent_type: {{PROJECT_NAME}}-code-reviewer`, prompt «Svar kun: {"ok": true}. Ikke synk, ikke les filer.» — dekker §5b sitt register-oppslag for HELE sesjonen (agent-registeret er sesjonsglobalt og snapshottes ved sesjonsstart, samme premiss som planner-proben — se «Forutsetning» øverst i kjernen `coordinator-runbook.md`).
+Dispatch disse trivielle probene før du starter (`task`-verktøyet, `mode: "sync"`; probene trenger
+ingen worktree, ingen `model` og ingen `reasoning_effort` — de leser ingenting):
+- `task` med `agent_type: "{{PROJECT_NAME}}-planner"`, prompt «Svar kun: {"ok": true}. Ikke les filer.»
+- `task` med `agent_type: "{{PROJECT_NAME}}-code-reviewer"`, prompt «Svar kun: {"ok": true}. Ikke synk, ikke les filer.» — dekker §5b sitt register-oppslag for HELE sesjonen (agent-registeret er sesjonsglobalt og snapshottes ved sesjonsstart, samme premiss som planner-proben — se «Forutsetning» øverst i kjernen `coordinator-runbook.md`).
 {{SCOUT_PROBE_BULLET}}
 - Får du `{"ok": true}` fra alle probene → fortsett.
-- «Agent type not found» (fra én eller flere) → agentene er ikke lastet i denne sesjonen. Be brukeren starte en **fersk** sesjon (Claude Code snapshotter agent-registeret ved sesjonsstart). Har du nettopp kjørt `/setup`? Da MÅ du starte fersk sesjon før loopen kan kjøre.
+- `Unknown agent_type: …` (fra én eller flere) → agentene er ikke lastet i denne sesjonen. Be brukeren starte en **ny Copilot-sesjon** (Copilot leser `.github/agents/*.agent.md` og snapshotter agent-registeret ved sesjonsstart; nye eller endrede agentfiler blir ikke synlige i en sesjon som allerede kjører). Har du nettopp kjørt `/setup`? Da MÅ du starte en ny sesjon før loopen kan kjøre.
 
 ## Preflight: dep-sjekk
 
@@ -33,14 +37,14 @@ rekkefølgen — rad 2 MÅ evalueres FØR rad 4:
 | # | Betingelse | Handling | Dom |
 |---|---|---|---|
 | 1 | `{{CMD_E2E}}` tom | — | **E2E: ikke i bruk** (hopp over §1) |
-| 2 | `{{CMD_E2E}}` satt, inneholder IKKE `mcp__`, **OG** `{{CMD_E2E_PROBE}}` tom/blank | ingen — det finnes ingen probe å kjøre | **E2E: MANGLER (probe ikke konfigurert)** — aldri «tilgjengelig» |
-| 3 | `{{CMD_E2E}}` inneholder `mcp__` | idempotent kall på det navngitte MCP-verktøyet | svar → tilgjengelig; «Tool not found» → MANGLER |
-| 4 | ellers (CLI, probe satt) | kjør `{{CMD_E2E_PROBE}}` i Bash | exit 0 → tilgjengelig; exit ≠ 0 OG `node_modules/.package-lock.json` finnes → MANGLER; exit ≠ 0 OG fila mangler → **STOPP: pausepunkt** (se under) |
+| 2 | `{{CMD_E2E}}` satt, er IKKE MCP-basert (se rad 3), **OG** `{{CMD_E2E_PROBE}}` tom/blank | ingen — det finnes ingen probe å kjøre | **E2E: MANGLER (probe ikke konfigurert)** — aldri «tilgjengelig» |
+| 3 | `{{CMD_E2E}}` er MCP-basert: verdien nevner ordet «MCP» (samme regel som `/setup`), og MCP-verktøyet står på formen `<server>/<verktøy>` (f.eks. `playwright/browser_navigate`) | idempotent kall på det navngitte MCP-verktøyet (serveren er konfigurert i prosjektets `.mcp.json`) | svar → tilgjengelig; verktøyet finnes ikke i verktøylista di / kallet avvises som ukjent verktøy → MANGLER |
+| 4 | ellers (CLI, probe satt) | kjør `{{CMD_E2E_PROBE}}` i skallet (`execute`) | exit 0 → tilgjengelig; exit ≠ 0 OG `node_modules/.package-lock.json` finnes → MANGLER; exit ≠ 0 OG fila mangler → **STOPP: pausepunkt** (se under) |
 
 **Tom `node_modules` er et pausepunkt, ikke en degradering.** Mangler `node_modules/.package-lock.json` i
 koordinatorens sjekkout, sier proben ingenting om verktøyet — bare at `npm ci` ikke er kjørt. STOPP og rapporter
 «preflight: node_modules mangler — kjør `npm ci` (og `npx playwright install chromium`)». Ikke merk modus
-DEGRADERT. Agent-worktrees kjører egen `npm ci` og ville kjørt e2e uansett, så en «E2E: MANGLER» herfra er falsk.
+DEGRADERT. Worker-worktreene (`.loop-worktrees/<rolle>-<nr>`) synker egne avhengigheter via `scripts/bootstrap-worktree.sh` og ville kjørt e2e uansett, så en «E2E: MANGLER» herfra er falsk.
 
 **Tom probe er IKKE et grønt svar.** Et tomt skall avslutter med 0 — behandle tom
 `{{CMD_E2E_PROBE}}` som manglende verktøy (rad 2). Uten rad 2 ville en tom probe gått rett i
@@ -51,17 +55,32 @@ spec-filer på modulnivå kan kaste på env-forutsetninger andre spec-er har (f.
 sekundær test-bruker), og rapportere «E2E: MANGLER» i et miljø der selve CLI-en er frisk — samme
 feilklasse denne prosedyren finnes for å fikse, bare motsatt vei.
 
-### 2. Superpowers-kommandoer
+### 2. Debug-/verifiserings-skills
 
-Verifiser at `/systematic-debugging` og `/verification-before-completion` er tilgjengelige kommandoer i ditt toolsett (disse er de eneste som kalles eksplisitt i `todo-execute.md`):
-- Begge tilgjengelige → **Superpowers: tilgjengelige**
-- Én eller begge mangler → **Superpowers: MANGLER**
+Verifiser at prosjektet har skillene `systematic-debugging` og `verification-before-completion` (disse er de eneste som kalles eksplisitt i `.github/skills/todo-execute/SKILL.md` og `.github/skills/todo-done/SKILL.md`):
 
-(`/requesting-code-review` og `/simplify` er ikke preflight-sjekket her — de utføres allerede inline i `todo-finish-worker.md` steg 3 og 5 og er aldri eksponert som eksplisitte runtime-kall.)
+```bash
+for s in systematic-debugging verification-before-completion; do
+  [ -f ".github/skills/$s/SKILL.md" ] && echo "FINNES: $s" || echo "MANGLER: $s"
+done
+```
 
-### 3. In-repo-agenter
+- Begge `FINNES` → **Debug-/verifiserings-skills: tilgjengelige**
+- Én eller begge `MANGLER` → **Debug-/verifiserings-skills: MANGLER**
 
-Agent-probene over (§ «Forutsetning») dekker dette allerede.
+(`requesting-code-review` og `simplify` er ikke preflight-sjekket her — de utføres allerede inline i `.github/skills/todo-finish-worker/SKILL.md` steg 3 og 5 og er aldri eksponert som eksplisitte runtime-kall.)
+
+### 3. In-repo-agenter og worktree-skript
+
+Agent-probene over (§ «Forutsetning») dekker agentene. Sjekk i tillegg at skriptene dispatch-modellen
+hviler på finnes (se «Dispatch i denne harnessen» under):
+
+```bash
+ls scripts/bootstrap-worktree.sh scripts/readonly-check.sh
+```
+
+Mangler ett av dem → **In-repo-agenter: IKKE LASTET** (uten `bootstrap-worktree.sh` kan ingen worker
+dispatches isolert; uten `readonly-check.sh` kan ingen read-only-rapport godkjennes). Kjør `/setup`.
 
 ### 4. Run-log-avstemming og hotfix-sjekk
 
@@ -108,19 +127,50 @@ Etter sjekkene, print:
 ```
 --- Preflight-status ---
 E2E-verktøy:          <tilgjengelig | MANGLER | ikke i bruk>
-Superpowers:          <tilgjengelig | MANGLER>
+Debug-/verif.-skills: <tilgjengelig | MANGLER>
 In-repo-agenter:      <lastet | IKKE LASTET>
 Run-log-avstemming:   <avstemt | N uklassifisert (håndtert) | SVEIP FEILET>
 
 Modus: FULL | DEGRADERT (<hva som er degradert>)
 ```
 
-- **E2E MANGLER** → flagg, men fortsett. E2E hoppes over i `todo-finish-worker.md`; `verification.e2e_outcome: "e2e_unavailable"` settes i ferdig-rapporten; koordinatoren mapper til `degradation`-formelen i `run-log.md` (se `report-schema.md`).
-- **Superpowers MANGLER** → flagg, men fortsett. Inline 6-stegs fallback-protokoll trer i kraft i `todo-execute.md`; degraderingen er informasjonell og loggføres i `notes`-feltet i ferdig-rapporten.
+- **E2E MANGLER** → flagg, men fortsett. E2E hoppes over i `.github/skills/todo-finish-worker/SKILL.md`; `verification.e2e_outcome: "e2e_unavailable"` settes i ferdig-rapporten; koordinatoren mapper til `degradation`-formelen i `run-log.md` (se `report-schema.md`).
+- **Debug-/verifiserings-skills MANGLER** → flagg, men fortsett. Inline 6-stegs fallback-protokoll trer i kraft i `.github/skills/todo-execute/SKILL.md`; degraderingen er informasjonell og loggføres i `notes`-feltet i ferdig-rapporten.
 - **Begge mangler** → fortsett med redusert verifiseringsnivå, begge degraderinger noteres.
-- **In-repo-agenter IKKE LASTET** → STOPP (kritisk — loopen kan ikke kjøre). Be brukeren starte fersk sesjon.
+- **In-repo-agenter IKKE LASTET** → STOPP (kritisk — loopen kan ikke kjøre). Be brukeren starte en ny Copilot-sesjon (eller kjøre `/setup` først hvis et skript mangler).
 
 Se `docs/orchestration-loop.md` § «Forutsetninger — lokal vs. cloud/headless» for fullstendig forutsetningstabell.
+
+## Dispatch i denne harnessen
+
+Stegfilene i `docs/loop/steps/` er bindende for HVA som dispatches og med hvilken prompt. Mekanikken
+for HVORDAN er den samme i alle steg:
+
+- **Worktree før dispatch.** En `task`-subagent deler filsystem og arbeidskatalog med deg — den får
+  ingen egen worktree av seg selv. Før hver worker-dispatch (også read-only-rollene) kjører DU
+  `bash scripts/bootstrap-worktree.sh <todo-nr> <rolle>`, som lager `.loop-worktrees/<rolle>-<todo-nr>`
+  på en egen branch fra `origin/{{BASE_BRANCH}}` og skriver stien til stdout. Stien går i prompten som
+  `WORKTREE: <sti>`. Workerens Steg 0 er `cd "<WORKTREE>"` + `git rev-parse --show-toplevel` == WORKTREE;
+  avvik ⇒ den avbryter med feil-rapport. Scout får ingen egen worktree: den kjører i oppdragsgiverens
+  WORKTREE, som oppdragsgiveren gir i sin prompt.
+- **`task`-kallet.** `agent_type: "{{PROJECT_NAME}}-<rolle>"`, `model:` og eventuelt `reasoning_effort:`
+  slik stegfila oppgir dem (kompilert inn av `/setup` fra `models.<rolle>`; første modell i lista), og `mode: "sync"` — eller `mode: "background"` når
+  stegfilen sender flere workers samtidig (§5c/§5d); resultatet hentes da med `read_agent`.
+- **Read-only-sjekk etter hver read-only-dispatch** (reviewer, code-reviewer, tech-review-agenter):
+  `bash scripts/readonly-check.sh <WORKTREE> <base-sha>` (`<base-sha>` = SHA-en worktreen ble laget fra).
+  Feiler den (`git status --porcelain` ikke tom, eller HEAD har flyttet seg), **forkastes rapporten** —
+  nivå A, pausepunkt. Rollene har ikke `edit` i `tools` (håndhevet av Copilot); sjekken fanger det
+  verktøylisten ikke dekker (f.eks. skriving via skallet).
+- **Ingen vekking av ferdige workers.** `write_agent(agent_id=…, message=…)` når bare en worker som
+  fortsatt kjører i bakgrunnsmodus. En worker som har levert rapport, er avsluttet: send en **fersk**
+  `task` for samme rolle med forrige rapport, de nye funnene og samme `WORKTREE:` i prompten. Fersk
+  dispatch er standard; `write_agent` er et unntak for en worker som beviselig fortsatt kjører.
+- **Rollehukommelse.** Workers leser `tasks/agent-memory/<agent>/MEMORY.md` hvis den finnes, og
+  foreslår nye linjer som `memory_candidates` i rapporten. Du (single-writer) skriver fila i
+  delt-state-halen (§6) — workers skriver den aldri.
+- **Komprimering.** Copilot komprimerer konteksten (`/compact` eller automatisk), og ingen hook legger
+  sjekkpunktet tilbake etterpå. Les derfor sjekkpunktfila fra §0c (`tasks/.loop-state/checkpoint-*.md`, når §0c er på)
+  før hvert steg og alltid når du ikke husker tilstanden sikkert — sjekkpunktet vinner over sammendraget.
 
 ## Kjør loopen
 
@@ -136,7 +186,8 @@ Tom kø → §6c helsesjekk + release-rådgiver → (grønn) §8b drain retro-lo
 - Release: scope tomt (`MÅL NÅDD` / `MÅL IKKE NÅDD`), åpne scope-todoer uten kvalifiserte, eller `release.py status` exit 2 (§1)
 - Worker `failed`/`blocked`, merge-konflikt, canary-mismatch, reviewer no-go som ikke konvergerer, CI-gate før merge ikke grønn (§6 steg 0)
 - Kode-reviewer revise-gate — nivå B1 (bestem selv + logg, se `coordinator-runbook.md` § Konvergensregel); nivå A ved innholdsfunn, manglende konvergensdata eller kostnad over taket (§5b)
-- Agent-probe i preflight feiler («Agent type not found», dekker §5b) → fersk koordinator-sesjon kreves
+- Agent-probe i preflight feiler (`Unknown agent_type`, dekker §5b) → ny Copilot-sesjon kreves for koordinatoren
+- `scripts/readonly-check.sh` feiler etter en read-only-dispatch → rapporten forkastes (nivå A)
 - `node_modules` mangler i koordinatorens sjekkout (preflight §1 rad 4) → `npm ci` kreves før første todo
 - Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b/§8c)
 - Ferskhets-gaten for en pipelinet plan er fortsatt ikke-tom etter én re-plan-runde (§5c)
@@ -147,7 +198,7 @@ Tom kø → §6c helsesjekk + release-rådgiver → (grønn) §8b drain retro-lo
 
 ## Argument
 
-`$ARGUMENTS` styrer omfang:
+Argumentet brukeren ga etter `/run-loop` styrer omfang:
 - **tomt** → kjør kontinuerlig, én todo om gangen, til køen er tom eller et pausepunkt treffes
 - **et todo-nr** (f.eks. `41`) → start med den todoen
 - **`once`** → kjør nøyaktig én todo, så stopp og rapporter (nyttig for validering / forsiktig oppstart)

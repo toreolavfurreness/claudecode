@@ -1,17 +1,24 @@
 #!/bin/sh
-# {{PROJECT_NAME}} — PreCompact-hook (matcher "auto"), generert av /setup når
-# hooks.compaction_checkpoint er på.
+# {{PROJECT_NAME}} — preCompact-hook, generert av /setup når hooks.compaction_checkpoint er på.
 #
 # Logger om koordinatorens sjekkpunkt var ferskt da auto-komprimeringen startet. Håndhever aldri:
-# alltid exit 0, og ALDRI noe på stdout. Ikke-tom PreCompact-stdout blir til egne instruksjoner for
-# komprimeringen og erstatter oppsummeringsprompten uten varsel.
+# alltid exit 0, og ALDRI noe på stdout. preCompact er bare et varsel (kan ikke påvirke
+# komprimeringen); tom stdout holder det slik uansett hvordan harnessen tolker utdata.
 #
-# Samme filterrekkefølge som sessionstart-checkpoint.sh (jq → agent_id → session_id → fil finnes).
+# Copilot-payload: sessionId, timestamp, cwd, transcriptPath, trigger (manual|auto),
+# customInstructions. Copilot-hooks har ingen matcher, så filtrene ligger her, i denne rekkefølgen:
+# jq → agentId/agent_id (defensivt: preCompact-payloaden har ingen agent-identitet i dag, men en
+# payload som HAR det, er en subagent og skal ikke røre koordinatorens sjekkpunkt) → trigger == auto
+# → sessionId (8–64 tegn, [A-Za-z0-9_-]) → sjekkpunktfila finnes.
+#
+# Gjenopplesing etter komprimering er IKKE en hook: koordinatorens runbook (steg 0c) sier at
+# sjekkpunktfila leses før hvert steg og når tilstanden ikke huskes.
 #
 # Ferskhet leses fra sjekkpunktets egen `Skrevet: <ISO> epoch=<sekunder>`-linje blant de fem første
 # linjene, ikke fra mtime (en checkout eller reset fornyer mtime uten å endre innholdet). En
 # `Skrevet:`-linje lenger ned teller som UKJENT, aldri FERSK.
 
+LOOP_PROJECT_DIR="${LOOP_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 DIR="$LOOP_PROJECT_DIR/tasks/.loop-state"
 LOG="$DIR/precompact.log"
 
@@ -23,10 +30,13 @@ fi
 
 input="$(cat)"
 
-agent_id="$(printf '%s' "$input" | jq -r '.agent_id // empty')"
+agent_id="$(printf '%s' "$input" | jq -r '.agentId // .agent_id // empty' 2>/dev/null)"
 [ -n "$agent_id" ] && exit 0
 
-sid="$(printf '%s' "$input" | jq -r '.session_id // empty')"
+trigger="$(printf '%s' "$input" | jq -r '.trigger // empty' 2>/dev/null)"
+[ "$trigger" = "auto" ] || exit 0
+
+sid="$(printf '%s' "$input" | jq -r '.sessionId // empty' 2>/dev/null)"
 len=${#sid}
 if [ "$len" -lt 8 ] || [ "$len" -gt 64 ]; then
   exit 0
@@ -37,8 +47,6 @@ esac
 
 f="$DIR/checkpoint-$sid.md"
 [ -f "$f" ] || exit 0
-
-trigger="$(printf '%s' "$input" | jq -r '.trigger // empty')"
 
 epoch="$(sed -n '1,5s/^Skrevet:.*epoch=\([0-9]\{1,\}\).*/\1/p' "$f" | head -1)"
 now="$(date -u +%s)"

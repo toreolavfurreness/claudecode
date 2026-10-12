@@ -3,9 +3,10 @@
 # {{PROJECT_NAME}} — Loop- og kunnskapsregler
 
 > **Hvem eier denne fila:** kit-et. Den genereres av `/setup` fra
-> `v3-agent-orchestrator/templates/docs/loop-rules.md` og importeres av prosjektets
-> `AGENTS.md` med `@docs/loop-rules.md`. Prosjektspesifikke regler hører hjemme i
-> `AGENTS.md` — ikke her. Operatør-guide for selve loopen: `docs/orchestration-loop.md`.
+> `v3-copilot-agent-orchestrator/templates/docs/loop-rules.md`, og prosjektets `AGENTS.md` lenker hit.
+> Lenken lastes ikke automatisk — hver sesjon og hver loop-worker leser fila selv (workerne i
+> sitt Steg 0). Prosjektspesifikke regler hører hjemme i `AGENTS.md` — ikke her. Operatør-guide
+> for selve loopen: `docs/orchestration-loop.md`.
 
 ## Miljø-bekreftelse (Tier 1)
 
@@ -25,7 +26,7 @@
 
 ## Oppstart av hver sesjon
 
-1. Les `AGENTS.md` (og denne fila, som den importerer).
+1. Les `AGENTS.md` (lastes som egendefinerte instrukser) og denne fila, som den lenker til.
 2. Les `tasks/lessons.md` — KUN katalogen (tema-scope + lese- og skriveprotokoll). Lessons ligger én
    per fil i `tasks/lessons/<tema>/` og lastes ved behov, etter leseprotokollen.
 3. Les køen: `tasks/todos/todo-*.md` (én fil per todo — status i frontmatter).
@@ -111,22 +112,22 @@ peker. `scope` er `project`. `kilder` er `TODO-NN` / `BUG-NNN` (tom liste tillat
 - Etter at noe er skrevet: vurder om det også bør inn i `AGENTS.md` som en generell regel.
 
 Kommer du fra temafiler (`tasks/lessons/<tema>.md` med `## <dato> — <tittel>`-blokker): kjør
-`python3 v3-agent-orchestrator/scripts/split-lessons.py` én gang (se `MIGRATION.md`).
+`python3 v3-copilot-agent-orchestrator/scripts/split-lessons.py` én gang (se `MIGRATION.md`).
 
 ## Tre kunnskapsbaser
 
 Tre kunnskapsbaser lever side om side, med ulike roller:
 
-- **Auto-minne / MEMORY.md** (Claude Codes brukerminne) — atferds- og prosessregler og
-  samarbeidspreferanser fra mennesket.
+- **Brukerens egne instrukser** (personlige Copilot-instrukser utenfor repoet) — atferds- og
+  prosessregler og samarbeidspreferanser fra mennesket.
 - **`tasks/lessons.md` + `tasks/lessons/`** — teknisk prosjektkunnskap og fallgruver. **Varig.**
-- **`tasks/agent-memory/<agent>/MEMORY.md`** (Claude Codes `memory: project`-frontmatter —
-  injiseres ved agent-oppstart, sjekkes inn i git) — rolle-spesifikk arbeidsmetode for én subagent.
-  Påslått for: {{AGENT_MEMORY_ROLES}}. **Forbruksvare.**
+- **`tasks/agent-memory/<agent>/MEMORY.md`** (vanlig fil, sjekkes inn i git — agenten leser den i sitt
+  Steg 0 og foreslår endringer som `memory_candidates` i rapporten; koordinatoren er eneste skriver) —
+  rolle-spesifikk arbeidsmetode for én subagent. Påslått for: {{AGENT_MEMORY_ROLES}}. **Forbruksvare.**
 
-**Brukerminne vs. de to andre:** _«Er dette knyttet til prosjektkode/data, eller til min måte å
-samarbeide med Claude?»_ Prosjektkode/data → en lesson i riktig tema-mappe under `tasks/lessons/`.
-Samarbeidspreferanse → brukerminnet.
+**Brukerinstrukser vs. de to andre:** _«Er dette knyttet til prosjektkode/data, eller til min måte å
+samarbeide med agenten?»_ Prosjektkode/data → en lesson i riktig tema-mappe under `tasks/lessons/`.
+Samarbeidspreferanse → brukerens egne instrukser.
 
 **Grensen mellom `tasks/lessons/` og agent-minne kan IKKE avgjøres med samme tommelfingerregel.**
 En prosjektregel er som regel også en sjekk en agent kjører selv — «er dette sant om prosjektet,
@@ -156,8 +157,9 @@ skjer aldri.
 
 - **Ingen-kopi-regelen (ufravikelig).** En linje i en agent-`MEMORY.md` som gjengir _substansen_ i en
   lesson er en **defekt** og skal erstattes av en peker. Når en lesson rettes, finnes det da ingen
-  kopi som kan bli stående utdatert. Normen alene holder ikke — før en ny minnelinje skrives, kjøres
-  `grep -rn "<nøkkelord>" tasks/lessons/` (se charterets § Rollehukommelse).
+  kopi som kan bli stående utdatert. Normen alene holder ikke — før en ny minnelinje foreslås, kjøres
+  `grep -rn "<nøkkelord>" tasks/lessons/` (se charterets § Rollehukommelse), og koordinatoren skriver
+  ikke et forslag uten grep-resultatet ved siden av.
 - **Akseptansetesten.** _Å slette `tasks/agent-memory/` helt skal aldri miste prosjektkunnskap._
   Ville slettingen mistet noe prosjektet trenger, hørte det innholdet hjemme i lessons.
 
@@ -183,25 +185,36 @@ Kontrakten for form, hardt linjetak og kurering av agent-minnet står i vedkomme
 
 ## Vakter (hooks)
 
-Registrert i `.github/hooks/loop-guards.json` av `/setup` (kun det `hooks:` i loop.config.yaml slår på).
-En hook-endring krever **fersk sesjon** før den gjelder — hook-konfig lastes ved sesjonsstart.
+Registrert i `.github/hooks/loop-guards.json`, som `/setup` genererer (kit-eid, overskrives; kun det
+`hooks:` i loop.config.yaml slår på). Prosjektets egne hooks ligger i andre `.json`-filer i
+`.github/hooks/`. En hook-endring krever **fersk sesjon** før den gjelder — hook-konfig lastes ved
+sesjonsstart.
 
 | Hook | Hendelse | Håndhever |
 |---|---|---|
-| `guard-main-merge.sh` | PreToolUse (Bash) | Push, PR og merge mot `{{PROD_BRANCH}}` blokkeres; mennesket kjører det selv i terminal |
-| `guard-reviewer-readonly.sh` | PreToolUse (alle) | Read-only-rollene i `.github/hooks/scripts/reviewer-readonly.contract` kan faktisk ikke skrive |
-| `session-start-lint.sh` | SessionStart | Myk typecheck/lint-status (blokkerer aldri) |
-| `typecheck-on-edit.sh` | PostToolUse (Edit/Write) | Typesjekk etter endring av kildefiler |
+| `guard-main-merge.sh` | preToolUse (`bash`) | Push, PR og merge mot `{{PROD_BRANCH}}` blokkeres; mennesket kjører det selv i terminal |
+| `guard-fix-round-model.sh` | preToolUse (`task`) | Implementer-dispatch bærer eksplisitt `model`; dyp modell fra fix-runde 3 |
+| `session-start-lint.sh` | sessionStart | Myk typecheck/lint-status (blokkerer aldri) |
+| `typecheck-on-edit.sh` | postToolUse (`edit`/`create`) | Typesjekk etter endring av kildefiler |
+| `precompact-checkpoint.sh` | preCompact | Logger sjekkpunktets ferskhet før komprimering (kun varsel) |
 
-Hver vakt har en testharness ved siden av seg (`test-guard-*.sh`). Endrer du en vakt: kjør
-harnessen, og behandle endringen som `hook_selfmod` (se `docs/loop/report-schema.md`).
+**Read-only-rollene** (reviewer, code-reviewer, scout, tech-review-agentene) håndheves uten hook, fordi
+en `preToolUse`-payload ikke sier hvilken agent som kaller: (1) de har ikke `edit` i `tools:`, og
+Copilot gir en agent bare verktøyene som står der; (2) etter hver read-only-dispatch kjører
+koordinatoren `bash scripts/readonly-check.sh <WORKTREE> <base-sha>`, som feiler hvis worktreen har
+endrede/nye filer eller HEAD har flyttet seg — rapporten forkastes da (nivå A).
+
+Hver vakt har en testharness ved siden av seg (`test-guard-*.sh`, `scripts/test-readonly-check.sh`).
+Endrer du en vakt: kjør harnessen, og behandle endringen som `hook_selfmod` (se
+`docs/loop/report-schema.md`).
 
 ## Kit-regelen
 
 En PR som endrer en kitfil (en loop-fil som også finnes i kit-repoet), har en egen `Kit:`-linje i
 PR-teksten. En direktecommit uten PR har linja i commit-meldingen.
 
-- `Kit: claudecode#NN` navngir kit-PR-en.
+- `Kit: <kit-repo>#NN` navngir kit-PR-en (kit-repoet er standardverdien for `--kit-repo` i
+  `scripts/kit-release-check.py`).
 - `Kit: ingen endring – <begrunnelse>` sier at kitet ikke trenger endringen.
 - `Kit: porteres …` sier at porten lages etter merge. Den godtas i kode-review, men er et brudd i
   releasevakten til linja er byttet til en av de to første.

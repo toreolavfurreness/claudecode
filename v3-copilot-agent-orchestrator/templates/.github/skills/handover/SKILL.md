@@ -1,5 +1,7 @@
 ---
+name: handover
 description: "Koordinator: overlevering til neste sesjon — målt tilstand, faste artefakter republisert, overleveringsfil + PR, startprompt."
+disable-model-invocation: true
 ---
 
 # /handover — overlevering mellom koordinator-sesjoner
@@ -24,8 +26,8 @@ Exit 1 betyr at en måling feilet (`FEIL:`-linje). Ta linja med i overleveringen
 
 Les `docs/loop/artifacts.md`. For hver rad: kjør generatoren fra et tre på `origin/{{BASE_BRANCH}}` (ucommittede filer i
 samme tre kommer med på siden — greit hvis de skal med i PR-en i steg 4), kjør vakt-kommandoen,
-og publiser med `url` (les først hvis sesjonen ikke har lest eller publisert siden). Noter versjonsnummeret fra
-publiseringen. En feilet publisering skrives i overleveringen.
+og republiser til samme `url` (les den publiserte versjonen først hvis sesjonen ikke har lest eller publisert siden).
+Noter versjonsnummeret fra publiseringen. En feilet publisering skrives i overleveringen.
 
 ## 3. Overleveringsfila
 
@@ -54,7 +56,7 @@ Skriv ut i en `text`-blokk, klar til å limes inn:
 ```text
 Du er KOORDINATOR for <prosjekt>-loopen. Les docs/loop/<overleveringsfil> på origin/{{BASE_BRANCH}} først.
 <Loop-tilstand: «Loopen er stoppet etter eierens ordre. Ikke kjør /run-loop og ikke claim todoer før eieren sier det.» eller «Fortsett med /run-loop.»>
-Ta over de faste artefaktene (docs/loop/artifacts.md). Kjør Artifact action:"read" på hver URL først. Republiser alltid med url, aldri som ny side:
+Ta over de faste artefaktene (docs/loop/artifacts.md). Les den publiserte versjonen av hver URL først. Republiser alltid til samme url, aldri som ny side:
 - <navn>: <url> (v<N>)
 ...
 Første oppgaver:

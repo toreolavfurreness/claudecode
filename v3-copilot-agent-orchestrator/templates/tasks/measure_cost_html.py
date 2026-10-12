@@ -1,15 +1,18 @@
 """HTML-målesiden for loopen (kalles av tasks/measure-cost.py --html <sti>).
 
-Kilder: subagent-radene fra measure-cost.py, koordinatorens egne kall (sesjonens hoved-jsonl) og
-docs/loop/run-log.md (Gate F-returer, review-runder, utfall). Siden er avledet — rediger
-aldri HTML-en for hånd; den committes ikke (kun scratchpad), og publiseres på fast artifact-lenke.
+Kilder: todo-radene fra measure-cost.py (`credits=` i run-loggen / `--credits` fra `/usage`),
+`assistant.usage`-hendelsene fra øktenes events.jsonl (når de finnes) og docs/loop/run-log.md
+(Gate F-returer, review-runder, utfall). Enheten er AI credits. Et tall uten kilde vises som
+`IKKE MÅLT`, aldri som 0. Siden er avledet — rediger aldri HTML-en for hånd; den committes ikke
+(kun scratchpad), og publiseres på fast lenke.
 """
-import html, json, os, re
+import html, os, re
 from collections import defaultdict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 OSLO = ZoneInfo('Europe/Oslo')
+NOT_MEASURED = 'IKKE MÅLT'
 ROLES = [  # (nøkkel, visningsnavn, CSS-variabel)
     ('koordinator', 'Koordinator', '--c-koord'),
     ('planner', 'Planner', '--c-plan'),
@@ -18,6 +21,7 @@ ROLES = [  # (nøkkel, visningsnavn, CSS-variabel)
     ('kodereview', 'Kode-review + linser', '--c-review'),
     ('scout', 'Scout', '--c-scout'),
     ('annet', 'Annet', '--c-annet'),
+    ('todo', 'Todo (run-log, ikke fordelt på rolle)', '--c-annet'),
 ]
 ROLE_OF = {
     '{{PROJECT_NAME}}-planner': 'planner', '{{PROJECT_NAME}}-reviewer': 'planreview',
@@ -29,47 +33,37 @@ ROLE_OF = {
 
 
 def role(t):
+    """Agentnavnet i en `assistant.usage`-hendelse → rolle. Uten agentnavn er kallet koordinatorens."""
+    if not t:
+        return 'koordinator'
+    if t == 'todo':
+        return 'todo'
     return ROLE_OF.get(t, 'annet')
 
 
 def local(ts):
     d = datetime.fromisoformat(ts.replace('Z', '+00:00'))
-    if d.tzinfo is None:  # tidsstempler uten sone (f.eks. --cutover) er UTC, som transkriptene
+    if d.tzinfo is None:  # tidsstempler uten sone (f.eks. --cutover) er UTC, som øktloggene
         d = d.replace(tzinfo=ZoneInfo('UTC'))
     return d.astimezone(OSLO)
 
 
 def model_short(m):
-    m = m or ''
-    for k, v in (('opus-5-5', 'Opus 5.5'), ('opus', 'Opus'), ('sonnet', 'Sonnet'), ('haiku', 'Haiku'), ('fable', 'Fable')):
-        if k in m:
-            return v
-    return m or '?'
+    """Modellnavnet slik det står i hendelsen, kortet ned for tabellen."""
+    m = m or '?'
+    return m if len(m) <= 28 else m[:27] + '…'
 
 
-def coordinator_calls(dirs, since, usd):
-    """Én rad per unikt hovedsløyfe-kall: (ts, usd, kontekst-tokens, modell, effort, output-tokens)."""
-    out = []
-    for d in dirs:
-        f = d.rstrip('/') + '.jsonl'
-        if not os.path.exists(f):
-            continue
-        seen = {}
-        for line in open(f, encoding='utf-8', errors='replace'):
-            try:
-                e = json.loads(line)
-            except Exception:
-                continue
-            msg = e.get('message') or {}
-            u = msg.get('usage') if isinstance(msg, dict) else None
-            ts = e.get('timestamp')
-            if not u or not ts or ts < since or e.get('isSidechain'):
-                continue
-            seen[msg.get('id') or id(e)] = (ts, u, msg.get('model', '?'), e.get('effort') or '?')
-        for ts, u, m, ef in seen.values():
-            ctx = (u.get('input_tokens') or 0) + (u.get('cache_creation_input_tokens') or 0) + (u.get('cache_read_input_tokens') or 0)
-            out.append((ts, usd(u, m), ctx, m, ef, u.get('output_tokens') or 0))
-    return out
+def coordinator_calls(events):
+    """Én rad per koordinatorkall (hendelse uten agentnavn): (ts, credits|None, kontekst, modell, effort, output)."""
+    return [(u['ts'], u['credits'], u['ctx'], u['model'], u.get('effort') or '?', u['out'])
+            for u in events if not u.get('agent') and u.get('ts')]
+
+
+def cr_sum(vals):
+    """Summen av målte credits, None når ingen verdi er målt (aldri 0 for «ingen data»)."""
+    vals = [v for v in vals if v is not None]
+    return sum(vals) if vals else None
 
 
 def run_log(path):
@@ -93,7 +87,10 @@ def esc(s):
 
 
 def money(x):
-    return f'${x:,.0f}' if x >= 100 else f'${x:,.2f}'
+    """AI credits for visning. None → IKKE MÅLT."""
+    if x is None:
+        return NOT_MEASURED
+    return f'{x:,.0f} cr' if x >= 100 else f'{x:,.2f} cr'
 
 
 # Tiltak uten egen decision-log-rad: (tidspunkt, tittel, tekst, kilde). Tom som standard.
@@ -104,6 +101,10 @@ MEASURE_ROW = re.compile(
     r'^### (\d{4}-\d\d-\d\d) (\d\d:\d\d) — (§8c \[B\]|\[kostnadsgrep\]|\[modellbytte\]|\[tiltak\]|§6c[^:]*\[B\]):\s*(.+)$')
 
 
+def _loop_doc(here, name):
+    return os.path.join(here, '..', 'docs', 'loop', name)
+
+
 def milestones(here):
     """Tiltakene, lest fra decision-log — ÉN kilde for både grafmarkørene og tiltakslista.
 
@@ -111,7 +112,7 @@ def milestones(here):
     innført uten at noen husket å oppdatere grafen, og markøren ville da pekt på et
     tidspunkt uten hendelse mens den ekte hendelsen var usynlig.
     """
-    path = os.path.join(here, '..', 'docs', 'superpowers', 'loop', 'decision-log.md')
+    path = _loop_doc(here, 'decision-log.md')
     out = [(f'{d}', t, desc, src) for d, t, desc, src in EXTRA_MILESTONES]
     if os.path.exists(path):
         lines = open(path, encoding='utf-8').read().splitlines()
@@ -304,12 +305,37 @@ def tiltak_section(ms):
     return '\n'.join(h)
 
 
+def _per_todo(rows):
+    per = defaultdict(lambda: {'credits': 0.0, 'last': ''})
+    for r in rows:
+        if r['todo'] == '-':
+            continue
+        p = per[r['todo']]
+        p['credits'] += r['credits']
+        p['last'] = max(p['last'], r.get('t1') or r['t0'])
+    return per
+
+
+def _days(rows, events):
+    """Credits per lokal dag og rolle. Hendelsene når de har credits, ellers todo-radene.
+    Aldri begge: `credits=` i run-loggen er hentet fra `/usage` for de samme kallene."""
+    days = defaultdict(lambda: defaultdict(float))
+    ev = [u for u in events if u['credits'] is not None and u.get('ts')]
+    if ev:
+        for u in ev:
+            days[local(u['ts']).strftime('%Y-%m-%d')][role(u.get('agent'))] += u['credits']
+        return days, 'assistant.usage'
+    for r in rows:
+        days[local(r['t0']).strftime('%Y-%m-%d')]['todo'] += r['credits']
+    return days, 'run-log'
+
+
 def trend_section(per, rl, days, day_keys, since, ms_pts):
     """Fire tidsserier. Alle fire er «lavere er bedre».
 
     ALLE seriene filtreres på `since`. Uten det filteret arvet runde- og Gate F-seriene
     hele run-loggens historikk (105 punkter) mens kostnadsserien var begrenset til
-    perioden med agentdata (27) — to kurver ved siden av hverandre som dekker ulike
+    perioden med kostnadsdata (27) — to kurver ved siden av hverandre som dekker ulike
     tidsrom, uten at noe i bildet sier fra.
     """
     merged = sorted(
@@ -317,8 +343,8 @@ def trend_section(per, rl, days, day_keys, since, ms_pts):
          if info.get('outcome') == 'merged' and info.get('ts') and info['ts'] >= since),
         key=lambda x: x[0])
 
-    cost = [(ts, per[nr]['usd'], f'TODO {nr}') for ts, nr, _ in merged
-            if nr in per and per[nr]['usd'] > 0]
+    cost = [(ts, per[nr]['credits'], f'TODO {nr}') for ts, nr, _ in merged
+            if nr in per and per[nr]['credits'] > 0]
     rounds = []
     gatef = []
     for ts, nr, info in merged:
@@ -330,8 +356,9 @@ def trend_section(per, rl, days, day_keys, since, ms_pts):
     daily = [(f'{d}T12:00', sum(days[d].values()), d[5:]) for d in day_keys]
 
     cards = [
-        ('cost', 'Kostnad per levert todo', 'Agentkostnad per merget todo, i mergerekkefølge. '
-         'Koordinatorkostnaden er ikke fordelt per todo.', cost, lambda v: f'${v:,.0f}'),
+        ('cost', 'Kostnad per levert todo', 'AI credits per merget todo (`credits=` i run-loggen), i '
+         'mergerekkefølge. En todo uten `credits=` er IKKE MÅLT og står ikke i kurven.', cost,
+         lambda v: f'{v:,.1f} cr'),
         ('rounds', 'Kode-review-runder per levert todo', 'Hvor mange runder koden måtte gjennom før merge. '
          'Færre runder betyr at planen og implementasjonen traff bedre første gang.',
          rounds, lambda v: f'{v:.0f}'),
@@ -341,7 +368,7 @@ def trend_section(per, rl, days, day_keys, since, ms_pts):
         ('daily', 'Kostnad per dag', 'Kontekst, ikke måltall: r = 0,96 mot antall agentkjøringer per dag, '
          'så den måler hvor mye vi jobbet — ikke hvor effektivt. Den utløser derfor ingen '
          '§8c-plikt. Les den sammen med de tre over, aldri alene.',
-         daily, lambda v: f'${v:,.0f}'),
+         daily, lambda v: f'{v:,.1f} cr'),
     ]
     n_ms = len(ms_pts)
     ms_txt = ('uten tiltaksmarkører i dette vinduet' if not n_ms else
@@ -367,28 +394,21 @@ def normalize(rows, rl):
     """
     if rows and rows[0].get('_normalized'):
         return
-    # PR-nummer (fra «Kode-review PR 12»-beskrivelser) → todo via run-log; «12A» → «12» når
-    # delleveransen ikke har egen run-log-rad men hovedtodoen har aktivitet.
+    # PR-nummer → todo via run-log; «12A» → «12» når delleveransen ikke har egen run-log-rad
+    # men hovedtodoen har aktivitet.
     pr_to_todo = {v['pr']: k for k, v in rl.items() if v.get('pr')}
     keys = {r['todo'] for r in rows}
     for r in rows:
-        r['role'] = role(r['type'])
+        r['role'] = role(r.get('type'))
         t = pr_to_todo.get(r['todo'], r['todo'])
         if re.fullmatch(r'\d+[A-Z]', t) and t not in rl and t[:-1] in keys:
             t = t[:-1]
         r['todo'] = t
-    # Linse-agenter beskrives ofte med PR-nummeret («Race review PR 12»). Er PR-en ikke i run-log
-    # ennå, arver de forelderens todo (kode-revieweren navngir todoen).
-    by_id = {r['agent']: r for r in rows}
-    for r in rows:
-        p = by_id.get(r['parent'])
-        if p and re.fullmatch(r'\d{3,4}', r['todo']) and int(r['todo']) >= 500 and p['todo'] != r['todo']:
-            r['todo'] = p['todo']
     for r in rows:
         r['_normalized'] = True
 
 
-def trend_report(rows, dirs, since, usd):
+def trend_report(rows, events, since):
     """Tekstversjonen av trend-seksjonen, for §8c. Exit 1 hvis noe går feil vei.
 
     Deler datauttrekk og dom med `trend_section` — en §8c-kjøring som sier «uendret»
@@ -396,25 +416,17 @@ def trend_report(rows, dirs, since, usd):
     som kan være grønn mens virkeligheten er rød.
     """
     here = os.path.dirname(os.path.abspath(__file__))
-    rl = run_log(os.path.join(here, '..', 'docs', 'superpowers', 'loop', 'run-log.md'))
-    coord = coordinator_calls(dirs, since, usd)
+    rl = run_log(_loop_doc(here, 'run-log.md'))
     normalize(rows, rl)
-    per = defaultdict(lambda: {'usd': 0.0})
-    for r in rows:
-        if r['todo'] != '-':
-            per[r['todo']]['usd'] += r['usd']
-    days = defaultdict(lambda: defaultdict(float))
-    for r in rows:
-        days[local(r['t0']).strftime('%Y-%m-%d')][r['role']] += r['usd']
-    for ts, u, *_ in coord:
-        days[local(ts).strftime('%Y-%m-%d')]['koordinator'] += u
+    per = _per_todo(rows)
+    days, _ = _days(rows, events)
 
     merged = sorted(((i['ts'], nr, i) for nr, i in rl.items()
                      if i.get('outcome') == 'merged' and i.get('ts') and i['ts'] >= since),
                     key=lambda x: x[0])
     series = {
-        SERIES['cost']: [per[nr]['usd'] for _, nr, _ in merged
-                         if nr in per and per[nr]['usd'] > 0],
+        SERIES['cost']: [per[nr]['credits'] for _, nr, _ in merged
+                         if nr in per and per[nr]['credits'] > 0],
         SERIES['rounds']: [v for _, _, i in merged
                            if (v := _num(i.get('review_rounds'))) is not None],
         SERIES['gatef']: [float(i['gate_f']) for _, _, i in merged
@@ -422,7 +434,11 @@ def trend_report(rows, dirs, since, usd):
         SERIES['daily']: [sum(days[d].values()) for d in sorted(days)],
     }
     worse = []
-    print(f'Trend siden {since} — alle målinger: lavere er bedre.\n')
+    print(f'Trend siden {since} — alle målinger: lavere er bedre. Kostnad i AI credits.\n')
+    n_merged = len(merged)
+    n_cost = len(series[SERIES['cost']])
+    if n_merged and n_cost < n_merged:
+        print(f'  {NOT_MEASURED}: {n_merged - n_cost} av {n_merged} mergede todoer mangler `credits=` i run-loggen\n')
     for (name, is_gate), vals in series.items():
         v = _verdict(vals)
         if not v:
@@ -443,79 +459,70 @@ def trend_report(rows, dirs, since, usd):
     return 0
 
 
-def render(path, rows, dirs, since, cutover, usd):
+def render(path, rows, events, since, cutover):
     here = os.path.dirname(os.path.abspath(__file__))
-    rl = run_log(os.path.join(here, '..', 'docs', 'superpowers', 'loop', 'run-log.md'))
-    coord = coordinator_calls(dirs, since, usd)
+    rl = run_log(_loop_doc(here, 'run-log.md'))
+    coord = coordinator_calls(events)
     ms = milestones(here)
 
     normalize(rows, rl)
+    per = _per_todo(rows)
 
     # ---- Totaler ----
-    tot_agents = sum(r['usd'] for r in rows)
-    tot_coord = sum(c[1] for c in coord)
-    total = tot_agents + tot_coord
-    todo_nrs = {r['todo'] for r in rows if r['todo'] != '-'}
+    total = cr_sum(u['credits'] for u in events)
+    tot_coord = cr_sum(c[1] for c in coord)
+    in_window = {nr for nr, i in rl.items() if i.get('ts') and i['ts'] >= since}
+    todo_nrs = set(per) | in_window
     merged = [n for n in todo_nrs if rl.get(n, {}).get('outcome') == 'merged']
+    merged_cr = [per[n]['credits'] for n in merged if n in per]
 
     # ---- Per dag, stablet per rolle ----
-    days = defaultdict(lambda: defaultdict(float))
-    for r in rows:
-        days[local(r['t0']).strftime('%Y-%m-%d')][r['role']] += r['usd']
-    for ts, u, *_ in coord:
-        days[local(ts).strftime('%Y-%m-%d')]['koordinator'] += u
+    days, day_src = _days(rows, events)
     day_keys = sorted(days)
     day_max = max((sum(days[d].values()) for d in day_keys), default=1) or 1
 
-    # ---- Per rolle/modell ----
-    rm = defaultdict(lambda: {'n': 0, 'usd': 0.0, 'out': 0})
-    for r in rows:
-        k = (r['role'], model_short(r['model']))
-        rm[k]['n'] += 1; rm[k]['usd'] += r['usd']; rm[k]['out'] += r['out']
-    for _, u, _, m, *_ in coord:
-        k = ('koordinator', model_short(m))
-        rm[k]['usd'] += u
-    coord_calls_n = len(coord)
-    rm_max = max((v['usd'] for v in rm.values()), default=1) or 1
+    # ---- Per rolle/modell (bare hendelser) ----
+    rm = defaultdict(lambda: {'n': 0, 'credits': None, 'out': 0})
+    for u in events:
+        k = (role(u.get('agent')), model_short(u['model']))
+        rm[k]['n'] += 1; rm[k]['out'] += u['out']
+        if u['credits'] is not None:
+            rm[k]['credits'] = (rm[k]['credits'] or 0.0) + u['credits']
+    rm_max = max((v['credits'] or 0 for v in rm.values()), default=1) or 1
 
     # ---- Før/etter kostnadsgrepene ----
-    def split(pred_rows):
-        b = [r for r in pred_rows if r['t0'] < cutover]
-        a = [r for r in pred_rows if r['t0'] >= cutover]
-        return b, a
+    def split(items, ts=lambda x: x['ts']):
+        return [x for x in items if ts(x) < cutover], [x for x in items if ts(x) >= cutover]
 
-    def per_run(rs):
-        return (sum(r['usd'] for r in rs) / len(rs)) if rs else None
+    def per_call(us):
+        vals = [u['credits'] for u in us if u['credits'] is not None]
+        return (sum(vals) / len(vals)) if vals else None
 
     metrics = []
-    for key, label in (('planner', 'Planner, $ per kjøring'), ('implementer', 'Implementer, $ per kjøring'),
-                       ('planreview', 'Plan-review, $ per kjøring')):
-        b, a = split([r for r in rows if r['role'] == key])
-        metrics.append((label, per_run(b), per_run(a), len(b), len(a), 'money', 'lower'))
-    b_cr, a_cr = split([r for r in rows if r['type'] == '{{PROJECT_NAME}}-code-reviewer'])
-    lens_b, lens_a = split([r for r in rows if r['role'] == 'kodereview'])
-    metrics.append(('Kode-review inkl. linser, $ per runde',
-                    (sum(r['usd'] for r in lens_b) / len(b_cr)) if b_cr else None,
-                    (sum(r['usd'] for r in lens_a) / len(a_cr)) if a_cr else None,
-                    len(b_cr), len(a_cr), 'money', 'lower'))
-    sb, sa = split([r for r in rows if r['role'] == 'scout'])
-    wb, wa = split([r for r in rows if r['role'] in ('planner', 'implementer')])
-    metrics.append(('Scout-kall per planner/implementer-kjøring',
+    todo_t = sorted((rl[n]['ts'], per[n]['credits']) for n in merged if n in per and rl[n].get('ts'))
+    tb = [c for t, c in todo_t if t < cutover]; ta = [c for t, c in todo_t if t >= cutover]
+    metrics.append(('Credits per levert todo (run-log)', sum(tb) / len(tb) if tb else None,
+                    sum(ta) / len(ta) if ta else None, len(tb), len(ta), 'money', 'lower'))
+    for key, label in (('planner', 'Planner, credits per kall'), ('implementer', 'Implementer, credits per kall'),
+                       ('planreview', 'Plan-review, credits per kall'),
+                       ('kodereview', 'Kode-review inkl. linser, credits per kall')):
+        b, a = split([u for u in events if role(u.get('agent')) == key])
+        metrics.append((label, per_call(b), per_call(a), len(b), len(a), 'money', 'lower'))
+    sb, sa = split([u for u in events if role(u.get('agent')) == 'scout'])
+    wb, wa = split([u for u in events if role(u.get('agent')) in ('planner', 'implementer')])
+    metrics.append(('Scout-kall per planner/implementer-kall',
                     len(sb) / len(wb) if wb else None, len(sa) / len(wa) if wa else None,
                     len(wb), len(wa), 'num', 'higher'))
     cb = [c for c in coord if c[0] < cutover]; ca = [c for c in coord if c[0] >= cutover]
     metrics.append(('Koordinator, snittkontekst per kall',
                     (sum(c[2] for c in cb) / len(cb)) if cb else None,
                     (sum(c[2] for c in ca) / len(ca)) if ca else None, len(cb), len(ca), 'ktok', 'lower'))
-    metrics.append(('Koordinator, $ per kall',
-                    (sum(c[1] for c in cb) / len(cb)) if cb else None,
-                    (sum(c[1] for c in ca) / len(ca)) if ca else None, len(cb), len(ca), 'money', 'lower'))
-    impl_start = {}
-    for r in rows:
-        if r['role'] == 'implementer' and r['todo'] != '-':
-            impl_start[r['todo']] = min(impl_start.get(r['todo'], r['t0']), r['t0'])
-    gf_b = [rl[n]['gate_f'] for n, t in impl_start.items() if t < cutover and rl.get(n, {}).get('gate_f') is not None]
-    gf_a = [rl[n]['gate_f'] for n, t in impl_start.items() if t >= cutover and rl.get(n, {}).get('gate_f') is not None]
+    cbm = [c[1] for c in cb if c[1] is not None]; cam = [c[1] for c in ca if c[1] is not None]
+    metrics.append(('Koordinator, credits per kall',
+                    (sum(cbm) / len(cbm)) if cbm else None,
+                    (sum(cam) / len(cam)) if cam else None, len(cbm), len(cam), 'money', 'lower'))
+    gf_b = [rl[n]['gate_f'] for n in merged if rl[n].get('ts', '') < cutover and rl[n].get('gate_f') is not None]
+    gf_a = [rl[n]['gate_f'] for n in merged if rl[n].get('ts', '') >= cutover and rl[n].get('gate_f') is not None]
     metrics.append(('Gate F-returer per levert todo', sum(gf_b) / len(gf_b) if gf_b else None,
                     sum(gf_a) / len(gf_a) if gf_a else None, len(gf_b), len(gf_a), 'num', 'lower'))
 
@@ -537,21 +544,9 @@ def render(path, rows, dirs, since, cutover, usd):
         return f'<span class="chip {cls}">{pct:+.0f} %</span>'
 
     # ---- Per todo ----
-    per = defaultdict(lambda: {'plan': 0.0, 'impl': 0.0, 'rev': 0.0, 'scout': 0, 'usd': 0.0, 'last': ''})
-    for r in rows:
-        if r['todo'] == '-':
-            continue
-        p = per[r['todo']]
-        p['usd'] += r['usd']; p['last'] = max(p['last'], r['t1'] or r['t0'])
-        if r['role'] in ('planner', 'planreview'):
-            p['plan'] += r['usd']
-        elif r['role'] == 'implementer':
-            p['impl'] += r['usd']
-        elif r['role'] == 'kodereview':
-            p['rev'] += r['usd']
-        elif r['role'] == 'scout':
-            p['scout'] += 1
-    todo_rows = sorted(per.items(), key=lambda x: x[1]['last'], reverse=True)[:30]
+    def last_of(nr):
+        return max(per[nr]['last'] if nr in per else '', rl.get(nr, {}).get('ts', ''))
+    todo_rows = sorted(todo_nrs, key=last_of, reverse=True)[:30]
 
     # ---- HTML ----
     now = datetime.now(OSLO).strftime('%Y-%m-%d %H:%M')
@@ -563,33 +558,42 @@ def render(path, rows, dirs, since, cutover, usd):
     h.append('<header><p class="eyebrow">{{PROJECT_NAME}} · orkestreringsloopen</p><h1>Loop-målinger</h1>')
     h.append(f'<div class="meta"><span>Generert {esc(now)}</span><span>Siden {esc(since[:16])}</span>'
              f'<span>Grepene fra {esc(local(cutover).strftime("%d.%m %H:%M"))}</span>'
-             f'<span>Priser: USD per MTok, platform.claude.com 2026-09-15</span></div></header>')
+             f'<span>Enhet: AI credits (assistant.usage <code>cost</code> / <code>/usage</code>)</span></div></header>')
 
     h.append('<section class="kpis">')
     for label, val, sub in (
-        ('Total kostnad', money(total), f'{len(rows)} agentkjøringer + {coord_calls_n:,} koordinatorkall'),
-        ('Koordinator', money(tot_coord), f'{tot_coord / total * 100:.0f} % av totalen' if total else ''),
+        ('Total kostnad (økter)', money(total),
+         f'{len(events):,} kall med assistant.usage' if events else 'ingen assistant.usage i øktloggene — se per todo'),
+        ('Koordinator', money(tot_coord),
+         f'{tot_coord / total * 100:.0f} % av totalen' if total and tot_coord is not None else ''),
         ('Levert (merget)', str(len(merged)), f'av {len(todo_nrs)} todos med aktivitet'),
-        ('Per levert todo', money(total / len(merged)) if merged else '–', 'total ÷ mergede, inkl. koordinator'),
+        ('Per levert todo', money(sum(merged_cr) / len(merged_cr)) if merged_cr else NOT_MEASURED,
+         f'`credits=` i run-loggen, {len(merged_cr)} av {len(merged)} mergede har tall'),
     ):
-        h.append(f'<div class="kpi"><div class="k-label">{esc(label)}</div><div class="k-val">{val}</div><div class="k-sub">{esc(sub)}</div></div>')
+        h.append(f'<div class="kpi"><div class="k-label">{esc(label)}</div><div class="k-val">{esc(val)}</div><div class="k-sub">{esc(sub)}</div></div>')
     h.append('</section>')
 
     h.append(trend_section(per, rl, days, day_keys, since, ms_points(ms)))
     h.append(tiltak_section(ms))
     h.append('<section><h2>Virker kostnadsgrepene?</h2><p class="lede">Før og etter at grepene ble innført. '
-             'n = antall kjøringer, kall eller todos bak snittet. Grønn betyr bedring. Endring vises først når begge sider har minst 3 datapunkter.</p>')
+             'n = antall kall eller todos bak snittet. Grønn betyr bedring. Endring vises først når begge sider har minst 3 datapunkter.</p>')
     h.append('<div class="scroll"><table class="cmp"><thead><tr><th>Mål</th><th class="num">Før</th><th class="num">Etter</th><th>Endring</th><th class="num">n før / etter</th></tr></thead><tbody>')
     for label, b, a, nb, na, kind, better in metrics:
         h.append(f'<tr><td>{esc(label)}</td><td class="num">{fmtv(b, kind)}</td><td class="num">{fmtv(a, kind)}</td>'
                  f'<td>{delta(b, a, better, nb, na)}</td><td class="num muted">{nb} / {na}</td></tr>')
     h.append('</tbody></table></div></section>')
 
-    h.append(effort_section(rows, coord, rl, cutover))
-    h.append('<section><h2>Kostnad per dag</h2><div class="legend">')
+    h.append(effort_section(per, coord, rl, cutover))
+    src_txt = ('fra assistant.usage per rolle' if day_src == 'assistant.usage'
+               else 'fra `credits=` i run-loggen, ført på dagen raden ble skrevet')
+    h.append(f'<section><h2>Kostnad per dag</h2><p class="lede">AI credits {esc(src_txt)}.</p><div class="legend">')
+    used = {k for d in day_keys for k, v in days[d].items() if v > 0}
     for k, name, var in ROLES:
-        h.append(f'<span><i style="background:var({var})"></i>{esc(name)}</span>')
+        if k in used:
+            h.append(f'<span><i style="background:var({var})"></i>{esc(name)}</span>')
     h.append('</div><div class="days">')
+    if not day_keys:
+        h.append(f'<p class="muted">{NOT_MEASURED}: ingen credits i vinduet.</p>')
     for d in day_keys:
         tot = sum(days[d].values())
         segs = ''.join(
@@ -598,43 +602,47 @@ def render(path, rows, dirs, since, cutover, usd):
         h.append(f'<div class="day"><span class="d-lbl mono">{esc(d[5:])}</span><span class="bar">{segs}</span><span class="d-val num">{money(tot)}</span></div>')
     h.append('</div></section>')
 
-    h.append('<section><h2>Per rolle og modell</h2><div class="scroll"><table><thead><tr><th>Rolle</th><th>Modell</th>'
-             '<th class="num">Kjøringer</th><th class="num">$ totalt</th><th class="num">$ per kjøring</th><th class="w">Andel</th></tr></thead><tbody>')
+    h.append('<section><h2>Per rolle og modell</h2><p class="lede">Fra assistant.usage-hendelsene. '
+             'Uten hendelser er tabellen tom: <code>/usage</code> gir bare totaler per økt.</p>'
+             '<div class="scroll"><table><thead><tr><th>Rolle</th><th>Modell</th>'
+             '<th class="num">Kall</th><th class="num">Credits totalt</th><th class="num">Credits per kall</th><th class="w">Andel</th></tr></thead><tbody>')
     order = {k: i for i, (k, _, _) in enumerate(ROLES)}
     names = {k: (n, v) for k, n, v in ROLES}
-    for (rk, m), v in sorted(rm.items(), key=lambda x: (order[x[0][0]], -x[1]['usd'])):
+    for (rk, m), v in sorted(rm.items(), key=lambda x: (order[x[0][0]], -(x[1]['credits'] or 0))):
         name, var = names[rk]
-        n_txt = f'{coord_calls_n:,} kall' if rk == 'koordinator' else str(v['n'])
-        per_txt = '–' if rk == 'koordinator' or not v['n'] else money(v['usd'] / v['n'])
-        h.append(f'<tr><td><i class="dot" style="background:var({var})"></i>{esc(name)}</td><td>{esc(m)}</td><td class="num">{n_txt}</td>'
-                 f'<td class="num">{money(v["usd"])}</td><td class="num">{per_txt}</td>'
-                 f'<td class="w"><span class="hbar" style="width:{v["usd"] / rm_max * 100:.1f}%;background:var({var})"></span></td></tr>')
+        per_txt = '–' if v['credits'] is None or not v['n'] else money(v['credits'] / v['n'])
+        h.append(f'<tr><td><i class="dot" style="background:var({var})"></i>{esc(name)}</td><td>{esc(m)}</td><td class="num">{v["n"]:,}</td>'
+                 f'<td class="num">{money(v["credits"])}</td><td class="num">{per_txt}</td>'
+                 f'<td class="w"><span class="hbar" style="width:{(v["credits"] or 0) / rm_max * 100:.1f}%;background:var({var})"></span></td></tr>')
     h.append('</tbody></table></div></section>')
 
-    h.append('<section><h2>Per todo</h2><p class="lede">Siste 30 etter aktivitet. Koordinatorkostnaden fordeles ikke per todo.</p>'
-             '<div class="scroll"><table><thead><tr><th>Todo</th><th>Sist aktiv</th><th class="num">Plan</th><th class="num">Impl.</th>'
-             '<th class="num">Review</th><th class="num">Scout</th><th class="num">Totalt</th><th class="num">Gate F</th><th class="num">Review-runder</th><th>Utfall</th></tr></thead><tbody>')
-    for nr, p in todo_rows:
+    h.append('<section><h2>Per todo</h2><p class="lede">Siste 30 etter aktivitet. Credits er summen av '
+             '<code>credits=</code> i run-loggen; koordinatorens kall er med i tallet når det er hentet fra '
+             '<code>/usage</code> for todoen.</p>'
+             '<div class="scroll"><table><thead><tr><th>Todo</th><th>Sist aktiv</th>'
+             '<th class="num">Credits</th><th class="num">Gate F</th><th class="num">Review-runder</th><th>Utfall</th></tr></thead><tbody>')
+    for nr in todo_rows:
         info = rl.get(nr, {})
         oc = info.get('outcome', '')
         pill = f'<span class="pill {"ok" if oc == "merged" else "wip"}">{esc(oc or "pågår")}</span>'
         gf = info.get('gate_f')
-        h.append(f'<tr><td class="mono">{esc(nr)}</td><td class="muted">{esc(local(p["last"]).strftime("%d.%m %H:%M"))}</td>'
-                 f'<td class="num">{money(p["plan"])}</td><td class="num">{money(p["impl"])}</td><td class="num">{money(p["rev"])}</td>'
-                 f'<td class="num">{p["scout"]}</td><td class="num strong">{money(p["usd"])}</td>'
+        last = last_of(nr)
+        h.append(f'<tr><td class="mono">{esc(nr)}</td><td class="muted">{esc(local(last).strftime("%d.%m %H:%M")) if last else "–"}</td>'
+                 f'<td class="num strong">{money(per[nr]["credits"] if nr in per else None)}</td>'
                  f'<td class="num">{"–" if gf is None else gf}</td><td class="num">{esc(info.get("review_rounds", "–"))}</td><td>{pill}</td></tr>')
     h.append('</tbody></table></div></section>')
     h.append('<footer class="muted">Generert av <code>python3 tasks/measure-cost.py &lt;since&gt; --html &lt;sti&gt;</code>. '
-             'Usage dedupliseres per message.id. Agentkost føres på startdagen.</footer></main>')
+             'assistant.usage dedupliseres per id. Et tall uten kilde står som IKKE MÅLT, aldri som 0.</footer></main>')
     open(path, 'w', encoding='utf-8').write('\n'.join(h) + '\n')
 
 
-def effort_section(rows, coord, rl, cutover):
-    """Koordinator-effort: medium → high (13.09) og high før/etter kostnadsgrepene (15.09).
+def effort_section(per, coord, rl, cutover):
+    """Koordinator-effort: medium → high og high før/etter kostnadsgrepene.
 
-    Periodene avgrenses av når effort-verdien i transkriptet skifter, ikke av en hardkodet dato.
-    Todos tilordnes perioden implementeren startet i. Sammenligningen er ikke kontrollert: andre
-    endringer (V-blokk-krav, kostnadsgrep) skjedde samtidig, og utvalgene er små.
+    Periodene avgrenses av når effort-verdien (`reasoningEffort` i assistant.usage) skifter, ikke av
+    en hardkodet dato. Todos tilordnes perioden merge-raden i run-loggen ble skrevet i. Sammenligningen
+    er ikke kontrollert: andre endringer (V-blokk-krav, kostnadsgrep) skjedde samtidig, og utvalgene er
+    små. Uten effort i hendelsene vises ikke seksjonen.
     """
     mediums = sorted(c[0] for c in coord if c[4] == 'medium')
     if not mediums:
@@ -648,42 +656,35 @@ def effort_section(rows, coord, rl, cutover):
     def inside(ts, a, b):
         return (a is None or ts >= a) and (b is None or ts < b)
 
-    impl_start = {}
-    for r in rows:
-        if r['role'] == 'implementer' and r['todo'] != '-':
-            impl_start[r['todo']] = min(impl_start.get(r['todo'], r['t0']), r['t0'])
-    agent_usd = defaultdict(float)
-    for r in rows:
-        agent_usd[r['todo']] += r['usd']
-
     cols = []
     for name, a, b in periods:
         cs = [c for c in coord if inside(c[0], a, b)]
         hours = len({local(c[0]).strftime('%Y-%m-%d %H') for c in cs})
-        todos = [n for n, t in impl_start.items() if inside(t, a, b) and rl.get(n, {}).get('outcome') == 'merged']
+        todos = [n for n, i in rl.items() if i.get('outcome') == 'merged' and i.get('ts') and inside(i['ts'], a, b)]
         gf = [rl[n]['gate_f'] for n in todos if rl[n].get('gate_f') is not None]
         rr = [int(rl[n]['review_rounds']) for n in todos if str(rl[n].get('review_rounds', '')).isdigit()]
         pr = [int(rl[n]['plan_rounds']) for n in todos if str(rl[n].get('plan_rounds', '')).isdigit()]
-        cusd = sum(c[1] for c in cs)
+        cvals = [c[1] for c in cs if c[1] is not None]
+        tcr = [per[n]['credits'] for n in todos if n in per]
         cols.append({
             'name': name,
             'span': (local(a).strftime('%d.%m %H:%M') if a else 'start') + ' – ' + (local(b).strftime('%d.%m %H:%M') if b else 'nå'),
             'Kall': f'{len(cs):,}',
             'Aktive timer': str(hours),
-            'Koordinator $ totalt': money(cusd),
-            '$ per kall': money(cusd / len(cs)) if cs else '–',
+            'Koordinator credits totalt': money(sum(cvals)) if cvals else NOT_MEASURED,
+            'Credits per kall': money(sum(cvals) / len(cvals)) if cvals else '–',
             'Output per kall (inkl. tenking)': f'{sum(c[5] for c in cs) / len(cs):,.0f}' if cs else '–',
             'Snittkontekst per kall': f'{sum(c[2] for c in cs) / len(cs) / 1000:,.0f}k' if cs else '–',
             'Kall per aktive time': f'{len(cs) / hours:,.0f}' if hours else '–',
-            'Leverte todos (impl. startet her)': str(len(todos)),
-            'Agent-$ per levert todo': money(sum(agent_usd[n] for n in todos) / len(todos)) if todos else '–',
+            'Leverte todos (merget her)': str(len(todos)),
+            'Credits per levert todo': money(sum(tcr) / len(tcr)) if tcr else '–',
             'Gate F-returer per todo': f'{sum(gf) / len(gf):.2f}' if gf else '–',
             'Plan-runder per todo': f'{sum(pr) / len(pr):.1f}' if pr else '–',
             'Kode-review-runder per todo': f'{sum(rr) / len(rr):.1f}' if rr else '–',
         })
     keys = [k for k in cols[0] if k not in ('name', 'span')]
     h = ['<section><h2>Koordinator-effort: medium mot high</h2>',
-         f'<p class="lede">Effort ble satt fra medium til high {esc(local(switch).strftime("%d.%m kl. %H:%M"))} (fra transkriptet). '
+         f'<p class="lede">Effort ble satt fra medium til high {esc(local(switch).strftime("%d.%m kl. %H:%M"))} (fra øktloggen). '
          'Periodene nedenfor er ikke kontrollerte forsøk: V-blokk-kravet og kostnadsgrepene kom i samme tidsrom, og utvalgene er små. '
          'Tolk kvalitetsradene (Gate F og runder) som retning, ikke som bevis.</p>',
          '<div class="scroll"><table><thead><tr><th>Mål</th>']
@@ -691,7 +692,7 @@ def effort_section(rows, coord, rl, cutover):
         h.append(f'<th class="num">{esc(c["name"])}<br><span class="muted mono" style="font-weight:400">{esc(c["span"])}</span></th>')
     h.append('</tr></thead><tbody>')
     for k in keys:
-        h.append(f'<tr><td>{esc(k)}</td>' + ''.join(f'<td class="num">{c[k]}</td>' for c in cols) + '</tr>')
+        h.append(f'<tr><td>{esc(k)}</td>' + ''.join(f'<td class="num">{esc(c[k])}</td>' for c in cols) + '</tr>')
     h.append('</tbody></table></div></section>')
     return ''.join(h)
 

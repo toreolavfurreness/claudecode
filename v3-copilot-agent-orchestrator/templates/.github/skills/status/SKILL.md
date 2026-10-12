@@ -1,5 +1,7 @@
 ---
+name: status
 description: "Lettvekts todo-oversikt uten full kontekstlasting."
+disable-model-invocation: true
 ---
 <!--
   GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
@@ -11,7 +13,7 @@ Kjør git-orientering:
   git branch --show-current && git log --oneline -5 && git status
 
 **Todo-oversikt:**
-Glob over `tasks/todos/todo-*.md`, les frontmatter-feltene `nr`, `status`, `order`, `title`, `tags` fra hver fil.
+Gå gjennom `tasks/todos/todo-*.md` (glob), les frontmatter-feltene `nr`, `status`, `order`, `title`, `tags` fra hver fil.
 Sorter på `order`. Presenter en kompakt liste gruppert på status:
 - `in_progress` / `reviewed` — øverst
 - `open` — deretter

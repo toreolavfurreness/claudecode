@@ -1,5 +1,7 @@
 ---
+name: todo-execute
 description: "Utfør en godkjent TODO steg for steg mot planfilen."
+disable-model-invocation: true
 ---
 <!--
   GENERERT av /setup fra loop.config.yaml — IKKE rediger her.
@@ -7,7 +9,7 @@ description: "Utfør en godkjent TODO steg for steg mot planfilen."
 -->
 Les følgende filer i denne rekkefølgen:
 1. `tasks/todos/README.md` — forstå status-enum og deps-gating
-2. Glob over `tasks/todos/todo-*.md`, finn todo med `status: reviewed` (eller `status: in_progress` hvis sesjonen gjenopptas)
+2. Gå gjennom `tasks/todos/todo-*.md` (glob), finn todo med `status: reviewed` (eller `status: in_progress` hvis sesjonen gjenopptas)
    Sorter på `order` og ta den laveste.
 3. Les den aktuelle todofilen i sin helhet: `tasks/todos/todo-<nr>-<slug>.md`
 4. Les planfilen via `plan`-feltet i frontmatter: `tasks/plans/todo-<nr>-<slug>.md`
@@ -26,15 +28,15 @@ Før du begynner implementering:
 Hvis noe mangler eller branch er feil: rapporter og vent på instruksjon. Ikke start implementering.
 
 Hvis alt er klart:
-1. Aktiver automode — kjør steg uten å spørre om tillatelse for hver filendring
+1. Slå på auto-godkjenning av verktøykall (autopilot / «tillat alle» i Copilot) — kjør steg uten å spørre om tillatelse for hver filendring
 2. Oppdater `tasks/todos/todo-<nr>-<slug>.md` frontmatter: sett `status: in_progress` og `claimed_by: <branch-navn>`
 3. Implementer steg for steg basert på steg-listen i planfilen:
 
    - Marker hvert steg som fullført etterhvert som det er gjort og verifisert: [ ] → [x]
    - Verifisering betyr å kjøre relevante kommandoer og lese faktisk output — ikke anta at noe fungerer
    - Etter hvert steg: gi en kort statusmelding om hva som ble gjort og hva som er neste
-   - **Rødt før grønt på steg merket `TDD-STEG`.** Bruk `superpowers:test-driven-development` via
-     `Skill` hvis den finnes; ellers gjelder oppskriften her:
+   - **Rødt før grønt på steg merket `TDD-STEG`.** Bruk skillen `/test-driven-development`
+     (`.github/skills/test-driven-development/SKILL.md`) hvis den finnes i prosjektet; ellers gjelder oppskriften her:
      1. Skriv ÉN minimal feilende test for oppførselen steget navngir. Ingen produksjonskode ennå.
      2. Kjør den scopet (`{{CMD_TEST}} <fil>`) og LES outputen. Rødt av riktig grunn = feilen handler
         om oppførselen som mangler — ikke skrivefeil, feil import-sti eller manglende testoppsett.
@@ -50,11 +52,12 @@ Hvis alt er klart:
        med steg-referanse og målt grunn, og gjenta det i PR-bodyen.
 
    - Hvis et steg er merket ⚠️ PAUSE:
-     Deaktiver automode, beskriv hva som skal skje, og vent på eksplisitt bekreftelse.
-     Aktiver automode igjen etterpå.
+     Slå av auto-godkjenningen, beskriv hva som skal skje, og vent på eksplisitt bekreftelse.
+     Slå den på igjen etterpå.
 
    - Hvis du støter på uventet feil:
-     Deaktiver automode. Bruk `/systematic-debugging` (Superpowers) hvis tilgjengelig.
+     Slå av auto-godkjenningen. Bruk skillen `/systematic-debugging`
+     (`.github/skills/systematic-debugging/SKILL.md`) hvis den finnes i prosjektet.
      Ellers: bruk inline fallback-protokollen:
        (1) Isoler eksakt feilmelding — kopier den ordrett.
        (2) Reproduser med minimalreproduksjon — fjern alt unødvendig.
@@ -66,16 +69,17 @@ Hvis alt er klart:
 
    - E2E-verifisering:
      Kjør E2E via {{CMD_E2E}} hvis tilgjengelig (se preflightens klassifiseringsprosedyre i
-     `run-loop.md` §1 for hvordan tilgjengelighet avgjøres).
+     `.github/skills/run-loop/SKILL.md` §1 for hvordan tilgjengelighet avgjøres).
      Ellers: hopp over E2E-steg, men sett `verification.e2e_outcome` til riktig verdi (se
-     `todo-finish-worker.md` for gren-til-verdi-tabellen).
+     `.github/skills/todo-finish-worker/SKILL.md` for gren-til-verdi-tabellen).
      Ikke marker todoen som fullt E2E-verifisert uten at E2E faktisk ble kjørt.
 
    - For database-migrasjoner: alltid kjør mot dev-miljøet (env-id: {{DEV_ENV_ID}}).
      Aldri push til prod uten eksplisitt bekreftelse.
 
    - For endringer i tilgangs-/sikkerhetspolicies (f.eks. RLS): kjør prosjektets relevante
-     tech-review-agent (se loop.config tech_review_agents — f.eks. rls-auditor) etter at
+     tech-review-agent (se loop.config tech_review_agents — f.eks. rls-auditor; som subagent via
+     `task` med `agent_type` lik agentnavnet) etter at
      migrasjonen er kjørt for å verifisere dekning på alle tabeller. Verifiser i tillegg med en
      faktisk spørring at policyen blokkerer det den skal blokkere — ikke bare at syntaksen er riktig.
 

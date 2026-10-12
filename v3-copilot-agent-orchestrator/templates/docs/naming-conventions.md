@@ -140,7 +140,7 @@
 
 | Type | Prefiks | Eksempel |
 |------|---------|----------|
-| Claude Code-arbeid | `claude/` | `claude/refactor-auth` |
+| Agent-arbeid (Copilot) | `copilot/` | `copilot/refactor-auth` |
 | Nye funksjoner | `feature/` | `feature/import-data` |
 | Bugfikser | `fix/` | `fix/bug-003-auth-header` |
 | Dokumentasjon | `docs/` | `docs/cleanup-2026-04` |
