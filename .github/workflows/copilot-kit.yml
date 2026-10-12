@@ -80,8 +80,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RC: ${{ steps.drift.outputs.rc }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           TITLE="Copilot-kitet henger etter v3-agent-orchestrator"
+          HASH="$(sed -n '/^Commits:/,/^$/p' drift.txt | sha256sum | cut -c1-16)"
           NR="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
                 -q ".[] | select(.title == \"$TITLE\") | .number" | head -1)"
           if [ "$RC" = "1" ]; then
@@ -95,11 +97,23 @@ jobs:
               echo "Port etter \`.github/kit-port/PORT-RULES.md\`, kjør \`bash .github/kit-port/validate-copilot-kit.sh\`, og oppdater \`synket-mot\` i \`v3-copilot-agent-orchestrator/KIT-SYNC\` i samme PR. Issuen lukkes automatisk når kitene er i synk."
               echo
               echo "_Oppdatert av workflowen copilot-kit for ${GITHUB_SHA::7}._"
+              echo
+              echo "<!-- drift-hash: $HASH -->"
             } > body.md
-            if [ -n "$NR" ]; then
-              gh issue edit "$NR" --body-file body.md
-            else
-              gh issue create --title "$TITLE" --body-file body.md
+            if [ -z "$NR" ]; then
+              # Tildelt eieren: det gir varsel på e-post og i GitHub Mobile uten at noen følger repoet.
+              gh issue create --title "$TITLE" --body-file body.md --assignee "$OWNER"
+            elif ! gh issue view "$NR" --json body -q .body | grep -qF "drift-hash: $HASH"; then
+              # Ny drift siden sist: oppdater teksten og kommenter, siden en redigering alene ikke varsler.
+              gh issue edit "$NR" --body-file body.md --add-assignee "$OWNER"
+              {
+                echo "Ny endring i \`v3-agent-orchestrator/\` som ikke er portert (${GITHUB_SHA::7}):"
+                echo
+                echo '```'
+                sed -n '/^Commits:/,/^$/p' drift.txt
+                echo '```'
+              } > comment.md
+              gh issue comment "$NR" --body-file comment.md
             fi
           elif [ "$RC" = "0" ] && [ -n "$NR" ]; then
             gh issue close "$NR" --comment "I synk igjen (${GITHUB_SHA::7})."

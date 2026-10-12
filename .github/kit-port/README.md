@@ -16,7 +16,9 @@ endres, må endringen portes. Denne mappa inneholder det som gjør at det ikke g
 - **PR som rører v3 eller Copilot-kitet:** `validate` må være grønn (blokkerende). `drift` viser en
   advarsel og en oppsummering hvis Copilot-kitet henger etter, men blokkerer ikke v3-arbeid.
 - **Push til `main`:** `drift` holder én åpen issue, «Copilot-kitet henger etter
-  v3-agent-orchestrator», oppdatert med commits og filer. Når en port-PR med oppdatert `KIT-SYNC` er
+  v3-agent-orchestrator», med commits og filer. Issuen tildeles repo-eieren, og hver *ny* drift blir
+  en kommentar. Begge deler gir varsel (e-post og GitHub Mobile) uten at noen må følge repoet eller
+  åpne det. Samme drift på nytt gir ingen ny kommentar. Når en port-PR med oppdatert `KIT-SYNC` er
   merget, lukkes issuen automatisk.
 - **Portingen gjøres manuelt:** følg arbeidsflyten øverst i `PORT-RULES.md`, eller be en agent om å
   gjøre det med `PORT-RULES.md` som instruks.
@@ -27,6 +29,13 @@ Lokalt:
 bash .github/kit-port/check-drift.sh            # hva er ikke portert?
 bash .github/kit-port/validate-copilot-kit.sh   # er Copilot-kitet fortsatt grønt?
 ```
+
+## Få varselet
+
+Varslene går til den som eier repoet. Sjekk én gang at de faktisk når deg:
+- **E-post:** github.com/settings/notifications → «Participating, @mentions and custom» → kryss av
+  for **Email**.
+- **Mobil:** GitHub Mobile med push-varsler for «Assigned» og «Participating».
 
 ## Muligheter for å automatisere portingen senere
 
