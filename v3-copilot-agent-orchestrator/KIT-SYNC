@@ -1,0 +1,3 @@
+# Hvilken commit av ../v3-agent-orchestrator/ dette kitet sist ble synket mot.
+# Oppdateres i samme PR som porterer endringene. Leses av .github/kit-port/check-drift.sh.
+synket-mot: a71e58a7a680736ebb52efdf7182838a3f7dada9

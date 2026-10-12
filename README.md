@@ -11,6 +11,7 @@ komplett arbeidsflyt. Du drar inn ÉN mappe og har alt — ingen delt
 | **v2** | [`v2-agent-orchestrator/`](v2-agent-orchestrator/) | En koordinator-agent orkestrerer, autonomt (Claude Code) |
 | **v2 (Copilot)** | [`copilot-agent-orchestrator/`](copilot-agent-orchestrator/) | Samme v2-modell, portert til GitHub Copilot CLI |
 | **v3** | [`v3-agent-orchestrator/`](v3-agent-orchestrator/) | v2-modellen med håndhevede vakter, generert fra én config |
+| **v3 (Copilot)** | [`v3-copilot-agent-orchestrator/`](v3-copilot-agent-orchestrator/) | v3.7 for GitHub Copilot-harnessen (VS Code / Copilot CLI) |
 
 ---
 
@@ -70,6 +71,27 @@ todo-nr-kollisjonsvakt, hotfix-runbook og rødt-før-grønt-sjekk.
 Står du på v2 og vil oppgradere: følg
 [`v3-agent-orchestrator/MIGRATION.md`](v3-agent-orchestrator/MIGRATION.md).
 
+### v3 (Copilot) — samme loop på GitHub Copilot
+
+v3.7 bygget for Copilot-harnessen i VS Code (Session Target = Copilot) eller Copilot CLI:
+custom agents i `.github/agents/`, skills i `.github/skills/`, Copilot-hooks i `.github/hooks/`,
+worktree per worker fra et skript, og modeller valgt per rolle fra Copilots modellvelger.
+Mappa nevner ikke Claude og kan deles der Copilot er påkrevd.
+
+**Velg v3 (Copilot) når:** du ville valgt v3, men må bruke GitHub Copilot.
+
+**Holdes i takt med v3:** workflowen `copilot-kit` sier fra (og holder en issue åpen) når
+`v3-agent-orchestrator/` er endret uten at endringen er portert, og validerer Copilot-kitet på hver PR.
+Se [`.github/kit-port/README.md`](.github/kit-port/README.md).
+
+**Flytte et prosjekt som kjører v3.7 i Claude Code:** loopen må stå stille. Kjør `/setup` fra
+`v3-copilot-agent-orchestrator/` med samme `loop.config.yaml` (modellene skrives om til Copilot-lister),
+flytt `docs/superpowers/loop/run-log.md`, `decision-log.md` og `retro-log.md` til `docs/loop/`, flytt
+`.claude/agent-memory/` til `tasks/agent-memory/`, la prosjektets egne regler i `CLAUDE.md` gå over i
+`AGENTS.md`, og slett `.claude/agents`, `.claude/commands` og kit-hookene i `.claude/` i en egen commit.
+Forskjellene står i
+[`v3-copilot-agent-orchestrator/docs/PORTING-DECISIONS.md`](v3-copilot-agent-orchestrator/docs/PORTING-DECISIONS.md).
+
 ---
 
 ## Ta i bruk
@@ -88,6 +110,8 @@ Hver versjonsmappe har sin egen `README.md` med fullstendig oppsett.
 - **v3:** fyll `loop.config.yaml`, kjør `/setup`, kjør harnessene, start en
   fersk sesjon. Se [`v3-agent-orchestrator/README.md`](v3-agent-orchestrator/README.md);
   fra v2 eller v1: [`v3-agent-orchestrator/MIGRATION.md`](v3-agent-orchestrator/MIGRATION.md).
+- **v3 (Copilot):** som v3, men i en Copilot-sesjon. Se
+  [`v3-copilot-agent-orchestrator/README.md`](v3-copilot-agent-orchestrator/README.md).
 
 ---
 

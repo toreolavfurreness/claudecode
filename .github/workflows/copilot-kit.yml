@@ -1,0 +1,120 @@
+# Holder v3-copilot-agent-orchestrator/ i takt med v3-agent-orchestrator/.
+#
+# validate: Copilot-kitet installeres med /setup og alle harnesser kjøres. Blokkerende.
+# drift:    sier fra når v3-agent-orchestrator/ er endret siden Copilot-kitet sist ble synket
+#           (v3-copilot-agent-orchestrator/KIT-SYNC). På en PR er det en advarsel som ikke
+#           blokkerer. På main holdes én åpen issue oppdatert, og den lukkes når kitene er i synk.
+# Se .github/kit-port/README.md.
+name: copilot-kit
+
+on:
+  pull_request:
+    paths:
+      - "v3-agent-orchestrator/**"
+      - "v3-copilot-agent-orchestrator/**"
+      - ".github/kit-port/**"
+      - ".github/workflows/copilot-kit.yml"
+  push:
+    branches: [main]
+    paths:
+      - "v3-agent-orchestrator/**"
+      - "v3-copilot-agent-orchestrator/**"
+      - ".github/kit-port/**"
+      - ".github/workflows/copilot-kit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate (Copilot-kit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Avhengigheter
+        run: |
+          python3 -m pip install --quiet pyyaml
+          command -v jq
+      - name: /setup + harnesser
+        run: bash .github/kit-port/validate-copilot-kit.sh
+
+  drift:
+    name: drift (v3 → Copilot-kit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sjekk drift
+        id: drift
+        run: |
+          set +e
+          bash .github/kit-port/check-drift.sh > drift.txt
+          rc=$?
+          set -e
+          cat drift.txt
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Drift: v3 → Copilot-kit"
+            echo
+            echo '```'
+            cat drift.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" -eq 1 ]; then
+            echo "::warning title=Copilot-kitet henger etter::$(head -1 drift.txt)"
+          elif [ "$rc" -eq 2 ]; then
+            echo "::warning title=Drift ikke målt::$(head -1 drift.txt)"
+          fi
+      - name: Oppdater issue (bare på main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RC: ${{ steps.drift.outputs.rc }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          TITLE="Copilot-kitet henger etter v3-agent-orchestrator"
+          HASH="$(sed -n '/^Commits:/,/^$/p' drift.txt | sha256sum | cut -c1-16)"
+          NR="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+                -q ".[] | select(.title == \"$TITLE\") | .number" | head -1)"
+          if [ "$RC" = "1" ]; then
+            {
+              echo "Drift-vakta fant endringer i \`v3-agent-orchestrator/\` som ikke er portert til \`v3-copilot-agent-orchestrator/\`."
+              echo
+              echo '```'
+              cat drift.txt
+              echo '```'
+              echo
+              echo "Port etter \`.github/kit-port/PORT-RULES.md\`, kjør \`bash .github/kit-port/validate-copilot-kit.sh\`, og oppdater \`synket-mot\` i \`v3-copilot-agent-orchestrator/KIT-SYNC\` i samme PR. Issuen lukkes automatisk når kitene er i synk."
+              echo
+              echo "_Oppdatert av workflowen copilot-kit for ${GITHUB_SHA::7}._"
+              echo
+              echo "<!-- drift-hash: $HASH -->"
+            } > body.md
+            if [ -z "$NR" ]; then
+              # Tildelt eieren: det gir varsel på e-post og i GitHub Mobile uten at noen følger repoet.
+              gh issue create --title "$TITLE" --body-file body.md --assignee "$OWNER"
+            elif ! gh issue view "$NR" --json body -q .body | grep -qF "drift-hash: $HASH"; then
+              # Ny drift siden sist: oppdater teksten og kommenter, siden en redigering alene ikke varsler.
+              gh issue edit "$NR" --body-file body.md --add-assignee "$OWNER"
+              {
+                echo "Ny endring i \`v3-agent-orchestrator/\` som ikke er portert (${GITHUB_SHA::7}):"
+                echo
+                echo '```'
+                sed -n '/^Commits:/,/^$/p' drift.txt
+                echo '```'
+              } > comment.md
+              gh issue comment "$NR" --body-file comment.md
+            fi
+          elif [ "$RC" = "0" ] && [ -n "$NR" ]; then
+            gh issue close "$NR" --comment "I synk igjen (${GITHUB_SHA::7})."
+          fi
