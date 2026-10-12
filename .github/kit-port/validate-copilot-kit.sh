@@ -5,6 +5,8 @@
 #   3. /setup med plassholderne byttet SKAL gå grønt, uten gjenværende tokens og med gyldig
 #      YAML-frontmatter og gyldig loop-guards.json, og en ny kjøring SKAL være idempotent.
 #   4. Alle harnesser og selvtester på det installerte kitet SKAL være grønne.
+#   5. Org-modus: /setup krever org-standarden, setter den inn øverst i AGENTS.md og registrerer
+#      compliance-hooken; compliance-check.py --self-test SKAL være grønn.
 #
 #   bash .github/kit-port/validate-copilot-kit.sh
 # Krever git, python3 + pyyaml og jq. Exit 0 = alt grønt, ellers 1.
@@ -91,6 +93,31 @@ run python3 tasks/measure-cost.py --brake-self-test
 run python3 tasks/measure-cost.py --calibrate-self-test
 run python3 scripts/kit-release-check.py --self-test
 [ -f .github/hooks/scripts/test-checkpoint-hooks.sh ] && run bash .github/hooks/scripts/test-checkpoint-hooks.sh
+
+# 5. Org-modus (compliance.enabled: true) ------------------------------------------------------
+new_project "$WORK/orgmode"
+sed -i.bak 's/<DYP_MODELL>/deep-model-a/g; s/<KODE_MODELL>/code-model-b/g; s/<BILLIG_MODELL>/cheap-model-c/g; s/^  enabled: false$/  enabled: true/' \
+  v3-copilot-agent-orchestrator/loop.config.yaml
+if python3 "$WORK/setup-body.py" >"$WORK/o1.out" 2>&1; then bad "org-modus: /setup gikk grønt uten org-fil"
+elif grep -q 'org_instructions' "$WORK/o1.out"; then ok "org-modus: /setup stopper når org-standarden mangler"
+else bad "org-modus: uventet feil uten org-fil:"; tail -5 "$WORK/o1.out" | sed 's/^/      /'; fi
+mkdir -p docs/org && printf '# Org-standard\n\nAgenten skal aldri skrive ut hemmeligheter.\n' > docs/org/AGENTS.org.md
+if python3 "$WORK/setup-body.py" >"$WORK/o2.out" 2>&1 && grep -q 'Ingen gjenværende tokens' "$WORK/o2.out"; then
+  ok "org-modus: /setup exit 0, ingen gjenværende tokens"
+else bad "org-modus: /setup feilet:"; tail -15 "$WORK/o2.out" | sed 's/^/      /'; fi
+if head -1 AGENTS.md | grep -q 'ORG-STANDARD START' && grep -q 'aldri skrive ut hemmeligheter' AGENTS.md; then
+  ok "org-modus: org-standarden står øverst i AGENTS.md"
+else bad "org-modus: org-standarden mangler øverst i AGENTS.md"; fi
+if python3 -c "import json,sys; d=json.load(open('.github/hooks/loop-guards.json')); sys.exit(0 if any('compliance-check.py hook' in h['bash'] for h in d['hooks'].get('preToolUse', [])) else 1)"; then
+  ok "org-modus: compliance-hooken er registrert"
+else bad "org-modus: compliance-hooken mangler i loop-guards.json"; fi
+for f in docs/loop/compliance.md tasks/compliance-check.py; do
+  [ -f "$f" ] && ! grep -q '{{' "$f" && ok "org-modus: $f generert" || bad "org-modus: $f mangler eller har tokens"
+done
+run python3 tasks/compliance-check.py --self-test
+git add -A >/dev/null && git -c user.name=ci -c user.email=ci@ci commit -qm org
+python3 "$WORK/setup-body.py" >/dev/null 2>&1
+if [ -z "$(git status --porcelain)" ]; then ok "org-modus: /setup er idempotent"; else bad "org-modus: /setup endret filer ved ny kjøring"; fi
 
 echo
 if [ $FAIL -eq 0 ]; then echo "GRØNN: Copilot-kitet er installerbart og alle kontroller består."; exit 0; fi

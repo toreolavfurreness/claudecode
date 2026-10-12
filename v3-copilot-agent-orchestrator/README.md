@@ -130,6 +130,31 @@ plassholdere, og `/setup` stopper til alle er byttet ut:
 
 ---
 
+## Org-modus (organisasjonens agentstandard)
+
+Krever organisasjonen en felles `AGENTS.md`-standard med menneske-i-loopen, slå på `compliance` i
+`loop.config.yaml`:
+
+1. Legg organisasjonens standard **uendret** i prosjektet, f.eks. `docs/org/AGENTS.org.md`, og pek
+   `compliance.org_instructions` dit.
+2. Sett `data_classification`, `approved_mcp_servers` (navnene i `.mcp.json` som org-registeret har
+   godkjent) og `high_risk_paths`.
+3. Kjør `/setup`. Standarden settes inn øverst i `AGENTS.md` og går foran kitets regler; den byttes ut
+   hver gang `/setup` kjøres, så endringer gjøres i org-fila.
+
+Da gjelder dette i loopen (detaljer i `docs/loop/compliance.md`, som genereres):
+- **Eieren godkjenner planen** (etter plan-review, før koding) og **mergen** (før noe når felles kode
+  eller delt state committes), med faste spørsmål og bare et klart «Ja/Godkjent/Kjør» som svar.
+- Agentene skriver bare i egne worktrees og branches før det.
+- **Høyrisiko avvises:** infrastruktur, IAM/RBAC og hemmeligheter, både som kommando (hook) og som
+  filer i plan eller PR.
+- **Bare godkjente MCP-servere:** `/run-loop` stopper ellers før første todo.
+
+Tolkningen av «menneske-i-loopen for alle skriveoperasjoner» må bekreftes av organisasjonen; se
+`docs/loop/compliance.md` §1 og §8.
+
+---
+
 ## Forutsetninger
 
 - **Plattform:** GitHub Copilot med Copilot-harnessen: VS Code med Session Target = **Copilot** (ikke

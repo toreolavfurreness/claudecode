@@ -122,6 +122,7 @@ Ved `technical_risk.flagged` (plan- eller review-rapport) → ⚠️ STOPP, rele
 
 **Native kodearbeid (`kind: native`, nivå B8).** Skjemaets `true` sendes som `yes` og `false` som `no`: `python3 tasks/decision-level.py --event technical_risk --context source=planner --context kind=native --context native_dep=<yes|no> --context native_permission=<yes|no>`. Står `eas.json`, `app.config.js` eller `app.json` i plan-rapportens `files_touched`, sendes `native_dep=yes` uansett hva planneren svarte. **Sjekken gjelder uansett `flagged` og `kind`:** står en av de tre filene i `files_touched` og `kind` ikke er `native`, kjøres kallet med `kind=native`, `native_dep=yes` og `native_permission=no` (gir A3, STOPP som over). Alt annet enn B8 er STOPP som over. Står `kind: native` i plan-rapporten, limes `technical_risk`-objektet inn i reviewer-prompten hver gang revieweren dispatches (også i runde 1, i deltaprompten og etter eierens go på A3), så revieweren kan etterprøve de to feltene. Revieweren melder native kodearbeid uten objektet som BLOKKERENDE, unntatt når planen også har en annen risiko (da er `kind` den).
 
+{{ORG_GATE_PLAN}}
 > **Pipelinet B?** «Release claim» gjelder ALLTID den claimede todoen. Er dette en pipelinet,
 > u-claimet B (§5c), har den ingen claim å frigi — B droppes ut av pipelinen og A fortsetter
 > uendret. Se §5c, «Pausepunkt-samspill: B-sporet pauser mens A er sunn».

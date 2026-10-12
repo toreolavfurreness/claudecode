@@ -469,6 +469,45 @@ if _hooks_on["session_start_lint"] and not (get("verification_commands.type_chec
 if _hooks_on["typecheck_on_edit"] and not get("verification_commands.type_check"):
     sys.exit("FEIL: hooks.typecheck_on_edit_extensions er satt, men verification_commands.type_check er tom.")
 
+# --- Valider compliance (valgfri nøkkel — fravær = org-modus AV) ------------------------
+# Org-modus: organisasjonens agentstandard settes inn øverst i AGENTS.md (uendret), eieren godkjenner
+# plan og merge per todo, høyrisiko avvises, og bare godkjente MCP-servere tillates.
+# Se templates/docs/loop/compliance.md.
+_co = c.get("compliance") or {}
+if not isinstance(_co, dict):
+    sys.exit(f"FEIL: compliance må være et objekt, fikk {_co!r}.")
+_co_on = _co.get("enabled", False)
+if not isinstance(_co_on, bool):
+    sys.exit(f"FEIL: compliance.enabled må være true/false, fikk {_co_on!r}.")
+_unknown_co = set(_co) - {"enabled", "org_instructions", "data_classification",
+                          "approved_mcp_servers", "high_risk_paths"}
+if _unknown_co:
+    sys.exit(f"FEIL: ukjente nøkler under compliance: {sorted(_unknown_co)}.")
+_co_org = _co.get("org_instructions")
+_co_class = _co.get("data_classification")
+_co_mcp = _co.get("approved_mcp_servers")
+_co_paths = _co.get("high_risk_paths")
+if _co_on:
+    if not isinstance(_co_org, str) or not _co_org.strip() or _co_org.startswith("/") or ".." in _co_org.split("/"):
+        sys.exit("FEIL: compliance.org_instructions må være en relativ sti i repoet til organisasjonens\n"
+                 "  AGENTS.md-standard (f.eks. docs/org/AGENTS.org.md). Legg fila i repoet uendret.")
+    if not os.path.isfile(os.path.join(ROOT, _co_org)):
+        sys.exit(f"FEIL: compliance.org_instructions peker på {_co_org}, som ikke finnes. Legg organisasjonens\n"
+                 "  AGENTS.md-standard der (uendret) og kjør /setup på nytt.")
+    if _co_class not in ("open", "internal", "sensitive"):
+        sys.exit(f"FEIL: compliance.data_classification må være open, internal eller sensitive, fikk {_co_class!r}.")
+    if not isinstance(_co_mcp, list) or not all(isinstance(x, str) and re.fullmatch(r"[A-Za-z0-9._-]+", x) for x in _co_mcp):
+        sys.exit(f"FEIL: compliance.approved_mcp_servers må være en liste med servernavn (kan være tom []), fikk {_co_mcp!r}.")
+    if (not isinstance(_co_paths, list) or not _co_paths
+            or not all(isinstance(x, str) and x.strip() and "'" not in x and "\\" not in x for x in _co_paths)):
+        sys.exit("FEIL: compliance.high_risk_paths må være en ikke-tom liste med glob-mønstre (fnmatch, `*` krysser `/`),\n"
+                 f"  f.eks. [\"infra/**\", \"**/*.tf\"]. Fikk {_co_paths!r}.")
+    for _k, _v in (("org_instructions", _co_org), ("data_classification", _co_class)):
+        if re.search(r"[<>]", str(_v)):
+            sys.exit(f"FEIL: compliance.{_k} har fortsatt en plassholder: {_v!r}.")
+_co_mcp = _co_mcp if _co_on else []
+_co_paths = _co_paths if _co_on else []
+
 # --- Valider worktree_bootstrap (valgfri nøkkel — fravær = ingen installasjon/env-kopi) ----
 # Verdiene rendres inn i et bash-skript. Alt som havner mellom doble anførselstegn valideres
 # mot tegn som ville brutt ut av strengen; install_cmd går via sitert heredoc og er fri.
@@ -741,6 +780,47 @@ _topics_own = [x for x in c["lessons_topics"] if x != "open-followups"]
 lessons_topics_bullets = "\n".join(f"- `{x}/`" for x in _topics_own)
 lessons_index_entries = "\n".join(f"- `{x}/` — <scope: fyll inn>" for x in _topics_own)
 
+# --- Org-modus: blokker som settes inn i run-loop, stegfilene og loop-rules ---------------
+ORG_PREFLIGHT = """
+### 5. Org-modus (compliance)
+
+Org-modus er på: organisasjonens agentstandard står øverst i `AGENTS.md` og går foran alt i kitet.
+Les `docs/loop/compliance.md` før første todo. Kjør så:
+
+```bash
+python3 tasks/compliance-check.py mcp; echo "exit=$?"
+```
+
+Exit 1 (en MCP-server er ikke godkjent) eller 2 (kan ikke måles) → **STOPP: pausepunkt**, før
+første todo. Rapporter `Org-modus: på (klassifisering: <verdi>, MCP: OK)` sammen med de andre
+preflight-linjene.
+"""
+ORG_GATE_PLAN = """
+**Org-modus: godkjenning av plan (BINDENDE, før §5).** Etter `go` — og før effort-remålingen er
+brukt til noe annet enn loggen — følg `docs/loop/compliance.md` §2: høyrisiko-sjekk av plan-rapporten
+(`python3 tasks/compliance-check.py paths --plan-report <fil>`), vis eieren plan, berørte filer, diff og
+risikovurdering, og still spørsmålet ordrett. Ingen implementer-dispatch uten et klart ja og
+`plan_godkjent: <ISO>` i todoens frontmatter. Dette gjelder også fast-path (§2b) og pipelinede
+planer (§5c).
+"""
+ORG_GATE_MERGE = """
+**Org-modus: godkjenning av merge (BINDENDE, mellom steg 0 og steg 1).** Etter at CI-gaten er grønn,
+og før lessons, bugs, arkiv, merge eller run-log røres: følg `docs/loop/compliance.md` §3 —
+`python3 tasks/compliance-check.py paths --pr <pr>`, vis eieren PR, diffstat, CI-dom, reviewens
+konklusjon og delt-state-endringene, og still spørsmålet ordrett. Uten et klart ja: ingen merge,
+ingen delt-state-commit, `phase: venter-eier`. Ved ja får run-log-raden
+`godkjent=plan:<ISO>,merge:<ISO>`. Delt-state-halen i steg 6 (og i §6c/§7/§8/§8b) committes heller
+ikke uten godkjenning, se compliance.md §3.
+"""
+ORG_RULES_SECTION = """
+## Org-modus
+
+Org-modus er på. Organisasjonens agentstandard står øverst i `AGENTS.md` og går foran disse
+reglene ved konflikt. Hvordan loopen oppfyller den — godkjenning av plan og merge, absolutte
+forbud, høyrisiko som avvises, godkjente MCP-servere og dataklassifisering — står i
+[`docs/loop/compliance.md`](loop/compliance.md). Workers leser den i Steg 0.
+"""
+
 HEADER = ("<!--\n  GENERERT av /setup fra loop.config.yaml — IKKE rediger her.\n"
           "  Endre loop.config.yaml og kjør /setup på nytt.\n-->")
 
@@ -820,6 +900,18 @@ M = {
     "{{DEEP_DISPATCH_ALLOWED}}": case_pattern(_deep_list),
     "{{BELOW_IMPLEMENTER_ALIAS}}": _below_impl,
     "{{FIXR3_IMPL_EXPECT}}": _fixr3_impl_expect,
+    # Org-modus (compliance.*). Blokk-tokens er tomme når org-modus er av.
+    "{{ORG_MODE}}": "på" if _co_on else "av",
+    "{{ORG_INSTRUCTIONS_PATH}}": _co_org if _co_on else "",
+    "{{DATA_CLASSIFICATION}}": _co_class if _co_on else "",
+    "{{APPROVED_MCP_SERVERS}}": json.dumps(_co_mcp, ensure_ascii=False),
+    "{{HIGH_RISK_PATHS}}": json.dumps(_co_paths, ensure_ascii=False),
+    "{{APPROVED_MCP_LIST}}": ("\n".join(f"- `{x}`" for x in _co_mcp) or "- (ingen — enhver MCP-server stopper loopen)"),
+    "{{HIGH_RISK_PATHS_LIST}}": ", ".join(f"`{x}`" for x in _co_paths),
+    "{{ORG_PREFLIGHT}}": (ORG_PREFLIGHT if _co_on else ""),
+    "{{ORG_GATE_PLAN}}": (ORG_GATE_PLAN if _co_on else ""),
+    "{{ORG_GATE_MERGE}}": (ORG_GATE_MERGE if _co_on else ""),
+    "{{ORG_RULES_SECTION}}": (ORG_RULES_SECTION if _co_on else ""),
     "{{GENERATED_HEADER}}": HEADER,
 }
 
@@ -872,6 +964,8 @@ if not _hooks_on["implementer_model_guard"]:
 if not _hooks_on["compaction_checkpoint"]:
     SKIP_WHEN_OFF |= {".github/hooks/scripts/precompact-checkpoint.sh",
                       ".github/hooks/scripts/test-checkpoint-hooks.sh", "docs/loop/steps/0c-sjekkpunkt.md"}
+if not _co_on:
+    SKIP_WHEN_OFF |= {"docs/loop/compliance.md", "tasks/compliance-check.py"}
 if not _hooks_on["session_start_lint"]:
     SKIP_WHEN_OFF.add(".github/hooks/scripts/session-start-lint.sh")
 if not _hooks_on["typecheck_on_edit"]:
@@ -976,6 +1070,30 @@ if re.search(r"^@docs/loop-rules\.md\s*$", _cmt, re.M):
     notes.append("AGENTS.md: linja `@docs/loop-rules.md` er en importsyntaks Copilot ikke følger — "
                  "fjern den manuelt (lenken over gjør jobben)")
 
+# --- AGENTS.md: organisasjonens agentstandard øverst (org-modus) --------------------------
+# Org-standarden settes inn UENDRET mellom to markører øverst i AGENTS.md, og byttes ut ved hver
+# /setup (kilden er compliance.org_instructions — org eier teksten). Resten av AGENTS.md røres ikke.
+_ORG_START = "<!-- ORG-STANDARD START"
+_ORG_END = "<!-- ORG-STANDARD SLUTT -->"
+with open(_cm) as f: _cmt = f.read()
+_has_org = _ORG_START in _cmt and _ORG_END in _cmt
+if _co_on:
+    with open(os.path.join(ROOT, _co_org), encoding="utf-8") as f: _org_text = f.read().rstrip("\n")
+    _org_block = (f"{_ORG_START}: satt inn uendret av /setup fra {_co_org} — ikke rediger her. "
+                  "Organisasjonens standard går foran alt annet i denne fila og i loop-reglene. -->\n"
+                  f"{_org_text}\n{_ORG_END}\n")
+    if _has_org:
+        _new_cmt = re.sub(re.escape(_ORG_START) + r".*?" + re.escape(_ORG_END) + r"\n?", lambda m: _org_block,
+                          _cmt, count=1, flags=re.S)
+    else:
+        _new_cmt = _org_block + "\n" + _cmt
+    if _new_cmt != _cmt:
+        with open(_cm, "w") as f: f.write(_new_cmt)
+        notes.append(f"AGENTS.md: org-standarden fra {_co_org} {'oppdatert' if _has_org else 'satt inn øverst'}")
+elif _has_org:
+    notes.append("AGENTS.md: har en ORG-STANDARD-blokk, men compliance.enabled er av — blokken står urørt; "
+                 "fjern den manuelt hvis org-modus skal være av")
+
 # --- .github/hooks/loop-guards.json: GENERERT (kit-eid, overskrives) ---------------------
 # Copilot laster alle .github/hooks/*.json (version 1). Kit-et eier denne ene fila og skriver
 # den på nytt hver gang fra hooks.* — prosjektets egne hooks ligger i andre filer i samme mappe
@@ -988,6 +1106,8 @@ _HOOK_REG = [
     ("compaction_checkpoint",   "preCompact",  "sh .github/hooks/scripts/precompact-checkpoint.sh",   30),
 ]
 _hooks_doc = {"version": 1, "hooks": {}}
+_hooks_on["compliance"] = _co_on
+_HOOK_REG.insert(2, ("compliance", "preToolUse", "python3 tasks/compliance-check.py hook", 30))
 for _key, _event, _cmd, _timeout in _HOOK_REG:
     if _hooks_on[_key]:
         _hooks_doc["hooks"].setdefault(_event, []).append(

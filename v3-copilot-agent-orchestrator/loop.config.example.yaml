@@ -221,3 +221,17 @@ worktree_bootstrap:
   env_files: [.env.local, .env.test]
   env_allowed_keys: [NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, TEST_USER_EMAIL, TEST_USER_PASSWORD]
   env_denied_prefixes: [SUPABASE_SERVICE_ROLE_KEY, PROD_]
+
+# --- Org-modus (organisasjonens agentstandard, docs/loop/compliance.md) -------
+# Valgfri; fravær eller enabled: false = av. Er den på:
+#   - organisasjonens AGENTS.md-standard settes inn UENDRET øverst i prosjektets AGENTS.md
+#     (mellom ORG-STANDARD-markører, byttes ut ved hver /setup) og går foran kitets regler,
+#   - eieren godkjenner planen (etter plan-review) og mergen (før delt state røres) for hver todo,
+#   - høyrisiko (IaC, IAM/RBAC, hemmeligheter) avvises av en hook og av begge godkjenningene,
+#   - /run-loop stopper hvis .mcp.json har en MCP-server som ikke står i approved_mcp_servers.
+compliance:
+  enabled: false
+  org_instructions: docs/org/AGENTS.org.md        # org-standarden, lagt i repoet uendret
+  data_classification: internal                   # open | internal | sensitive
+  approved_mcp_servers: [github]                  # servernavn i .mcp.json som org-registeret har godkjent
+  high_risk_paths: ["infra/**", "**/*.tf", "**/*.bicep", "k8s/**", "helm/**", "charts/**", ".github/workflows/**"]

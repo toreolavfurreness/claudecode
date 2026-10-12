@@ -75,6 +75,7 @@ og [`../setup.md`](../setup.md) for token-tabellen.
 | `parallel_implementers` | tak for antall samtidige implementere; **valgfri**, fravær ⇒ `1` ⇒ sekvensielt | Runbook §5d |
 | `hooks` | hvilke vakter og komfort-hooks som registreres i `.github/hooks/loop-guards.json` | Hook-konfigurasjonen |
 | `agent_memory` | hvilke roller som har rollehukommelse i `tasks/agent-memory/` | Agentenes Steg 0 |
+| `compliance` | org-modus: organisasjonens agentstandard i `AGENTS.md`, godkjenning av plan og merge, høyrisiko-stier, godkjente MCP-servere, dataklassifisering; **valgfri**, fravær ⇒ av | `docs/loop/compliance.md`, `tasks/compliance-check.py`, stegfilene §4 og §6 |
 
 **Tommelfingerregel:** nevner en verdi en stack, et miljø-ID, en produksjons-branch, et språk eller
 en modell, hører den i `loop.config.yaml`, ikke i maskineriet.

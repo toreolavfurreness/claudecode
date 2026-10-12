@@ -232,6 +232,7 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A | Juridisk tekst (personvern) eller kutt som endrer det todoen lover brukeren |
 | A | Agent-probe i preflight feiler (`Unknown agent_type: …`, dekker §5b) → fersk koordinator-sesjon kreves |
 | A | Read-only-sjekken (`scripts/readonly-check.sh`) feiler etter en read-only-dispatch (§4/§5b) — rapporten forkastes |
+| A | Org-modus: eieren har ikke gitt et klart ja på plan (§4) eller merge (§6), en plan eller PR rører en høyrisiko-sti, eller en MCP-server er ikke godkjent (`docs/loop/compliance.md`) |
 | A | Merge-konflikt (§6.4) |
 | A | CI-gaten ikke `ci=green` (§6 steg 0) — unntatt `ci=red` fra PR-ens egen diff, som går til §5b fix-mode |
 | A | Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b) |
