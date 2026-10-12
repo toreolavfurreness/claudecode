@@ -1,0 +1,5 @@
+# Hvilken versjon av kitet v3-copilot-agent-orchestrator/ i dette repoet er.
+# Oppdateres av scripts/upgrade-kit.sh. Leses av scripts/check-kit-upgrade.sh.
+kit-repo: https://github.com/toreolavfurreness/claudecode
+kit-path: v3-copilot-agent-orchestrator
+kit-commit: UKJENT

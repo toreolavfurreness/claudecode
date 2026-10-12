@@ -130,28 +130,26 @@ plassholdere, og `/setup` stopper til alle er byttet ut:
 
 ---
 
-## Org-modus (organisasjonens agentstandard)
+## Styring (valgfri)
 
-Krever organisasjonen en felles `AGENTS.md`-standard med menneske-i-loopen, slå på `compliance` i
-`loop.config.yaml`:
+Skal agentene følge en felles standard med menneskelig godkjenning, slå på `governance` i
+`loop.config.yaml`. Alle delene er valgfrie:
 
-1. Legg organisasjonens standard **uendret** i prosjektet, f.eks. `docs/org/AGENTS.org.md`, og pek
-   `compliance.org_instructions` dit.
-2. Sett `data_classification`, `approved_mcp_servers` (navnene i `.mcp.json` som org-registeret har
-   godkjent) og `high_risk_paths`.
-3. Kjør `/setup`. Standarden settes inn øverst i `AGENTS.md` og går foran kitets regler; den byttes ut
-   hver gang `/setup` kjøres, så endringer gjøres i org-fila.
+- **`instructions_file`:** en ekstern instruksfil (f.eks. teamets eller virksomhetens agentstandard)
+  settes inn uendret øverst i `AGENTS.md` og går foran kitets regler. Den byttes ut hver gang `/setup`
+  kjøres, så endringer gjøres i kildefila.
+- **`human_approval: plan_and_merge`:** eieren godkjenner planen (etter plan-review, før koding) og
+  mergen (før noe når felles kode eller delt state committes), med faste spørsmål og bare et klart
+  «Ja/Godkjent/Kjør» som svar. Agentene skriver bare i egne worktrees og branches før det.
+- **`blocked_commands` og `blocked_paths`:** stoppes av en hook, og planer og PR-er som rører de
+  blokkerte stiene, avvises. Standardlista dekker infrastruktur, IAM, hemmeligheter og `--auto-approve`.
+- **`approved_mcp_servers`:** `/run-loop` stopper før første todo hvis `.mcp.json` har en server som
+  ikke står på lista.
+- **`data_classification`:** vises for agentene; strengere data er et pausepunkt.
 
-Da gjelder dette i loopen (detaljer i `docs/loop/compliance.md`, som genereres):
-- **Eieren godkjenner planen** (etter plan-review, før koding) og **mergen** (før noe når felles kode
-  eller delt state committes), med faste spørsmål og bare et klart «Ja/Godkjent/Kjør» som svar.
-- Agentene skriver bare i egne worktrees og branches før det.
-- **Høyrisiko avvises:** infrastruktur, IAM/RBAC og hemmeligheter, både som kommando (hook) og som
-  filer i plan eller PR.
-- **Bare godkjente MCP-servere:** `/run-loop` stopper ellers før første todo.
-
-Tolkningen av «menneske-i-loopen for alle skriveoperasjoner» må bekreftes av organisasjonen; se
-`docs/loop/compliance.md` §1 og §8.
+Detaljene står i `docs/loop/governance.md`, som genereres. Virksomhetsspesifikke tilpasninger (egen
+standard, tolkning, egne agenter og hooks) hører hjemme i et eget lag utenfor kitet; se
+`org-overlay-template/` i kit-repoet.
 
 ---
 

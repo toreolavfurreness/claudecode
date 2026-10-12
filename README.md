@@ -84,6 +84,10 @@ Mappa nevner ikke Claude og kan deles der Copilot er påkrevd.
 `v3-agent-orchestrator/` er endret uten at endringen er portert, og validerer Copilot-kitet på hver PR.
 Se [`.github/kit-port/README.md`](.github/kit-port/README.md).
 
+**I en organisasjon med egne krav:** kitet er organisasjonsnøytralt. Org-spesifikke ting (agentstandard,
+tolkning, godkjente MCP-servere, egne agenter og hooks) legges i et eget lag oppå kitet; mal og
+oppgraderingsskript ligger i [`org-overlay-template/`](org-overlay-template/).
+
 **Flytte et prosjekt som kjører v3.7 i Claude Code:** loopen må stå stille. Kjør `/setup` fra
 `v3-copilot-agent-orchestrator/` med samme `loop.config.yaml` (modellene skrives om til Copilot-lister),
 flytt `docs/superpowers/loop/run-log.md`, `decision-log.md` og `retro-log.md` til `docs/loop/`, flytt

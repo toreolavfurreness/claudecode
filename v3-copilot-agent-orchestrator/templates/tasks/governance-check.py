@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Org-modus: mekaniske kontroller for organisasjonens agentregler (docs/loop/compliance.md).
+"""Styring (governance): mekaniske kontroller bak docs/loop/governance.md.
 
-  python3 tasks/compliance-check.py mcp [--file .mcp.json ...]
-      Alle MCP-servere i prosjektets MCP-konfigurasjon må stå i compliance.approved_mcp_servers.
-      exit 0 = alle godkjent, 1 = ikke-godkjent server funnet, 2 = kan ikke leses.
-  python3 tasks/compliance-check.py paths (--pr <nr> | --plan-report <fil.json> | -)
+  python3 tasks/governance-check.py mcp [--file .mcp.json ...]
+      Alle MCP-servere i prosjektets MCP-konfigurasjon må stå i governance.approved_mcp_servers.
+      exit 0 = alle godkjent (eller ingen liste konfigurert), 1 = ikke-godkjent server, 2 = kan ikke leses.
+  python3 tasks/governance-check.py paths (--pr <nr> | --plan-report <fil.json> | -)
       Ingen fil i PR-en / plan-rapportens files_touched / stdin (én sti per linje) kan treffe
-      compliance.high_risk_paths. exit 0 = ingen treff, 1 = treff (avvist), 2 = kan ikke måles.
-  python3 tasks/compliance-check.py hook
+      governance.blocked_paths. exit 0 = ingen treff, 1 = treff (avvist), 2 = kan ikke måles.
+  python3 tasks/governance-check.py hook
       preToolUse-hook (registrert i .github/hooks/loop-guards.json). Leser Copilot-payloaden på
-      stdin og avviser (permissionDecision: deny) høyrisiko-kommandoer og redigering av
-      høyrisiko-stier. Alt annet slipper gjennom uten utdata.
-  python3 tasks/compliance-check.py --self-test
+      stdin og avviser (permissionDecision: deny) blokkerte kommandoer og redigering av blokkerte
+      stier. Alt annet slipper gjennom uten utdata.
+  python3 tasks/governance-check.py --self-test
 
-Verdiene under kompileres inn av /setup fra loop.config.yaml (compliance.*). Endre config og kjør
+Verdiene under kompileres inn av /setup fra loop.config.yaml (governance.*). Endre config og kjør
 /setup på nytt — ikke rediger her.
 """
 import fnmatch
@@ -23,27 +23,30 @@ import re
 import subprocess
 import sys
 
-APPROVED_MCP_SERVERS = {{APPROVED_MCP_SERVERS}}
-HIGH_RISK_PATHS = {{HIGH_RISK_PATHS}}
-
-# Kommandoer som endrer infrastruktur, tilgang eller hemmeligheter. Org-standarden §4.3: høyrisiko
-# avvises i org-modus, uansett hvem som ber om det. Mønstrene matcher hvert ledd i en sammensatt
-# kommando (skilt med ; && || | og linjeskift).
-HIGH_RISK_COMMANDS = [
-    (r'\bkubectl\s+(?:\S+\s+)*?(apply|create|delete|patch|replace|scale|edit|set|annotate|label|rollout|drain|cordon|taint)\b',
-     'kubectl som endrer klyngen'),
-    (r'\bhelm\s+(?:\S+\s+)*?(install|upgrade|uninstall|delete|rollback)\b', 'helm som endrer klyngen'),
-    (r'\b(terraform|tofu)\s+(?:\S+\s+)*?(apply|destroy|import|taint|untaint)\b', 'terraform/tofu som endrer infrastruktur'),
-    (r'\b(terraform|tofu)\s+(?:\S+\s+)*?state\s+(rm|mv|push|replace-provider)\b', 'endring av terraform-state'),
-    (r'\bpulumi\s+(?:\S+\s+)*?(up|destroy|import|refresh)\b', 'pulumi som endrer infrastruktur'),
-    (r'\baz\s+(role|ad)\b', 'Azure IAM/RBAC'),
-    (r'\baz\s+keyvault\s+(secret|key|certificate)\s+(set|delete|purge|import)\b', 'Azure Key Vault-hemmeligheter'),
-    (r'\baws\s+(iam|secretsmanager|kms)\b', 'AWS IAM/hemmeligheter'),
-    (r'\bgcloud\s+(?:\S+\s+)*?(iam|add-iam-policy-binding|remove-iam-policy-binding|secrets)\b', 'GCP IAM/hemmeligheter'),
-    (r'\bgh\s+(secret|variable)\s+(set|delete|remove)\b', 'GitHub-hemmeligheter/variabler'),
-    (r'\bgh\s+api\s+(?:\S+\s+)*?[\'"]?/?repos/[^\s]+/(collaborators|keys|actions/secrets|environments)', 'GitHub-tilgang/hemmeligheter via API'),
-    (r'(^|\s)--auto-approve\b', 'automatisk godkjenning (--auto-approve)'),
+# Standardlista for governance.blocked_commands: "default". Endringer i infrastruktur, tilgang og
+# hemmeligheter, og automatisk godkjenning. Config kan erstatte den med en egen liste, eller [].
+DEFAULT_BLOCKED_COMMANDS = [
+    [r'\bkubectl\s+(?:\S+\s+)*?(apply|create|delete|patch|replace|scale|edit|set|annotate|label|rollout|drain|cordon|taint)\b',
+     'kubectl som endrer klyngen'],
+    [r'\bhelm\s+(?:\S+\s+)*?(install|upgrade|uninstall|delete|rollback)\b', 'helm som endrer klyngen'],
+    [r'\b(terraform|tofu)\s+(?:\S+\s+)*?(apply|destroy|import|taint|untaint)\b', 'terraform/tofu som endrer infrastruktur'],
+    [r'\b(terraform|tofu)\s+(?:\S+\s+)*?state\s+(rm|mv|push|replace-provider)\b', 'endring av terraform-state'],
+    [r'\bpulumi\s+(?:\S+\s+)*?(up|destroy|import|refresh)\b', 'pulumi som endrer infrastruktur'],
+    [r'\baz\s+(role|ad)\b', 'Azure IAM/RBAC'],
+    [r'\baz\s+keyvault\s+(secret|key|certificate)\s+(set|delete|purge|import)\b', 'Azure Key Vault-hemmeligheter'],
+    [r'\baws\s+(iam|secretsmanager|kms)\b', 'AWS IAM/hemmeligheter'],
+    [r'\bgcloud\s+(?:\S+\s+)*?(iam|add-iam-policy-binding|remove-iam-policy-binding|secrets)\b', 'GCP IAM/hemmeligheter'],
+    [r'\bgh\s+(secret|variable)\s+(set|delete|remove)\b', 'GitHub-hemmeligheter/variabler'],
+    [r'\bgh\s+api\s+(?:\S+\s+)*?[\'"]?/?repos/[^\s]+/(collaborators|keys|actions/secrets|environments)', 'GitHub-tilgang/hemmeligheter via API'],
+    [r'(^|\s)--auto-approve\b', 'automatisk godkjenning (--auto-approve)'],
 ]
+
+# None = ingen MCP-liste konfigurert (sjekken hoppes over).
+APPROVED_MCP_SERVERS = {{GOV_APPROVED_MCP_SERVERS}}
+BLOCKED_PATHS = {{GOV_BLOCKED_PATHS}}
+# [regex, begrunnelse]. Hvert mønster prøves mot hvert ledd i en sammensatt kommando
+# (skilt med ; && || | og linjeskift).
+BLOCKED_COMMANDS = {{GOV_BLOCKED_COMMANDS}}
 SHELL_TOOLS = {'bash', 'run_in_terminal', 'powershell', 'shell'}
 EDIT_TOOLS = {'edit', 'create', 'apply_patch', 'str_replace_editor', 'create_file',
               'replace_string_in_file', 'insert_edit_into_file', 'multi_replace_string_in_file'}
@@ -77,14 +80,14 @@ def glob_match(rel, pattern):
     return pattern.startswith('**/') and fnmatch.fnmatch(rel, pattern[3:])
 
 
-def high_risk_path(rel, patterns=None):
-    return [g for g in (HIGH_RISK_PATHS if patterns is None else patterns) if glob_match(rel, g)]
+def blocked_path(rel, patterns=None):
+    return [g for g in (BLOCKED_PATHS if patterns is None else patterns) if glob_match(rel, g)]
 
 
-def high_risk_command(cmd):
+def blocked_command(cmd):
     hits = []
     for seg in re.split(r'\|\||&&|;|\||\n', cmd):
-        for rx, why in HIGH_RISK_COMMANDS:
+        for rx, why in BLOCKED_COMMANDS:
             if re.search(rx, seg.strip()):
                 hits.append(why)
     return sorted(set(hits))
@@ -115,18 +118,17 @@ def hook_decision(payload):
     cwd = payload.get('cwd')
     if name in SHELL_TOOLS or name == 'Bash':
         cmd = args.get('command') or args.get('_raw') or ''
-        hits = high_risk_command(cmd if isinstance(cmd, str) else '')
+        hits = blocked_command(cmd if isinstance(cmd, str) else '')
         if hits:
-            return ('Org-modus: høyrisiko-kommando avvist (' + ', '.join(hits) + '). Endringer i '
-                    'infrastruktur, IAM/RBAC og hemmeligheter gjøres ikke av agenter — '
-                    'se docs/loop/compliance.md.')
+            return ('Blokkert kommando (' + ', '.join(hits) + '). Slike endringer gjøres ikke av '
+                    'agenter i dette prosjektet — se docs/loop/governance.md.')
     elif name in EDIT_TOOLS or name in ('Edit', 'Write', 'MultiEdit'):
         for p in edit_paths(name, args):
             rel = repo_rel(p, cwd)
-            g = high_risk_path(rel)
+            g = blocked_path(rel)
             if g:
-                return (f'Org-modus: {rel} er en høyrisiko-sti ({", ".join(g)}) og kan ikke endres av '
-                        'agenter — se docs/loop/compliance.md.')
+                return (f'{rel} er en blokkert sti ({", ".join(g)}) og kan ikke endres av agenter — '
+                        'se docs/loop/governance.md.')
     return None
 
 
@@ -162,6 +164,9 @@ def mcp_servers(files):
 def cmd_mcp(argv):
     files = [argv[i + 1] for i, a in enumerate(argv) if a == '--file' and i + 1 < len(argv)] \
         or ['.mcp.json', '.vscode/mcp.json']
+    if APPROVED_MCP_SERVERS is None:
+        print('OK: ingen MCP-liste konfigurert (governance.approved_mcp_servers) — sjekken hoppes over')
+        return 0
     found, unreadable = mcp_servers(files)
     if unreadable:
         print('IKKE MÅLT: ' + '; '.join(unreadable))
@@ -169,7 +174,7 @@ def cmd_mcp(argv):
     bad = {n: f for n, f in found.items() if n not in APPROVED_MCP_SERVERS}
     if bad:
         for n, f in sorted(bad.items()):
-            print(f'IKKE GODKJENT: MCP-server «{n}» ({", ".join(f)}) står ikke i compliance.approved_mcp_servers')
+            print(f'IKKE GODKJENT: MCP-server «{n}» ({", ".join(f)}) står ikke i governance.approved_mcp_servers')
         return 1
     print(f'OK: {len(found)} MCP-server(e), alle godkjent' if found else 'OK: ingen MCP-servere konfigurert')
     return 0
@@ -198,19 +203,19 @@ def cmd_paths(argv):
     else:
         print(__doc__)
         return 2
-    hits = [(f, high_risk_path(repo_rel(f))) for f in files]
+    hits = [(f, blocked_path(repo_rel(f))) for f in files]
     hits = [(f, g) for f, g in hits if g]
     if hits:
         for f, g in hits:
-            print(f'AVVIST: {f} treffer høyrisiko-sti {", ".join(g)}')
+            print(f'AVVIST: {f} treffer blokkert sti {", ".join(g)}')
         return 1
-    print(f'OK: {len(files)} fil(er), ingen høyrisiko-stier')
+    print(f'OK: {len(files)} fil(er), ingen blokkerte stier')
     return 0
 
 
 def self_test():
-    global APPROVED_MCP_SERVERS, HIGH_RISK_PATHS
-    APPROVED_MCP_SERVERS, HIGH_RISK_PATHS = ['github'], ['infra/**', '**/*.tf', '.github/workflows/**']
+    global APPROVED_MCP_SERVERS, BLOCKED_PATHS
+    APPROVED_MCP_SERVERS, BLOCKED_PATHS = ['github'], ['infra/**', '**/*.tf', '.github/workflows/**']
     cases = [
         ('kubectl apply', {'toolName': 'bash', 'toolArgs': json.dumps({'command': 'kubectl apply -f x.yaml'})}, True),
         ('kubectl get', {'toolName': 'bash', 'toolArgs': {'command': 'kubectl get pods -n x'}}, False),
@@ -256,6 +261,16 @@ def self_test():
             if got != want:
                 fails += 1
                 print(f'FEIL {name}: exit {got}, forventet {want}')
+        APPROVED_MCP_SERVERS = None
+        sys.stdout, saved = open(os.devnull, 'w'), sys.stdout
+        try:
+            got = cmd_mcp(['--file', bad])
+        finally:
+            sys.stdout = saved
+        if got != 0:
+            fails += 1
+            print(f'FEIL mcp uten liste: exit {got}, forventet 0')
+        APPROVED_MCP_SERVERS = ['github']
         rep = os.path.join(d, 'plan.json'); json.dump({'files_touched': ['src/a.ts', 'infra/k8s.yaml']}, open(rep, 'w'))
         sys.stdout, saved = open(os.devnull, 'w'), sys.stdout
         try:
@@ -265,8 +280,8 @@ def self_test():
         if got != 1:
             fails += 1
             print(f'FEIL plan-rapport med infra/: exit {got}, forventet 1')
-    total = len(cases) + 5
-    print(f'compliance-check --self-test: {total - fails}/{total}')
+    total = len(cases) + 6
+    print(f'governance-check --self-test: {total - fails}/{total}')
     return 1 if fails else 0
 
 
