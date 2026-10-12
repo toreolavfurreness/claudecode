@@ -84,7 +84,7 @@ ren.
 
 {{TIER1_INVARIANTS}}
 
-⚠️ STOPP og sett `status: "blocked"` hvis et steg krever noe under pause-triggerne ({{PAUSE_TRIGGERS}}) — det er ikke din rolle.
+⚠️ STOPP og sett `status: "blocked"` hvis et steg krever noe under pause-triggerne ({{PAUSE_TRIGGERS}}) — det er ikke din rolle. Det samme gjelder ny native avhengighet, ny tillatelse eller endring i `eas.json`/`app.config.js`/`app.json` som eieren ikke har godkjent (A3-go oppgitt i dispatchen). Native kodearbeid, også i en iOS-Modal, er ikke en stoppgrunn når dispatchen oppgir `kind: native`. Oppgir dispatchen det ikke, skriver du i ferdig-rapportens `notes` og `deviations` hvilke filer det gjelder, og koordinatoren fører iPhone-raden derfra.
 
 **Planen holder ikke?** Viser det seg at en antakelse planen bygger på ikke stemmer med koden slik
 den faktisk er: ikke design en ny løsning utenfor planen, og ikke press implementeringen gjennom på

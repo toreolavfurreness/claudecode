@@ -96,7 +96,7 @@ Implementeringen er fullført. Gjør følgende i rekkefølge — ikke hopp over 
     Legg dem til tasks/bugs.md med dette formatet:
 
     ## BUG-XXX — [tittel]
-    **Oppdaget:** [dato]
+    **Oppdaget:** YYYY-MM-DD
     **Oppdaget i:** TODO-[nummer]
     **Beskrivelse:** [hva som skjer]
     **Reprodusere:** [steg for å reprodusere]

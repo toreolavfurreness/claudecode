@@ -353,7 +353,7 @@ Eksempel:
 ## Del D — Nivå A/B-regelmotor (read-only mot repoet)
 
 Del D kjøres FØR «Del C» over evalueres inn i pause/fortsett-beslutningen (dvs. et rødt Del D-funn
-er samme klasse som Del A6 RØD — ⚠️ PAUSEPUNKT). Del D skriver INGENTING til repoet selv — kun til
+er samme klasse som Del A6 RØD — ⚠️ PAUSEPUNKT). Del D skriver INGENTING til repoet selv utenom D4-rettingene — kun til
 koordinatorens rapportblokk; helseraden (Del C) bærer `release=go|no-go` som vanlig, upåvirket av
 Del D's format.
 
@@ -363,7 +363,7 @@ Del D's format.
 python3 tasks/decision-level.py --self-test
 ```
 
-Krav: exit 0 **og** `52/52` **og** `logg-parser: PASS` **og** `avstemming: PASS` i stderr-oppsummeringen. Ikke-grønn ⇒ **RØD** (regelmotoren selv er i
+Krav: exit 0 **og** `59/59` **og** `logg-parser: PASS` **og** `avstemming: PASS` i stderr-oppsummeringen. Ikke-grønn ⇒ **RØD** (regelmotoren selv er i
 utakt med sine egne fixtures — ALDRI stol på klassifiseringer denne runden).
 
 ### D1b — Regelmotor ekte-kall-sjekk (runbookens DOKUMENTERTE `--context`-kall virker, ikke bare `--self-test`)
@@ -382,6 +382,8 @@ python3 tasks/decision-level.py --event revise_gate_choice --context code_review
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=1 --context action=fix_round --context cost_over=yes
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=few
 python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=few
+python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=1 --context new_class=no --context content=yes --context cost_over=no
+python3 tasks/decision-level.py --event technical_risk --context source=planner --context kind=native --context native_dep=no --context native_permission=no
 ```
 
 Krav, i rekkefølge:
@@ -390,17 +392,19 @@ Krav, i rekkefølge:
 2. exit 0 og `"rule": "B1"`. En fix-runde der funnene går ned, er nivå B.
 3. exit 0 og `"rule": "B1"`. Gate-funnene går ikke ned (2→2) i §5b: nivå B.
    Gir det A0, er flyttingen borte.
-4. exit 1, `"rule": "A0"` og `no_convergence: blocking` i `violations`. Samme tall i §4: planrevisjon
-   er ikke flyttet. Gir det B7, er vakten for §4 borte.
+4. exit 0 og `"rule": "B7"`. Samme tall i §4: nivå B.
+   Gir det A0, er flyttingen borte.
 5. exit 1, `"rule": "A0"` og `content='yes'` i `violations`. Innholdsfunn er nivå A også i §5b.
 6. exit 1, `"rule": "A0"` og `cost_brake` i `violations`. Kostnadsbremsen gjelder fra runde 1.
 7. exit 1, `"rule": "A0"` og `cost_over='few'` i `violations`. For få sammenlignbare todoer stopper
    §5b fra runde 2.
-8. exit 0 og `"rule": "B7"`. Samme verdi i §4 stopper ikke. Gir det A0, er sperren blitt bredere
-   enn vedtaket.
+8. exit 1, `"rule": "A0"` og `cost_over='few'` i `violations`. For få sammenlignbare todoer stopper
+   også §4 fra runde 2.
+9. exit 1, `"rule": "A0"` og `content='yes'` i `violations`. Innholdsfunn er nivå A også i §4.
+10. exit 0 og `"rule": "B8"`. Native kodearbeid uten ny avhengighet og uten ny tillatelse er nivå B.
 
-Ett avvik ⇒ **RØD**. Gir kall 1–3 og 8 `"level": "A"`, er nivå B inert i drift uansett hva D1/D2 sier.
-Gir kall 4–7 nivå B,
+Ett avvik ⇒ **RØD**. Gir kall 1–4 og 10 `"level": "A"`, er nivå B inert i drift uansett hva D1/D2 sier.
+Gir kall 5–9 nivå B,
 bestemmer koordinatoren selv noe eieren skal spørres om.
 
 ### D2 — Regel-paritet (skript ↔ runbook-prosa)
@@ -412,7 +416,7 @@ grep -E '^\| [AB][0-9] \| ' docs/superpowers/loop/coordinator-runbook.md \
 diff /tmp/decision-rules-script.tsv /tmp/decision-rules-runbook.tsv
 ```
 
-Krav: `diff` tom, begge filer 15 linjer (8 A + 7 B). Ikke-tom diff ⇒ **RØD** — regeltabellen har
+Krav: `diff` tom, begge filer 16 linjer (8 A + 8 B). Ikke-tom diff ⇒ **RØD** — regeltabellen har
 driftet mellom kode og prosa etter merge av en senere PR (R3).
 
 ### D3 — Monoton decision-log (SEED_ONLY-beskyttelsen holder over tid)
@@ -450,10 +454,21 @@ awk '/\| 246 \|/{f=1} f' docs/superpowers/loop/run-log.md \
   | awk -F' \| ' '$4 ~ /^(merged|paused)$/ && $8+0 >= 4 {print $1, $2, "crr="$8}'  # V16c
 ```
 
-Krav til avstemmingen: exit 0 ⇒ `OK`. Exit 1 ⇒ **RØD**: gjengi `AVVIK`-, `MANGLER_TOKEN`- og
-`etter merged-rad`-linjene i rapportblokken og eskalér. En rad som fører et annet tall enn loggen
+Krav til avstemmingen: exit 0 ⇒ `OK`. Exit 1 ⇒ rett selv: sett `auto_decided=<nr>:<n>` på hver
+`AVVIK`-, `FEIL_FORM`- og `MANGLER_TOKEN`-rad til `logg=`-tallet fra linja, skriv én oppføring
+`### <tid> — loop [D4]: rettet <n> rader` i decision-log med `<radtid> <nr> før→etter` per rad, og kjør
+`--reconcile` én gang til. Exit 0 ⇒ `OK (rettet <n>)`. Er det fortsatt exit 1 (også `etter merged-rad`), er
+det **RØD**: gjengi linjene i rapportblokken og eskalér. Ved `rad > logg` kan det være loggen som mangler
+en beslutning. Oppføringen navngir da hvilken beslutning som mangler logg-oppføring, eller sier at ingen
+mangler. `run-log.md` er append-only. Å rette `auto_decided`-tokenet på en rad i D4 er det eneste tillatte unntak.
+D4-rettinger gjengis i rapportblokken, fordi `--recent-b` bare viser `[B…]`. Navngir en `[D4]`-oppføring en beslutning som mangler i loggen, står den i rapportblokken på egen linje `ulogget nivå B-valg: <nr> <hva>`, så eieren kan vetoe den. En rad som fører et annet tall enn loggen
 gir, eller et nivå-B-valg uten rad, er brudd på en av de fire logg-pliktene. Exit 2 (en fil kan
 ikke leses, eller markøren mangler) ⇒ **RØD**. `rader=0` er et tomt vindu og skrives slik.
+
+`FEIL_FORM` er en rad der nøkkelen foran kolon ikke er radens todo (f.eks. `koordinator:3`), og rettes som `AVVIK`.
+`<tid> A0 MANGLER_TYPE` og `<tid> A0 UKJENT_TYPE <ledd>` er en `[A0]`-oppføring skrevet etter 516s `merged`-rad uten
+`Type` i `SLAG`: sett `Type`-linja i oppføringen, og før den i `[D4]`-oppføringen som `<tid> Type: <verdi>`.
+Sumlinja teller dem i `a0_feil=<n>`.
 
 Regelen (`attribute()` i skriptet, samme funksjon som `--auto-decided` i §6 steg 5): en
 `[B<siffer>]`-oppføring eies av første `TODO <nr>` i overskriften og telles på eierens første rad
@@ -461,6 +476,21 @@ med radtid ≥ oppføringstid. `venter på merge` (eieren har ingen rad ennå, e
 `merged`) og `uten todo` gjengis i rapportblokken og gir ikke rødt. **Eierløse B-valg (`— loop
 [Bn]`) står ikke på noen rad og avstemmes ikke.** De telles bare. Run-log-rader med `-` i todo-feltet (felt 2) hoppes over av `attribute()` og avstemmes heller ikke. `etter merged-rad` kan bli rødt for
 en todo som er åpnet igjen etter merge. Linja forsvinner når todoen får ny rad.
+
+**B8-kontrollen.** En todo godkjent under B8 skal ha rad på eierens iPhone-liste:
+
+```bash
+L=docs/superpowers/loop/decision-log.md; R=docs/superpowers/loop/run-log.md; E=tasks/releases
+for n in $(awk -F' \\| ' '$4=="health"{s=""; next} $4=="merged"{s=s" "$2} END{print s}' "$R"); do
+  grep -qE "^### .{16} — TODO $n \[B8\]" "$L" || continue
+  awk '/^## Eierpunkter/{f=1;next} /^## /{f=0} f' "$E"/*.md | grep -qiE "iPhone[^:]*-lista[^:]*: $n([^0-9A-Za-z]|\$)" || echo "MANGLER iPhone-rad: $n"
+done
+```
+
+Krav: tom utdata. Vinduet er merged-radene siden forrige helsesjekk, som i avstemmingen. Raden står under
+`## Eierpunkter` i releasefila og har formen `iPhone-lista: <nr> …` (også `iPhone/iPad-lista`), med todo-nummeret rett etter kolonet (ett nummer per rad, ikke intervall).
+`MANGLER iPhone-rad` rettes som et D4-avvik: legg raden til, før det i `[D4]`-oppføringen og kjør blokken
+på nytt. Gir den fortsatt utdata ⇒ **RØD**.
 
 Hver V16a/b-treffende rad MÅ ha en tilsvarende
 decision-log-entry (`[B7]` eller `[A0]`/`[A…]` for V16a, `[B1]` eller `[A0]`/`[A…]` for V16b — det

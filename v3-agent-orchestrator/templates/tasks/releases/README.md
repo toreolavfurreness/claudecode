@@ -66,6 +66,12 @@ Fylles ut når releasen er levert.
    - Skriv `## Retro` i release-fila: ble målet nådd, hvor mange todoer kom inn etter cut-off, hva
      kostet releasen, og hva gjør vi annerledes neste gang.
    - Sett `status: shipped` og `shipped: "<dato>"`.
+   - Prod-releasen oppretter retro-todoen: en todo med `tags: [release-retro]` og
+     `release:` satt til neste release. `release.py status` gir en ADVARSEL så lenge den er åpen.
+   - Retroen holdes i egen sesjon med eieren før første claim i neste release. Loopen claimer ikke
+     todoen. `## Retro` i release-fila er fortsatt release-sesjonens korte utkast.
+   - `python3 tasks/retro-numbers.py <versjon> --since <iso>` gir tallgrunnlaget, som limes inn i
+     malen `docs/superpowers/loop/retro-template.md`.
 
 ## Hvem skriver hva
 
@@ -75,6 +81,7 @@ Fylles ut når releasen er levert.
 | `release:` / `epic:` på en u-claimet todo | Mennesket |
 | Avkrysning i `## done_when` | Koordinatoren, med bevis på samme linje (`— bevis: PR #N` eller kommando og utdata). Mennesket kan krysse av selv. |
 | `## Retro` | Koordinatoren skriver et utkast når releasen er levert. Mennesket godkjenner. |
+| Retronotatet `docs/superpowers/loop/retro-<versjon>.md` | Retrosesjonen skriver. Mennesket avslutter retroen. |
 
 ## Scope-vakten
 
@@ -90,4 +97,5 @@ python3 tasks/release.py status            # fremdrift og DOM for den aktive rel
 python3 tasks/release.py scope <versjon>   # todo-nr i scope
 python3 tasks/release.py notes <versjon>   # release notes fra arkivet
 python3 tasks/release.py --self-test
+python3 tasks/retro-numbers.py <versjon> --since <iso>   # tallgrunnlaget for retroen
 ```

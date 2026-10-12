@@ -38,16 +38,23 @@ Entries **UNDER** `<!-- FORMAT-V2 -->`-markøren følger dette frosne formatet:
 
 Overskriften limes inn ordrett fra `header`-feltet i svaret fra `decision-level.py --event … --todo <nr> --title <tekst>`.
 
-- **Nivå A-entries** får i tillegg tre linjer, som `decision-level.py --agreement` leser:
-  `- **Type:** <--event, ellers kort kebab-navn>`, `- **Anbefaling:** <koordinatorens anbefaling>` og
-  `- **Eierens svar:** fulgt | avvek: <hva> | venter`. Å bytte ut `venter`-linja når svaret kommer
-  er den ENESTE tillatte redigeringen av en eksisterende entry.
-- `[B7]` fra runde 2 får `- **Konvergens:** gate-funn <prev>→<now>, ny feilklasse nei, innhold
+- **Nivå A-entries** får i tillegg tre linjer, som `decision-level.py --agreement` og
+  `tasks/retro-numbers.py` leser: `- **Type:** <--event, ellers <slag> eller <slag>:<kort-navn>>`,
+  `- **Anbefaling:** <koordinatorens anbefaling>` og `- **Eierens svar:**` i én av formene under. Leddet foran
+  kolon i `Type` står i `SLAG` i `tasks/decision-level.py`, det eneste vokabularet (slag: `runder | eiervalg | risiko | kvittering | måling`).
+  - `- **Eierens svar:** venter (spurt <YYYY-MM-DD HH:MM>)`: oppføringen skrives i det spørsmålet sendes.
+  - `- **Eierens svar:** fulgt | avvek: <hva> (spurt <samme tid>, svart <YYYY-MM-DD HH:MM>)`: byttes inn når svaret kommer.
+  - `- **Eierens svar:** ordre: <hva> (uoppfordret)`: eieren ga ordren uten å være spurt.
+  - `- **Eierens svar:** se <svaroppføringens overskriftstid>`: bare når svaret likevel fikk egen oppføring. Den bærer da `(spurt …, svart …)`, og denne holdes utenfor slag og ventetid.
+
+  Alle tider tas fra `date`, aldri fra hukommelsen. To redigeringer av en eksisterende entry er tillatt: å bytte
+  ut `venter`-linja når svaret kommer, og at helsesjekkens D4 setter `Type`-linja ved `MANGLER_TYPE`/`UKJENT_TYPE`.
+- `[B7]` fra runde 2 får `- **Konvergens:** gate-funn <prev>→<now>, ny feilklasse ja|nei, innhold
   nei, kost <usd>/<median>` (se `coordinator-runbook.md` § Konvergensregel).
 - `[B1]` fra runde 2 får `- **Konvergens:** gate-funn <prev>→<now>, ny feilklasse ja|nei, innhold nei,
   kost <usd>/<median>`.
 
-- `<regel-id>` ∈ `A1`…`A8` | `A0` | `B1`…`B7` | `VETO av <B-id>` — hentet fra
+- `<regel-id>` ∈ `A1`…`A8` | `A0` | `B1`…`B8` | `D4` (helsesjekkens retting, `loop [D4]: rettet`) | `VETO av <B-id>` — hentet fra
   `python3 tasks/decision-level.py`, aldri fra hukommelsen. A-valg logges også (de bærer menneskets
   svar); `[B…]` er den greppbare diskriminatoren for nivå-B-avstemmingen i `loop-health-check.md`
   Del D4.

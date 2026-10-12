@@ -207,6 +207,28 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
 4. Ranger alle funn BLOKKERENDE / VIKTIG / MINDRE. Ikke gjenta kode som er riktig — pek kun på svakheter.
 5. Returner `code_review`-rapport etter skjemaet i `docs/superpowers/loop/report-schema.md`.
 
+### Deltareview (runde 2 og senere)
+
+Gjelder når dispatchen sier `DELTAREVIEW runde <N>`. Bindende:
+
+1. For hvert funn fra forrige runde: er det rettet? Et funn som ikke er rettet, eller er rettet
+   feil, står i `findings[]` med samme severity.
+2. Les endringen mellom rundene. Alt den rører, granskes like strengt som i runde 1. I plan-review
+   kjøres kriterie-auditen på hvert V-kriterium som er nytt eller endret, og på hvert kriterium som
+   står uendret, men får ny forventet verdi fordi et steg er endret. I kode-review leses
+   `gh pr diff` fortsatt i sin helhet. Linjer i fix-diffen som ikke står i `gh pr diff`, kommer fra `origin/{{BASE_BRANCH}}`
+   og er ikke PR-ens. Kan du ikke lese fix-diffen, si det i `notes` og gjør full review.
+3. En rettelse som bevises med en test, skal ha testen målt rød uten rettelsen, med feilårsaken
+   sitert ordrett. Mangler målingen, eller er årsaken en krasj, en manglende import eller en tom
+   testseleksjon, er rettelsen ikke bevist: **VIKTIG** (plan-review: et vakuøst kriterium er
+   BLOKKERENDE som før).
+4. Et nytt funn utenfor endringen står bare i `findings[]` når det er BLOKKERENDE og navngir et
+   konkret feilscenario (inndata eller tilstand, og det gale utfallet). Alt annet går i
+   `deferred[]` med ærlig severity og samme form som `findings[]`. Et funn som skyldes rundens
+   endring, er innenfor endringen uansett hvor symptomet står.
+5. Kun kode-review: tech-review-armen og `fan_in` er uendret. Lensene trigges av hele PR-diffen, og
+   en observasjon fra en lens med severity-gulv blir alltid et funn i `findings[]`.
+
 ## Bevis
 
 **Probe-modus (samme unntak som Steg 0 over):** hvis prompten KUN ber om `{"ok": true}` — svar bart det, ingen `evidence`, ingen `gh pr view`. Dette gjelder allerede for Steg 0-proben (kjøres én gang per koordinator-sesjon i `/run-loop`-preflighten) — bevis-kravet under gjelder KUN i full review-modus.

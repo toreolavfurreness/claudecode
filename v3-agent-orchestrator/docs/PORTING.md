@@ -64,6 +64,7 @@ fullstendige, kommenterte malen og [`../setup.md`](../setup.md) for token-mappin
 | `pause_triggers` | hva som teller som teknisk risiko | Pausepunkt-lister |
 | `release` | release-kommando, N-merges helsesjekk-intervall | Runbook §6c |
 | `pipelining` | tak for hvor mange todos som kan ligge i pipeline (plan uten claim) samtidig; **valgfri**, fravær ⇒ `0` ⇒ av | Runbook §5c |
+| `retro_file_classes` | filklassene retro-tallene fordeler tillagte linjer på (tester, docs, appkode …); **valgfri**, fravær ⇒ tester og planer/docs/loop | `tasks/retro-numbers.py` |
 | `parallel_implementers` | tak for hvor mange samtidig skrive-kapable implementere; **valgfri**, fravær ⇒ `1` ⇒ dagens sekvensielle atferd | Runbook §5d |
 
 **Tommelfingerregel:** nevner en verdi en stack, et miljø-ID, en produksjons-branch

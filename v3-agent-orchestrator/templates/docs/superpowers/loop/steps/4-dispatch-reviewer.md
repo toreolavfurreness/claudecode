@@ -34,6 +34,16 @@ Sjekk exit-koden med det samme; ikke-null ⇒ noter paret som `snapshot-missing`
 `Agent`: `subagent_type: {{PROJECT_NAME}}-reviewer`. Prompt:
 > TODO <nr>. Plan: `<plan_path>`. Relevante lessons-tema: <liste>. Følg charteret ditt. Returner review-rapport som JSON.
 
+**Fra runde 2: deltareview.** Prompt:
+> TODO <nr>. Plan: `<plan_path>`. DELTAREVIEW runde <N>. Forrige rundes funn: <findings[] fra runde N−1 som JSON>. Planens endring: `git diff <forrige_plan_commit> <ny_plan_commit> -- <plan_path>`. Relevante lessons-tema: <liste>. Følg charteret ditt, § Deltareview. Returner review-rapport som JSON.
+
+De to SHA-ene er commitene på `origin/{{BASE_BRANCH}}` som bar planfila da hver runde ble dispatchet: noter
+`git log -1 --format=%H origin/{{BASE_BRANCH}} -- <plan_path>` ved hver review-dispatch, i `[B7]`-oppføringen for
+runden eller i sjekkpunktfila (mangler tallet, hentes det fra
+`git log --format='%H %s' origin/{{BASE_BRANCH}} -- <plan_path>`). `<forrige_plan_commit>` er tallet fra runde N−1,
+`<ny_plan_commit>` er tallet nå. Det er IKKE `**Plan-SHA:**` i planhodet, som er dev-basen planen ble
+skrevet mot. Kjør diff-kommandoen selv før dispatch. Mangler forrige rundes funn eller en av SHA-ene, feiler kommandoen, eller gir den tom diff, brukes runde 1-prompten (full review).
+
 **Bevis-sjekk (`evidence`):** match `evidence.reviewed_head` (PRIMÆR) mot SIN EGEN kopi av planfilen — den samme planfilen du dispatchet revieweren mot. Mismatch → revieweren leste sannsynligvis feil eller utdatert plan — re-dispatch eller eskalér. `evidence.toplevel` er SVAKT/sekundært for reviewer (beviser kun cwd, ikke at riktig artefakt ble lest — reviewer skriver ingenting).
 
 **Rydding av plan-reviewerens worktree:** koordinatoren akkumulerer **paret**
@@ -81,7 +91,7 @@ fjerner ingen, så en plan som revideres flere ganger degraderer monotont uten e
    «konsolidering utsatt fordi …» i commit-meldingen. Stillhet er ikke en lovlig utgang.
 
 Gate på `verdict`:
-- `"no-go"` (≥1 BLOKKERENDE) → kjør **Konsolideringsgaten** over, og send så funnene tilbake til planner (§3, revisjons-runde) mot den (ev. konsoliderte) fila. **Hold en eksplisitt teller** («revisjonsrunde N») i kontekst. Ved HVER no-go, også runde 1: kjør `python3 tasks/measure-cost.py --brake <nr>` og så `decision-level.py` med `cost_over=<over>`, fra runde 2 også med konvergensdata (se `coordinator-runbook.md` § Konvergensregel). B7 → ny revisjonsrunde. A0 → ⚠️ eskalér til mennesket, release claim.
+- `"no-go"` (≥1 BLOKKERENDE) → kjør **Konsolideringsgaten** over, og send så funnene tilbake til planner (§3, revisjons-runde) mot den (ev. konsoliderte) fila. **Hold en eksplisitt teller** («revisjonsrunde N») i kontekst. Ved HVER no-go, også runde 1: kjør `python3 tasks/measure-cost.py --brake <nr>` og så `decision-level.py` med `cost_over=<over>`, fra runde 2 også med konvergensdata (se `coordinator-runbook.md` § Konvergensregel). B7 → ny revisjonsrunde, også når funnene ikke går ned eller en ny feilklasse dukker opp. A0 (innholdsfunn, manglende data, over kostnadstaket eller, fra runde 2, `over=few`) → ⚠️ eskalér til mennesket med anbefaling og konsekvens i vanlig språk, release claim.
 
 
 ```bash
@@ -89,7 +99,7 @@ python3 tasks/decision-level.py --event plan_review_choice --context plan_review
 python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
 ```
 
-- `"go"` → fortsett; VIKTIG/MINDRE-funn (ikke-blokkerende) bæres videre til §5-dispatchen.
+- `"go"` → fortsett; VIKTIG/MINDRE-funn (ikke-blokkerende) og `deferred[]` fra en deltareview bæres videre til §5-dispatchen.
   **Re-mål `effort` her (BINDENDE).** Et `go` betyr at oppgaven er kjent: skriv den målte
   størrelsen inn i todoens `effort` på den sammensatte formen `<kode>/<verifisering>`
   (`tasks/todos/README.md`), og behold det opprinnelige anslaget i brødteksten («opprettet som
@@ -100,6 +110,8 @@ python3 tasks/decision-level.py --event plan_review_choice --context plan_review
   kalibreringsdata, ikke støy.
 
 Ved `technical_risk.flagged` (plan- eller review-rapport) → ⚠️ STOPP, release claim, rapporter risikoen, vent på menneskets go — **med mindre** `python3 tasks/decision-level.py --event technical_risk --context source=planner --context kind=<kind> --context executable_gate=<yes|no>` klassifiserer hendelsen som **nivå B5** (KUN plan-rapportens `technical_risk`, `kind ∈ {docs_selfmod, hook_selfmod}` og `executable_gate = true`; se § Pausepunkter under). En `technical_risk` flagget av REVIEWEREN er alltid nivå A, uansett innhold — reviewer-rapporten bærer ikke `kind`/`executable_gate` (`report-schema.md`).
+
+**Native kodearbeid (`kind: native`, nivå B8).** Skjemaets `true` sendes som `yes` og `false` som `no`: `python3 tasks/decision-level.py --event technical_risk --context source=planner --context kind=native --context native_dep=<yes|no> --context native_permission=<yes|no>`. Står `eas.json`, `app.config.js` eller `app.json` i plan-rapportens `files_touched`, sendes `native_dep=yes` uansett hva planneren svarte. **Sjekken gjelder uansett `flagged` og `kind`:** står en av de tre filene i `files_touched` og `kind` ikke er `native`, kjøres kallet med `kind=native`, `native_dep=yes` og `native_permission=no` (gir A3, STOPP som over). Alt annet enn B8 er STOPP som over. Står `kind: native` i plan-rapporten, limes `technical_risk`-objektet inn i reviewer-prompten hver gang revieweren dispatches (også i runde 1, i deltaprompten og etter eierens go på A3), så revieweren kan etterprøve de to feltene. Revieweren melder native kodearbeid uten objektet som BLOKKERENDE, unntatt når planen også har en annen risiko (da er `kind` den).
 
 > **Pipelinet B?** «Release claim» gjelder ALLTID den claimede todoen. Er dette en pipelinet,
 > u-claimet B (§5c), har den ingen claim å frigi — B droppes ut av pipelinen og A fortsetter

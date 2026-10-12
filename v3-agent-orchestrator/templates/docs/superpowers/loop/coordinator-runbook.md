@@ -95,13 +95,13 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 
 ## 4. Dispatch reviewer + gate
 → `steps/4-dispatch-reviewer.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: sett `phase: plan-review`; pre-snapshot, dispatch, bevis-sjekk (`evidence.reviewed_head`), gate på `verdict` (no-go → Konsolideringsgate (≥ 400 linjer og tidligere runde) → bremsen + konvergensregelen, så §3-revisjon; go → re-mål `effort`, bær VIKTIG/MINDRE til §5); `technical_risk` → STOPP med mindre klassifiseringen gir B5.
+- [ ] Hva: sett `phase: plan-review`; pre-snapshot, dispatch, bevis-sjekk (`evidence.reviewed_head`), gate på `verdict` (no-go → Konsolideringsgate (≥ 400 linjer og tidligere runde) → bremsen + konvergensregelen, så §3-revisjon; go → re-mål `effort`, bær VIKTIG/MINDRE til §5); `technical_risk` → STOPP med mindre klassifiseringen gir B5 eller B8.
 - [ ] Vakt/kommando: `python3 tasks/vblock-lint.py <plan> --log` FØR dispatch (exit 1 ⇒ tilbake til planneren, teller ikke som runde); `planned_diff` > ~5× budsjettet ⇒ pausepunkt; `python3 tasks/decision-level.py --event technical_risk`
-- [ ] Pausepunkt: Reviewer no-go uten konvergens eller over kostnadstaket (§4, se Konvergensregel); Proporsjonalitet: `planned_diff` > ~5× budsjettet (§4); Teknisk risiko flagget (§4) eller truffet (§5/§6); B5; B7
+- [ ] Pausepunkt: Reviewer no-go med innholdsfunn, manglende data eller over kostnadstaket (§4, se Konvergensregel). Ellers nivå B7 (koordinatoren bestemmer selv og logger); Proporsjonalitet: `planned_diff` > ~5× budsjettet (§4); Teknisk risiko flagget (§4) eller truffet (§5/§6); B5; B7; B8
 
 ## 5. Dispatch implementer
 → `steps/5-dispatch-implementer.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: sett `phase: implementering` (`fix <n>` ved fix-runde); pipelining på → §5c dispatcher par 1; ellers pre-snapshot + dispatch med plan-review-funnene; `status: failed|blocked` → STOPP; noter `F3a_ref`; akkumuler (toplevel, snapshot)-par for §6; bevaringsregel ved abort.
+- [ ] Hva: sett `phase: implementering` (`fix <n>` ved fix-runde); pipelining på → §5c dispatcher par 1; ellers pre-snapshot + dispatch med plan-review-funnene; `status: failed|blocked` → STOPP; noter `F3a_ref`; akkumuler (toplevel, snapshot)-par for §6; bevaringsregel ved abort; B8 eller eierens A3-go på en `kind: native`-plan → skriv `kind: native` i implementer-prompten, og ved A3 også `A3-go` med eierens ord.
 - [ ] Vakt/kommando: `git worktree list --porcelain > "<scratch>/wt-pre-5-implementer-<runde>.txt"`; `F3a_ref`
 - [ ] Pausepunkt: Teknisk risiko flagget (§4) eller truffet (§5/§6); andre `plan_invalid` på samme todo (§5); ingen egen rad for STOPP ved `status: failed|blocked` (pre-eksisterende — står kun i stegfilen)
 
@@ -125,9 +125,9 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 
 ## 6. Skriv delt state (seriell, re-kjørbar) + merge (kun koordinator)
 → `steps/6-delt-state-og-merge.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: sett `phase: merge-klar` (`venter-eier` ved pausepunkt, i ethvert steg); fra ferdig-rapporten: CI-gate `ci=green` for pinnet head-SHA (steg 0, før delt state røres) → lessons → bugs → arkiver todo + planfil → verifiser base = `{{BASE_BRANCH}}` → todo-nr-gater (a) + (b) → merge via REST med `sha=` fra gaten → `stadium: merged` → §0b per akkumulert par → (§5d: seriell merge + CI-differensial) → steg 4b sweep (`wtsweep=`, `wtsweep_named=`) → steg 5 run-log-rad (dedup-guardet, notat-felt) → steg 6 delt-state-git-hale; selv-modifiserende PR ⇒ re-les endrede filer.
+- [ ] Hva: sett `phase: merge-klar` (`venter-eier` ved pausepunkt, i ethvert steg); fra ferdig-rapporten: CI-gate `ci=green` for pinnet head-SHA (steg 0, før delt state røres) → lessons → bugs → arkiver todo + planfil → verifiser base = `{{BASE_BRANCH}}` → todo-nr-gater (a) + (b) → merge via REST med `sha=` fra gaten → `stadium: merged` → §0b per akkumulert par → (§5d: seriell merge + CI-differensial) → steg 4b sweep (`wtsweep=`, `wtsweep_named=`) → steg 5 run-log-rad (dedup-guardet, notat-felt med `planned=`) → steg 6 delt-state-git-hale; ferdig-rapport som melder native kodearbeid i `notes`/`deviations` → før merge: sjekk `gh pr diff <pr> --name-only` mot `package.json`, `eas.json`, `app.config.js` og `app.json`. Treff uten eierens A3-go på todoen = STOPP (pausepunktet «Teknisk risiko truffet»). Uten treff er meldingen ikke et pausepunkt: har todoen ingen `[B8]`-oppføring i decision-log, fører koordinatoren en før merge (samme valg som B8, tatt på ferdig-rapporten i stedet for plan-rapporten); todo med `[B8]`-oppføring (fra §4 eller fra meldingen) → rad på eierens iPhone-liste (`tasks/releases/<release>.md` § Eierpunkter, formen `iPhone-lista: <nr> …`, ett nummer per rad og aldri intervall) i delt-state-commiten; kode-reviewens `deferred[]` → `tasks/followups/` sammen med MINDRE-funnene; selv-modifiserende PR ⇒ re-les endrede filer.
 - [ ] Vakt/kommando: `python3 tasks/ci-gate.py <pr-nummer>`; `gh pr view <pr> --json baseRefName -q .baseRefName`; `gh api --method PUT "repos/{owner}/{repo}/pulls/<pr-nummer>/merge" -f merge_method=merge -f sha=<sha fra steg 0>`; `./tasks/worktree-sweep.sh`
-- [ ] Pausepunkt: CI-gate ikke grønn (§6 steg 0); todo-nr-kollisjon (§6.4 gate b, se §9); Merge-konflikt (§6.4); Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b); Teknisk risiko flagget (§4) eller truffet (§5/§6)
+- [ ] Pausepunkt: CI-gate ikke grønn (§6 steg 0); todo-nr-kollisjon (§6.4 gate b, se §9); Merge-konflikt (§6.4); Rebase-konflikt i delt-state-git-halen (§6/§6c/§7/§8/§8b); Teknisk risiko flagget (§4) eller truffet (§5/§6) (native kodearbeid meldt i `notes`/`deviations` er truffet bare ved fil-treff uten A3-go, ellers B8); B8
 
 ## 6b. Drain bug-innboks (hver syklus, kun koordinator)
 → `steps/6b-drain-bug-innboks.md` — les hele fila FØR steget kjøres.
@@ -137,7 +137,7 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 
 ## 6c. Helsesjekk + release-rådgiver (betinget, kun koordinator)
 → `steps/6c-helsesjekk.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: kjør `/loop-health-check` ved Trigger 1 (kø tom, før §7) eller Trigger 2 (hver 5. merge, telleren i stegfilen); grønn → §8b + §8c; rød → PAUSEPUNKT, §8b/§8c kjøres IKKE; Del D er del av sjekken.
+- [ ] Hva: kjør `/loop-health-check` ved Trigger 1 (kø tom, før §7) eller Trigger 2 (hver 5. merge, telleren i stegfilen); grønn → §8b + §8c; rød → PAUSEPUNKT, §8b/§8c kjøres IKKE; Del D er del av sjekken. Et D4-avvik retter og logger koordinatoren selv; det er rødt først når avstemmingen feiler etter rettingen.
 - [ ] Vakt/kommando: `python3 tasks/loop-cadence.py` etter hver merged-rad (exit 1 = forfalt); `/loop-health-check`
 - [ ] Pausepunkt: Helsesjekk rød (§6c) — regresjon eller infra-feil
 
@@ -177,6 +177,12 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 - [ ] Vakt/kommando: `sh scripts/check-todo-nr-collisions.sh --next`; `sh scripts/check-todo-nr-premerge.sh <branch>`
 - [ ] Pausepunkt: ingen egen rad — kollisjon før merge stopper i §6 steg 4
 
+## Egen sesjon, ikke agent
+- [ ] Hva: retro, prod-release, kit-port og brainstorm med eieren holdes i egen sesjon. Koordinatoren dispatcher dem ikke som agent og claimer ikke todoen.
+- [ ] Overlevering: sidesesjonen committer `docs/superpowers/loop/handover/<sesjon>-<dato>.md` i samme PR som resten, og meldingen til koordinatoren oppgir sti og commit. Aldri utenfor repoet. Koordinatorens egen overlevering følger `/handover` (`handover-<dato>-<HHMM>.md`) som før.
+- [ ] Vakt/kommando: `git fetch origin {{BASE_BRANCH}} && git show origin/{{BASE_BRANCH}}:docs/superpowers/loop/handover/<fil>`. Koordinatoren handler ikke på en overlevering den ikke har lest derfra.
+- [ ] Pausepunkt: ingen
+
 ## Pausepunkter (nivå A — spør + eskalér; nivå B — bestem selv, logg, mennesket kan vetoe)
 
 **Klassifiser ALLTID mekanisk, aldri fra hukommelsen:**
@@ -189,16 +195,18 @@ stdout: `{"level":"A"|"B","rule":"<id>","trigger":"…","obligations":[…],"vio
 nivå-A-pausepunkt under. Et ikke-klassifiserbart valg blir ALDRI stilltiende et nivå-B-valg.
 `--dump-rules`/`--self-test` finnes for verifisering — se `loop-health-check.md` Del D.
 
+**Nivå A-oppføringen skrives i det spørsmålet sendes**, med `- **Type:** <slag>` og `- **Eierens svar:** venter (spurt <tid fra date '+%Y-%m-%d %H:%M'>)`, og linja byttes når svaret kommer (formene står i `decision-log.md` § Format).
+
 **Alle `A`-radene i tabellen under er nivå A** (uendret oppførsel: STOPP, release claim, eskalér) **med unntak
 av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 — se B-radene i tabellen under.
 
-### Alle pausepunkter — én tabell (ID `A` uten tall = eldre nivå-A-punkt utenfor `decision-level.py`; A1–A8 og B1–B7 = `decision-level.py`)
+### Alle pausepunkter — én tabell (ID `A` uten tall = eldre nivå-A-punkt utenfor `decision-level.py`; A1–A8 og B1–B8 = `decision-level.py`)
 
 | ID | Trigger |
 |---|---|
 | A | Teknisk risiko flagget (§4) eller truffet (§5/§6) |
 | A | Brainstorm-påkrevd todo (hoppet over i §1) |
-| A | Reviewer no-go uten konvergens eller over kostnadstaket (§4, se Konvergensregel) |
+| A | Reviewer no-go med innholdsfunn, manglende data eller over kostnadstaket (§4, se Konvergensregel). Ellers nivå B7 (koordinatoren bestemmer selv og logger) |
 | A | Kode-reviewer revise-gate med innholdsfunn, manglende data eller over kostnadstaket (§5b, se Konvergensregel). Ellers nivå B1 (koordinatoren bestemmer selv og logger) |
 | A | Juridisk tekst (personvern) eller kutt som endrer det todoen lover brukeren |
 | A | Agent-probe i preflight feiler («Agent type not found», dekker §5b) → fersk koordinator-sesjon kreves |
@@ -214,7 +222,7 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A | Helsesjekk rød (§6c) — regresjon eller infra-feil i integrert `{{BASE_BRANCH}}` |
 | A1 | Skriving mot prod-miljøet (`{{PROD_ENV_ID}}`) eller kjøring av `{{RELEASE_COMMAND}}` |
 | A2 | Env-variabler, secrets eller vault |
-| A3 | Native/EAS-bygg, TestFlight-distribusjon eller iOS-Modal-endring |
+| A3 | Native/EAS-bygg, TestFlight-distribusjon, eller native iOS-arbeid med ny native avhengighet eller ny tillatelse |
 | A4 | Push eller merge til `{{PROD_BRANCH}}` |
 | A5 | Destruktiv eller irreversibel operasjon (datasletting, force-push, drop) |
 | A6 | Avvik fra `CLAUDE.md` eller `docs/naming-conventions.md` som krever menneskets bekreftelse |
@@ -226,20 +234,21 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | B4 | Pipelining: valg eller drop av B-sporet (§5c) |
 | B5 | Godkjenning av `technical_risk` fra **plan-rapporten** når `kind ∈ {docs_selfmod, hook_selfmod}` **og** `executable_gate = true` |
 | B6 | Retro-triage: hvilke retro-observasjoner som promoteres eller lukkes (§8b) |
-| B7 | §4 plan-review: ny revisjonsrunde (fra runde 2 kun ved konvergens) vs. drop/`open` — alle runder under kostnadstaket |
+| B7 | §4 plan-review: ny revisjonsrunde (fra runde 2 kun uten innholdsfunn) vs. drop/`open` — alle runder under kostnadstaket |
+| B8 | Godkjenning av `technical_risk` fra **plan-rapporten** når `kind = native` uten ny native avhengighet og uten ny tillatelse |
 
 <!-- mekanisk-kandidat: pausepunkt-tabellen ↔ decision-level.py (finnes: tasks/decision-level.py + D2-paritet i loop-health-check.md Del D) -->
 
 
 De `A`-radene uten tall i tabellen over er egne, ELDRE pausepunkter (utenfor `decision-level.py`s
-15-rads regeltabell) og forblir nivå A uansett — A1–A8 dekker et ANNET, mer spesifikt sett
+16-rads regeltabell) og forblir nivå A uansett — A1–A8 dekker et ANNET, mer spesifikt sett
 hendelser (prod-skriving, secrets, native, `{{PROD_BRANCH}}`, destruktive operasjoner,
 naming-avvik, migrasjon/RLS mot dev, Edge Function-deploy) som koordinatoren klassifiserer
 eksplisitt før den handler (§2c, §5c).
 
 
 **Pinnet (mot tvetydighet):** rundebetingelsene i triggertekstene over («fra runde 2 kun uten
-innholdsfunn» i §5b-raden, «fra runde 2 kun ved konvergens» i B7, «under kostnadstaket») er PROSA
+innholdsfunn» i §5b-raden og i B7, «under kostnadstaket») er PROSA
 for menneskelesere og for V7-paritet mot `--dump-rules` — de er IKKE en betingelse i selve
 regelmatchingen i `decision-level.py`. Konvergens, innholdsregel og kostnadsbrems bor UTELUKKENDE i
 konvergensvakten under; B1 matcher på `event=revise_gate_choice` +
@@ -249,7 +258,10 @@ et `technical_risk` med `kind=migration` treffer A7 fordi B5s `kind`-betingelse 
 fordi A7 evalueres først (rekkefølgen A-block-før-B-block er likevel reell og bindende, se
 skriptets docstring). **`technical_risk` fra en REVIEWER (ikke planneren) bærer aldri
 `kind`/`executable_gate` og klassifiseres derfor ALLTID som nivå A** — B5 gjelder kun
-plan-rapportens `technical_risk` (§4 «Ved `technical_risk.flagged`» over). **`hook_selfmod`s
+plan-rapportens `technical_risk` (§4 «Ved `technical_risk.flagged`» over). **B8 krever
+`native_dep=no` OG `native_permission=no`.** En plan som rører `eas.json`, `app.config.js` eller
+`app.json` utenom ren visningstekst, eller EAS-miljøer, er `native_dep=yes` og dermed A3
+(definisjon i `report-schema.md`). **`hook_selfmod`s
 eksakte scope** (hvilke filer i `.claude/hooks/` som teller, og at hooks som håndhever en
 nivå-A-invariant som `guard-main-merge.sh`/`guard-supabase-ref.sh` ALDRI er B5 uansett
 `executable_gate`) er definert i `report-schema.md` — B5-raden over gjentar den ikke, for å
@@ -274,14 +286,13 @@ Det finnes ikke noe fast rundetak. Evalueres FØR alt annet i `decision-level.py
   `decision-level.py` med `cost_over=<over>`. Verdien sendes ordrett slik bremsen skrev den.
   `over=yes` betyr at todoens kost er over 2× medianen for effort-klassen, og gir A0. `over=few`
   betyr at effort-klassen har færre enn 5 andre todoer med målt kost, så bremsen har ingen median
-  å måle mot. `over=few` gir A0 for en ny fix-runde i §5b fra runde 2,
-  og teller som `no` i §4 og i runde 1. Alt annet enn
+  å måle mot. `over=few` gir A0 fra runde 2 i begge gater, og teller som `no` i runde 1. Alt annet enn
   `no` og `few`, også manglende verdi, gir A0 (fail-closed). `class=?` (todoen mangler `effort:`)
   gir `over=unknown` og dermed A0; løsningen er at koordinatoren setter `effort` i todo-fila før §4.
 - **Fra runde 2** kreves i tillegg konvergensdata: `blocking_prev`, `blocking_now`, `new_class` og
   `content`. Manglende eller ugyldig verdi gir A0 i begge gater.
-  - **§4 (`plan_review_choice`):** antall gate-funn må gå ned, `new_class=no` og `content=no` (bare
-    form). Brudd gir A0. §4 krever fortsatt alle kravene for B7.
+  - **§4 (`plan_review_choice`):** samme lesning som §5b
+    under. At gate-funnene ikke går ned, eller en ny feilklasse, er nivå B7. Innholdsfunn gir A0.
   - **§5b (`revise_gate_choice`):** At gate-funnene
     ikke går ned, eller at en ny feilklasse dukker opp (`new_class=yes`), er nivå B. Koordinatoren
     velger selv og logger. `content` annet enn `no` (innholdsfunn) gir fortsatt A0, og
@@ -292,9 +303,9 @@ python3 tasks/decision-level.py --event revise_gate_choice --context code_review
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
 ```
 
-Antall runder: i §4 må gate-funnene gå ned for hver runde, så runde 1 med k funn gir høyst k
-runder før A0, og kostnadstaket kommer i tillegg. I §5b finnes ikke det rundetaket lenger. Der
-begrenses rundene av kostnadsbremsen og innholdsregelen. Hver `[B1]`/`[B7]` fra runde 2 bærer en
+Antall runder: ingen av gatene har rundetak fra funn-tallet. Rundene begrenses av
+kostnadsbremsen og innholdsregelen. Et A0-spørsmål til eieren bærer anbefaling og konsekvens i
+vanlig språk. Hver `[B1]`/`[B7]` fra runde 2 bærer en
 `Konvergens:`-linje i decision-log (se § Format der), som er beviset og kan vetoes.
 
 ### Kalibrering

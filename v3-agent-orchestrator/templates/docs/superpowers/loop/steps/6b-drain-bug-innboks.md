@@ -9,6 +9,7 @@
 
 Sjekk `tasks/bugs/inbox/` for nye `bug-*.md` (mennesker slipper dem her — én fil per bug, ingen konflikt). For hver:
 - **Reell, ikke-planlagt bug** → legg en oppføring i `tasks/bugs.md` (format: se eksisterende).
+  Første linje under overskriften er `**Oppdaget:** YYYY-MM-DD` (ISO-dato først, forklaring etter): retroen teller bugs på den.
 - **Bug som bør fikses nå** → forfremm til en ny todo (`tasks/todos/todo-NN-fix-<slug>.md`, sett `priority` etter innboks-filens vurdering).
   Med en aktiv release får den nye todoen **ikke** `release:`, med ett unntak: blokkerer buggen en
   `done_when`-linje, sett `release: "<aktiv>"`, `release_blocker: true` og navngi linja i
