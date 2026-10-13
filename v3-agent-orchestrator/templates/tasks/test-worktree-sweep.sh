@@ -142,6 +142,36 @@ apply_mutant() {
   echo "--- slutt diff ---"
 }
 
+# why=-feltet på oppsummeringslinja. Y-testene krever strenglikhet mot HELE feltet.
+why_of() {
+  printf '%s\n' "$1" | grep -E '^wtsweep[a-z_]*=' | grep -oE 'why=[^ ]*$'
+}
+check_why() {
+  # check_why <etikett> <sweep-utskrift> <ventet felt>
+  got=$(why_of "$2")
+  if [ "$got" = "$3" ]; then
+    echo "$1=PASS ($got)"
+  else
+    fail "$1: ventet '$3', fikk '$got'"
+  fi
+}
+check_log() {
+  # check_log <etikett> <loggfil> <jq-filter mot siste rad>
+  if tail -1 "$2" | jq -e "$3" > /dev/null; then
+    echo "$1=PASS ($(tail -1 "$2"))"
+  else
+    fail "$1: siste loggrad oppfyller ikke $3: $(tail -1 "$2")"
+  fi
+}
+check_nolog() {
+  # check_nolog <etikett> <loggfil> — tørrkjøring skal aldri skrive loggrad
+  if [ ! -s "$2" ]; then
+    echo "$1=PASS (ingen loggrad)"
+  else
+    fail "$1: tørrkjøring skrev loggrad: $(cat "$2")"
+  fi
+}
+
 echo "############ V3 — åpen PR-vakt (R6: navn-only vs OID-only, disjunkte caser) ############"
 new_harness W3
 # (a) case-a matcher UTELUKKENDE på branch-NAVN: HEAD er IKKE ancestor av noen åpen PRs OID.
@@ -355,6 +385,8 @@ if printf '%s' "$out" | grep -qF "BEHOLDT  case-status — status feilet"; then
 else
   fail "V4(a): status-feil ikke fanget"
 fi
+check_why Y-cmd-error "$out" "why=cmd_error:1"
+check_nolog Y-logg-dry "$W4a/tasks/metrics/worktree-sweep-log.jsonl"
 
 new_harness W4b
 git -C "$W4b" branch case-anything {{BASE_BRANCH}}
@@ -695,6 +727,7 @@ if printf '%s' "$out" | grep -qF "BEHOLDT  case-fastpath — klassifikator:"; th
 else
   echo "V6(rask-vei-ignorert)-ikke-fallback=PASS (BEHOLDT-grunnen starter ikke med 'klassifikator:')"
 fi
+check_why Y-ignored "$out" "why=ignored:1"
 
 echo "--- M8: den raske veiens --ignored-only-kall nøytraliseres (fix-runde 3, mikro) ---"
 cat > "$SANDBOX_ROOT/mutate-m8.py" <<'PY'
@@ -734,7 +767,7 @@ marker = (
     '    if [ "$classifier_rc" -ne 0 ]; then\n'
     "      reason=$(printf '%s\\n' \"$classifier_out\" | tail -1)\n"
     '      echo "BEHOLDT  $n — klassifikator: $reason"\n'
-    '      kept=$((kept + 1))\n'
+    '      keep classifier\n'
     '      continue\n'
     '    fi\n'
     "    landed_moved_list=$(printf '%s\\n' \"$classifier_out\" | sed -n 's/^LANDED-MOVED://p')\n"
@@ -804,6 +837,9 @@ if printf '%s' "$out" | grep -qF "VILLE FJERNET agent-other"; then
 else
   fail "N4-kontroll: agent-other ikke VILLE FJERNET uten navn"
 fi
+check_why Y-age "$out" "why=age:1,locked:1,open_pr:1"
+check_why Y-locked "$(run_wn --dry-run agent-n2)" "why=locked:1"
+check_why Y-open-pr "$(run_wn --dry-run agent-n3)" "why=open_pr:1"
 
 echo "--- R2: run_wn --dry-run agent-n1 agent-n2 agent-n3 agent-nx (navngitt) ---"
 out=$(run_wn --dry-run agent-n1 agent-n2 agent-n3 agent-nx)
@@ -843,6 +879,7 @@ if printf '%s' "$out" | grep -qE '^wtsweep_named_dry=[0-9]+/[0-9]+ ' \
 else
   fail "N-oppsummering: oppsummeringslinja i navngitt tørrkjøring var ikke som forventet"
 fi
+check_nolog Y-logg-dry-named "$WN/tasks/metrics/worktree-sweep-log.jsonl"
 
 echo "--- R3: run_wn agent-n1 (destruktiv, i sandkassen) ---"
 out3=$(run_wn agent-n1)
@@ -857,6 +894,7 @@ if printf '%s' "$out3" | grep -qF "FJERNET  agent-n1" \
 else
   fail "N1-destruktiv: navngitt destruktiv fjerning av agent-n1 ga ikke forventet utfall"
 fi
+check_why Y-tom "$out3" "why=-"
 
 echo "--- R4: run_wn (døgnsweep, destruktiv) ---"
 out4=$(run_wn)
@@ -919,6 +957,111 @@ if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -qF "UKJENT FLAGG:" \
   echo "N-gate-navngitt=PASS"
 else
   fail "N-gate-navngitt: --gate kombinert med et navn ble ikke avvist høylytt (rc=$rc)"
+fi
+
+echo "############ W7 — eldre planrevisjon: holdt før arkiv, fjernet etter ############"
+# Speiler §6: navngitt kjøring (steg 4b) skjer FØR arkiv-flyttingen er pushet, døgnsweepen etter.
+new_harness W7
+git -C "$W7" branch oldrev {{BASE_BRANCH}}
+git -C "$W7" branch unlanded {{BASE_BRANCH}}
+mkdir -p "$W7/tasks/plans"
+printf 'plan rev1\n' > "$W7/tasks/plans/todo-98-rev.md"
+git -C "$W7" add tasks/plans/todo-98-rev.md
+git -C "$W7" commit -q -m "{{BASE_BRANCH}}: plan rev1"
+printf 'plan rev2\n' > "$W7/tasks/plans/todo-98-rev.md"
+git -C "$W7" add tasks/plans/todo-98-rev.md
+git -C "$W7" commit -q -m "{{BASE_BRANCH}}: plan rev2 på samme sti"
+git -C "$W7" push -q origin {{BASE_BRANCH}}
+W7_OLD="$W7/.claude/worktrees/agent-oldrev"
+W7_UNL="$W7/.claude/worktrees/agent-unlanded"
+git -C "$W7" worktree add -q "$W7_OLD" oldrev
+mkdir -p "$W7_OLD/tasks/plans"
+printf 'plan rev1\n' > "$W7_OLD/tasks/plans/todo-98-rev.md"
+git -C "$W7" worktree add -q "$W7_UNL" unlanded
+mkdir -p "$W7_UNL/tasks/plans"
+printf 'draft never landed\n' > "$W7_UNL/tasks/plans/todo-97-draft.md"
+git -C "$W7_UNL" add tasks/plans/todo-97-draft.md
+git -C "$W7_UNL" commit -q -m "unlanded: planutkast, kun lokal commit"
+printf '[]\n' > "$W7/pr-fixture.json"
+mkgh "$W7/pr-fixture.json" 0
+
+echo "--- W7 fase (i): navngitt kjøring før arkiv — steg 1 holder treet ---"
+out=$(run_sweep "$W7" agent-oldrev)
+echo "FULLOUT>>>"
+echo "$out"
+echo "<<<FULLOUT"
+if printf '%s' "$out" | grep -qF "BEHOLDT  agent-oldrev — klassifikator: KEEP:sti-finnes-avviker:tasks/plans/todo-98-rev.md" \
+  && [ -d "$W7_OLD" ]; then
+  echo "W7(i-oldrev-beholdt)=PASS"
+else
+  fail "W7(i-oldrev-beholdt): agent-oldrev ikke holdt av steg 1 før arkivering"
+fi
+check_why Y-classifier "$out" "why=classifier:1"
+check_log Y-logg-named "$W7/tasks/metrics/worktree-sweep-log.jsonl" '.mode=="named" and .why=="classifier:1"'
+
+echo "--- W7 fase (ii): døgnsweep etter at arkiveringen er pushet ---"
+mkdir -p "$W7/tasks/plans/archive"
+git -C "$W7" mv tasks/plans/todo-98-rev.md tasks/plans/archive/todo-98-rev.md
+git -C "$W7" commit -q -m "{{BASE_BRANCH}}: plan arkivert"
+git -C "$W7" push -q origin {{BASE_BRANCH}}
+backdate_wt "$W7_OLD"
+backdate_wt "$W7_UNL"
+out=$(run_sweep "$W7")
+echo "FULLOUT>>>"
+echo "$out"
+echo "<<<FULLOUT"
+if printf '%s' "$out" | grep -qF "FJERNET  agent-oldrev" && [ ! -d "$W7_OLD" ]; then
+  echo "W7(ii-oldrev-fjernet)=PASS"
+else
+  fail "W7(ii-oldrev-fjernet): agent-oldrev ikke fjernet etter arkivering"
+fi
+w7_rescued=""
+if [ -d "$W7/.claude/worktree-rescue" ]; then
+  w7_rescued=$(find "$W7/.claude/worktree-rescue" -path '*agent-oldrev/tasks/plans/todo-98-rev.md' | head -1)
+fi
+if [ -n "$w7_rescued" ] && printf 'plan rev1\n' | cmp -s - "$w7_rescued"; then
+  echo "W7(ii-oldrev-redning)=PASS"
+else
+  fail "W7(ii-oldrev-redning): redningskopi av plan rev1 mangler eller avviker"
+fi
+if printf '%s' "$out" | grep -qF "BEHOLDT  agent-unlanded — klassifikator: KEEP:ingen-treff:tasks/plans/todo-97-draft.md"; then
+  echo "W7(ii-unlanded-beholdt)=PASS"
+else
+  fail "W7(ii-unlanded-beholdt): agent-unlanded ikke holdt med ingen-treff"
+fi
+if [ -f "$W7_UNL/tasks/plans/todo-97-draft.md" ]; then
+  echo "W7(ii-unlanded-finnes)=PASS"
+else
+  fail "W7(ii-unlanded-finnes): ulandet planutkast er borte"
+fi
+check_log Y-logg-daily "$W7/tasks/metrics/worktree-sweep-log.jsonl" '.mode=="daily" and .why=="classifier:1"'
+
+echo "############ M12 — klassen følger vakten: keep locked byttet til keep age ############"
+# Egen sandkasse med ETT låst tre, så mutanten treffer lås-grenen alene.
+new_harness WM
+git -C "$WM" branch m1 {{BASE_BRANCH}}
+git -C "$WM" worktree add -q ".claude/worktrees/agent-m1" m1
+backdate_wt "$WM/.claude/worktrees/agent-m1"
+git -C "$WM" worktree lock ".claude/worktrees/agent-m1" --reason "claude agent agent-m1 (pid $$ start now)"
+printf '[]\n' > "$WM/pr-fixture.json"
+mkgh "$WM/pr-fixture.json" 0
+m12_base=$(why_of "$(run_sweep "$WM" --dry-run agent-m1)")
+cat > "$SANDBOX_ROOT/mutate-m12.py" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+assert s.count('    keep locked\n') == 1, "marker not found"
+open(p, "w").write(s.replace('    keep locked\n', '    keep age\n'))
+PY
+if [ "$m12_base" != "why=locked:1" ]; then
+  fail "M12-umutert: ventet 'why=locked:1', fikk '$m12_base' — mutanten har ikke noe å flippe"
+elif apply_mutant "$WM" "$SANDBOX_ROOT/mutate-m12.py"; then
+  m12_mut=$(why_of "$(run_sweep "$WM" --dry-run agent-m1)")
+  if [ "$m12_mut" = "why=age:1" ]; then
+    echo "M12=PASS (umutert $m12_base, mutert $m12_mut)"
+  else
+    fail "M12: ventet 'why=age:1' fra mutert kjøring, fikk '$m12_mut'"
+  fi
 fi
 
 echo "############ D — docker kan ikke blokkere sweepen ############"

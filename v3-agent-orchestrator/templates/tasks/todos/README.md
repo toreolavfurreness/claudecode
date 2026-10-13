@@ -28,10 +28,9 @@ plan: null                        # tasks/plans/todo-NN-slug.md (settes når en 
 effort: M                         # valgfri — S | M | L, implementeringskost (se Verdifelter)
 saves: "≈2 opus-dispatcher per todo"   # valgfri — hva den sparer, i loopens egne enheter
 observed: "run-log: 22/49 pause_event" # valgfri — observasjonen som motiverer todoen
-bugs:    ["BUG-001", "BUG-002"]   # valgfri — kantbærende, se «Kantbærende felt»
-files:   ["components/AddItemModal.tsx"]     # valgfri — repo-relativ sti, kantbærende
-lessons: ["react-native-web", "postgres-rls"]  # valgfri — tema-basenavn uten .md, kantbærende
-pr:      ["465"]                  # valgfri — LISTE (ikke skalar), kantbærende
+bugs:    ["BUG-001", "BUG-002"]   # kantbærende — påkrevd når brødteksten navngir en bug, se «Kantbærende felt»
+files:   ["components/AddItemModal.tsx"]     # kantbærende — påkrevd når brødteksten navngir en fil
+lessons: ["react-native-web", "postgres-rls"]  # valgfritt hint — tema-basenavn uten .md, kantbærende
 release: "1.4.0"                  # valgfri — versjonen i tasks/releases/<versjon>.md
 epic: invitasjon                  # valgfri — epic-slug fra release-filas «## Epics»
 release_blocker: true             # valgfri — kom inn etter cut-off fordi den blokkerer done_when
@@ -112,35 +111,46 @@ i prosa. De skal ALDRI brukes som kilde for automatisk utledede kanter (f.eks. e
 tilfeldig omtale i prosa. Enhver ekte referanse til en annen todo/bug/PR/fil hører hjemme i et
 eget, typet felt (`deps`, eller tilsvarende), ikke i disse to.
 
-### Kantbærende felt (valgfrie) — graf-integrasjon
+### Kantbærende felt — graf-integrasjon
 
-`bugs`, `files`, `lessons` og `pr` speiler kanter som ellers kun står skrevet i prosa. De leses av
+`bugs`, `files` og `lessons` speiler kanter som ellers kun står skrevet i prosa. De leses av
 `tasks/graph-build.py` (generert av `/setup`, se `docs/orchestration-loop.md` for eierskap) og gjøres
 oppslåbare via `tasks/graph-query.py` — se `docs/superpowers/loop/coordinator-runbook.md` §2.
 
-1. **Alle fire er valgfrie.** Ingen eksisterende todo trenger dem, og en todo uten dem bygges og
-   leses helt normalt av alle andre skript (§1-køskriptet, `/todo-execute`, `/todo-done`).
+1. **Ingen eksisterende todo trenger dem.** En todo uten dem bygges og leses helt normalt av alle
+   andre skript (§1-køskriptet, `/todo-execute`, `/todo-done`). Det er ingen backfill: vakten i
+   punkt 5 kjøres bare på filer som opprettes.
 2. **De er kantbærende** — i skarp kontrast til `saves`/`observed` rett over, som ALDRI skal brukes
-   som kantkilde. Skriv en ekte todo-/bug-/PR-/fil-referanse i ett av disse fire feltene, ikke i fri
-   tekst, hvis den skal være maskinlesbar.
-3. **Inline-listeform er påkrevd** — `bugs: ["BUG-001", "BUG-002"]`, én linje, doble anførselstegn.
-   En YAML-blokkliste (`files:` på egen linje + `  - sti` under) brekker ikke §1-køskriptet, men
-   `graph-build.py` ser den ikke — feltet rapporteres i `stats.blocklist_form_fields` i stedet for å
-   tapes stille.
+   som kantkilde. Skriv en ekte bug-/fil-referanse i ett av disse feltene, ikke i fri tekst, hvis
+   den skal være maskinlesbar.
+3. **To listeformer leses:** inline (`bugs: ["BUG-001", "BUG-002"]`, én linje, doble
+   anførselstegn) og YAML-blokkliste (`files:` på egen linje + `  - sti` under). Bruk inline i nye
+   todoer.
    - `bugs` — liste av `BUG-nnn`-strenger.
    - `files` — liste av repo-relative stier (samme form som `git ls-files`, f.eks.
      `components/AddItemModal.tsx`).
    - `lessons` — liste av tema-basenavn UTEN `.md` (f.eks. `react-native-web`, ikke
      `react-native-web.md`).
-   - `pr` — **liste**, ikke skalar (`pr: ["465"]`, ikke `pr: 465`) — en todo kan lande som flere PR-er.
+   - `pr` er **strøket**: hvilken PR som landet todoen, står i arkivet og i
+     merge-subjektene. Byggeren leser ikke feltet, og vakten avviser det.
 4. `nr` er global nøkkel på tvers av `tasks/todos/`, `tasks/todo_archive.md` **og** åpne, umergede
    PR-er. Duplikate `nr:` gir tvetydige node-ID-er i grafen.
-5. **Hvem fyller dem:** den som **oppretter** todoen fyller `files:` og `lessons:` når de er kjent —
-   det er de to feltene ingen annen kilde (frontmatter, git, arkiv, bug-fil) kan produsere for en
-   todo som verken er arkivert eller har commits ennå. `bugs:` og `pr:` er valgfri berikelse:
-   `todo_archive.md` blir uansett kantkilde for begge ved arkivering, så et manuelt utfylt felt her
-   dupliserer en kant grafen får automatisk. Systematisk produsent-integrasjon (§6b/§7/`/todo-done`)
-   og backfill av eksisterende todos er trinn 2 — se `tasks/followups/`, ikke løst av trinn 1.
+5. **Hvem fyller dem, og hva som vokter det:** den som **oppretter** todoen. Det skjer tre steder:
+   `/todo-new` §3, koordinatoren i §6b (fix-todo) og koordinatoren i §7 (grooming-utkast). Alle tre
+   kjører `python3 tasks/graph-build.py --check-todo <fil>` på den nye fila før den committes.
+   - **`files`** — «hvilke filer skal denne åpne todoen endre?» Git og arkivet svarer først etter
+     arbeidet. Vakten er rød når brødteksten navngir minst én fil som finnes i repoet og nøkkelen
+     `files` mangler. `files: []` er lovlig svar («nevnt, skal ikke endres»).
+   - **`bugs`** — «hvilke bugs skal denne åpne todoen lukke?» Vakten er rød når brødteksten
+     inneholder `BUG-<tall>` og nøkkelen `bugs` mangler. `bugs: []` er lovlig svar.
+   - **`lessons`** — valgfritt hint, uten produsent og uten vakt. §2 velger tema fra katalogen
+     uansett.
+   - **Vaktens grense:** den beviser at en utelatelse er bevisst, ikke at lista er sann.
+     `files: []` passerer alltid. En todo som ikke navngir noe i brødteksten, passerer uten felt.
+     En todo eieren skriver for hånd, kjøres ikke gjennom vakten. Fil-regelen ser bare kode- og
+     config-filer (`FILE_EXTS` i `graph-build.py`) som står i backticks eller som lenkemål: en
+     `.md`-fil, et basenavn som finnes flere steder i repoet, og en sti uten backticks utløser den
+     ikke.
 
 ---
 

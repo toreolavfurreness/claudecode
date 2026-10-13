@@ -37,14 +37,52 @@ Les og følg `.claude/commands/todo-plan.md` i sin helhet. Skriv planfilen `task
 
 Rett under `**Status:**` står `Planlagt diff: <linjer>/<filer>` ved linjestart: samme tall som `planned_diff` i plan-rapporten, oppdatert i hver revisjon. Koordinatoren fører det som `planned=` på merge-raden.
 
+**Docs-impact:** kjør `python3 tasks/graph-query.py --docs <hver fil i files_touched>`. Hvert treff er
+en doc-seksjon som siterer en fil planen rører. Før hvert treff i planens «Filer som berøres» med `oppdateres`
+eller `uendret – <grunn>`, og samme liste i `docs_impact` i plan-rapporten (`"none – <én setning>"` uten treff).
+Et treff planen oppdaterer, er et steg i planen. Lista er målt før endringen og er gulvet for implementerens
+ferdig-rapport.
+
 Rør KUN planfilen din. Rør IKKE todo-frontmatteren, og skriv ALDRI til `tasks/lessons*`, `tasks/followups/`, `tasks/bugs.md` eller `tasks/todo_archive.md`.
+
+### Kriterietabell (BINDENDE — kjør hvert V-kriterium FØR du leverer planen)
+
+Selv-auditen under ber deg tenke gjennom kriteriene. Det stopper ikke feilen: de fleste
+no-go-runder i plan-review gjelder kriteriet, ikke løsningen, og ofte ville én kjøring vist det.
+Kjør derfor hvert kriterium på dagens kode,
+og før utfallet i denne tabellen under `## Verifisering`:
+
+| ID | Kommando | Før (målt) | Etter (ventet) | Type |
+|----|----------|------------|----------------|------|
+| **V<n>** | … | … | … | … |
+
+Kriterietabellen ER planens V-tabell: V-kriteriene står her, ikke i en egen liste i tillegg. Én rad
+per V-kriterium. ID-en står fet ved radstart (`| **V1** |`), fordi `tasks/vblock-lint.py` og
+`tasks/gate-f.sh` bare leser den formen. `Før (målt)` er ordrett utdata eller exit-kode fra DIN
+kjøring mot planens Plan-SHA, aldri en utledning. `Type` er én av tre:
+
+- **målt** — kjørt, og `Før` er ulik `Etter`.
+- **ren kontroll** — kjørt, og `Før` er lik `Etter`. Kriteriet beviser ingenting om arbeidet. Skriv
+  det om, eller behold det som regresjonsvakt med én linje om hva det vokter. En ren kontroll listes
+  under `## Ferdig når`-punktet den vokter, uten å telle som bevis for det: et punkt som bare bæres
+  av rene kontroller, er ubevist.
+- **ikke kjørbar før arbeidet** — med grunn (fila finnes ikke ennå, simulator, prod, menneskelig
+  blikk). Typen er ikke en vei rundt regelen: kan kommandoen kjøres i dag, skal den kjøres. Kan en
+  del av den kjøres (grep etter det testen skal lete etter, kommandoen uten den nye fila), kjør den
+  delen og før utfallet.
+
+«målt» og «ikke kjørbar før arbeidet» kan bevise arbeidet, «ren kontroll» aldri.
+
+Feiler en kommando av en annen grunn enn den kriteriet måler (skriptet finnes ikke, feil sti, tom
+testseleksjon), er kriteriet feil skrevet: rett det før du leverer. Det gjelder ikke når fila
+kommandoen peker på, er en planen selv oppretter: da er typen «ikke kjørbar før arbeidet», og
+delmålingen er påkrevd. I en revisjonsrunde måles hver rad som er ny eller endret, på nytt.
 
 ### Selv-audit av V-kriteriene (BINDENDE — gjør dette FØR du leverer planen)
 
-Tre plan-reviews på rad ga `no-go` der **designet holdt og verifikasjonslaget
-ikke gjorde det**. Alle tre er samme defektklasse som loopens egen Gate F har hatt: *en
-detektor som leter etter en LITERAL i stedet for en KLASSE er vakuøs — eller falskt rød — ved
-konstruksjon.* Kjør derfor denne auditen mot ditt eget V-sett før du returnerer:
+Tabellen over viser hva et kriterium gir i dag. Auditen under gjelder det en kjøring ikke viser: om
+kriteriet teller en LITERAL i stedet for en KLASSE, og om det binder feilstedet. Kjør den mot
+V-settet før du returnerer:
 
 1. **Tell klasser, ikke literaler.** For hvert kriterium som er en likhet mot en fast verdi
    (`grep -c … == 3`, en literal deps-array, en frossen linje): navngi (a) én KORREKT
@@ -62,6 +100,13 @@ konstruksjon.* Kjør derfor denne auditen mot ditt eget V-sett før du returnere
    det er ett, og skriv hva som skjer med PR-en mens kriteriet er ukvittert. Tillater planen en
    gren der kriterier hoppes over (f.eks. «e2e blokkert»): skriv ORDRETT hvilke funksjonelle
    kriterier som står igjen i den grenen, og avgjør om de er tilstrekkelige.
+
+   **Gate F leser ID-linjene.** En V-ID har siffer (`V9`, `V-B4`) og skrives som `**V9**`, `| V9 |`
+   eller `### V9`, med tittelen utenfor feten og én ID per linje. Kriterier koordinatoren eller
+   eieren kjører, merkes `[koordinator]` eller `[eier]` på ID-linja. Et eier-kjørt delkriterium får
+   eget nummer (merke på `V11a` unntar hele `V11`). Et strøket kriterium omtales uten fet etikett.
+   Reglene står i toppkommentaren i `tasks/gate-f.sh`, og `tasks/gate-f.sh <planfil> ref` skal gi
+   et tall før levering.
 
    **Still spørsmålet i sin generelle form.** List hver LASTBÆRENDE påstand planen gjør, og skriv
    for hver av dem hva som er ENESTE bevis. Er svaret «ingenting», «kode-review» eller «et

@@ -47,7 +47,7 @@ overskriften og telles på eierens første rad med radtid >= oppføringstid. Exi
 manglende token eller oppføring etter en `merged`-rad, 2 når en fil ikke kan leses.
 
 `rule` er `"A0"` når klassifiseringen feiler høyt (ukjent hendelse, manglende
-påkrevd kontekst, ugyldig verdi, kostnadsbrems, manglende konvergensdata eller innholdsfunn) — DA er `level` alltid `"A"`,
+påkrevd kontekst, ugyldig verdi, kostnadsbrems, manglende konvergensdata, innholdsfunn eller rundestopp i §5b) — DA er `level` alltid `"A"`,
 `trigger` er `None`, og exit-koden er != 0. Et ikke-klassifiserbart valg blir
 ALDRI stilltiende et B-valg (fail-closed). For alle andre resultater
 (inkludert legitime A1-A8-treff, som bare betyr «spør mennesket», ikke et
@@ -63,7 +63,8 @@ fixture til stderr, JSON-sammendrag til stdout, og deretter logg-parser-testen
 tre besto.
 
 `--agreement` skriver TSV `type n fulgt avvek forslag` over nivå A-entries med
-`Eierens svar:` i decision-log. `--recent-b` skriver JSON-objekt
+`Eierens svar:` i decision-log. `flytt-til-B` foreslås bare når leddet foran kolon står i
+`SLAG`, og i slaget `eiervalg` bare for kort-navnet `mekanisk`. `--recent-b` skriver JSON-objekt
 `{"entries": [...], "unparsed": N}`: `entries` er nivå B-entries fra de siste `--hours`
 timene; `unparsed` teller `### `-linjer under markøren som ikke følger
 `### YYYY-MM-DD HH:MM …` og hvis første dato er innenfor samme vindu (linjer uten
@@ -79,7 +80,9 @@ from datetime import datetime, timedelta
 # CAP markerer første runde som har en forrige runde å sammenligne med
 # (konvergensdata kreves fra runde 2), og terskelen for decision_logged.
 # Intet fast rundetak: i §4 og §5b begrenser bare kostnadsbremsen og innholdsregelen antall runder.
+# Unntak: i §5b er en ny fix-runde fra runde ROUND_STOP alltid A0.
 CAP = 2
+ROUND_STOP = 4
 
 # --- Regeltabellen (frossen prosa, én kilde i kode) -------------------------
 # Trigger-tekstene er ORDRETT identiske med tabellene i runbook-templatens
@@ -96,7 +99,7 @@ A_RULES = [
     ("A8", "Edge Function-deploy (dev eller prod)"),
 ]
 B_RULES = [
-    ("B1", "§5b revise-gate: ny fix-runde (fra runde 2 kun uten innholdsfunn) vs. merge m/carry-forwards vs. stopp — alle runder under kostnadstaket"),
+    ("B1", "§5b revise-gate: ny fix-runde (fra runde 2 kun uten innholdsfunn, fra runde 4 aldri) vs. merge m/carry-forwards vs. stopp — alle runder under kostnadstaket"),
     ("B2", "Splitt av en todo i del-todos"),
     ("B3", "Valg eller hopp av neste todo innenfor mennesket-godkjent rekkefølge (§1)"),
     ("B4", "Pipelining: valg eller drop av B-sporet (§5c)"),
@@ -109,6 +112,7 @@ TRIGGER_BY_ID = dict(A_RULES + B_RULES)
 
 # Rundebetingelsene i B1/B7-teksten er PROSA. Konvergens, innholdsregel og
 # kostnadsbrems bor UTELUKKENDE i vakt 1 (_convergence), ikke i B1/B7-matchingen.
+# Rundestoppet i §5b (ROUND_STOP) ligger i classify, ikke i _convergence (som deles med §4).
 
 # --- Påkrevd kontekst per hendelsesklasse -----------------------------------
 # `technical_risk` med `source == "planner"` krever i TILLEGG `kind` og
@@ -203,6 +207,8 @@ def classify(event, ctx):
         # (ii) Kostnadsbrems, konvergensdata og innholdsregel for en NY fix-runde (smal lesning).
         if event == "revise_gate_choice" and ctx.get("action") == "fix_round":
             violations += _convergence(ctx, n)
+            if n >= ROUND_STOP:
+                violations.append(f"round_stop: code_review_rounds={n}")
 
     if event == "plan_review_choice" and "plan_review_rounds" in ctx:
         try:
@@ -278,7 +284,7 @@ def classify(event, ctx):
     return _a0([f"ukjent hendelse eller ingen regel treffer: event={event!r} context={ctx!r}"])
 
 
-# --- Fixtures (59 stk.: F1..F49 + F52..F58 + F1b/F1c/F25b) -----------------------------
+# --- Fixtures (61 stk.: F1..F49 + F52..F60 + F1b/F1c/F25b) -----------------------------
 _CONV = {"blocking_prev": "3", "blocking_now": "1", "new_class": "no", "content": "no", "cost_over": "no"}
 _F28 = {"code_review_rounds": "2", "action": "fix_round", "decision_logged": "yes", **_CONV}
 _F34 = {"plan_review_rounds": "2", "action": "revise", **_CONV, "blocking_prev": "2"}
@@ -332,7 +338,7 @@ FIXTURES = [
     ("F33", "revise_gate_choice", {"code_review_rounds": "1", "action": "fix_round", "cost_over": "yes"}, "A", "A0"),
     ("F34", "plan_review_choice", _F34, "B", "B7"),
     ("F35", "plan_review_choice", {**_F34, "blocking_prev": "1"}, "B", "B7"),
-    ("F36", "revise_gate_choice", {**_F28, "code_review_rounds": "6", "blocking_prev": "2"}, "B", "B1"),
+    ("F36", "revise_gate_choice", {**_F28, "code_review_rounds": "6", "blocking_prev": "2"}, "A", "A0"),
     ("F37", "plan_review_choice", {**_F34, "new_class": "yes"}, "B", "B7"),
     ("F38", "plan_review_choice", {**_F34, "content": "yes"}, "A", "A0"),
     ("F39", "revise_gate_choice", {k: v for k, v in _F28.items() if k != "blocking_now"}, "A", "A0"),
@@ -357,6 +363,9 @@ FIXTURES = [
     ("F56", "technical_risk", {**_NAT, "source": "reviewer", "native_dep": "no", "native_permission": "no"}, "A", "A0"),
     ("F57", "technical_risk", {**_NAT, "native_dep": "false", "native_permission": "no"}, "A", "A0"),
     ("F58", "plan_review_choice", {k: v for k, v in _F34.items() if k != "new_class"}, "A", "A0"),
+    # F59/F60: rundestoppet gjelder en ny fix-runde i §5b fra runde 4 (også F36), ikke §4.
+    ("F59", "revise_gate_choice", {**_F28, "code_review_rounds": "4"}, "A", "A0"),
+    ("F60", "plan_review_choice", {**_F34, "plan_review_rounds": "4"}, "B", "B7"),
 ]
 
 
@@ -458,7 +467,11 @@ def agreement(entries):
     out = []
     for typ in sorted(rows):
         r = rows[typ]
-        forslag = "flytt-til-B" if len(r) >= 10 and all(r[-10:]) and typ not in moved else "-"
+        # Tillatelsesliste: leddet må stå i SLAG, og et eiervalg må ha klassen `mekanisk`.
+        ledd, _, navn = typ.partition(":")
+        slag = SLAG.get(ledd.strip())
+        tillatt = slag is not None and (slag != "eiervalg" or navn.strip() == "mekanisk")
+        forslag = "flytt-til-B" if tillatt and len(r) >= 10 and all(r[-10:]) and typ not in moved else "-"
         out.append(f"{typ}\t{len(r)}\t{sum(r)}\t{len(r) - sum(r)}\t{forslag}")
     return out
 
@@ -477,15 +490,15 @@ def _mini_log():
     def entry(ts, tag, **f):
         body = "".join(f"- **{k.replace('_', ' ')}:** {v}\n" for k, v in f.items())
         return f"### {ts} — TODO 9 [{tag}]: test\n{body}\n"
-    out = "# mini\n" + entry("2026-10-02 11:30", "B1", Type="X", Eierens_svar="fulgt", Reversibel_til="x")
+    out = "# mini\n" + entry("2026-10-02 11:30", "B1", Type="plan_review_choice", Eierens_svar="fulgt", Reversibel_til="x")
     out += "<!-- FORMAT-V2 (test) -->\n"
     for d in range(20, 30):
-        out += entry(f"2026-09-{d} 10:00", "A0", Type="X", Eierens_svar="fulgt")
+        out += entry(f"2026-09-{d} 10:00", "A0", Type="plan_review_choice", Eierens_svar="fulgt")
     for d in range(1, 10):
-        out += entry(f"2026-09-0{d} 10:00", "A0", Type="Z", Eierens_svar="fulgt")
+        out += entry(f"2026-09-0{d} 10:00", "A0", Type="runder", Eierens_svar="fulgt")
     out += entry("2026-09-10 10:00", "A0", Type="Y", Eierens_svar="fulgt")
     out += entry("2026-09-11 10:00", "A0", Type="Y", Eierens_svar="avvek: kutt")
-    out += entry("2026-10-01 10:00", "A0", Type="X", Eierens_svar="venter")
+    out += entry("2026-10-01 10:00", "A0", Type="plan_review_choice", Eierens_svar="venter")
     out += entry("2026-09-13 10:00", "A0", Type="Y", Eierens_svar="se 2026-09-10 10:00")
     out += entry("2026-09-14 10:00", "A0", Type="Y", Eierens_svar="ordre: x (uoppfordret)")
     out += entry("2026-09-15 10:00", "A0", Type="V", Eierens_svar="se over, kutt X")   # ingen peker: et avvik
@@ -494,14 +507,24 @@ def _mini_log():
     out += entry("2026-10-01 11:00", "B", Reversibel_til="y")
     out += entry("2026-10-02 10:00", "VETO av B1", Reversibel_til="z")
     for d in range(10, 20):
-        out += entry(f"2026-08-{d} 10:00", "A0", Type="W", Eierens_svar="fulgt")
-    out += entry("2026-08-20 10:00", "B, calibration", Type="W", Reversibel_til="første VETO")
+        out += entry(f"2026-08-{d} 10:00", "A0", Type="revise_gate_choice", Eierens_svar="fulgt")
+    out += entry("2026-08-20 10:00", "B, calibration", Type="revise_gate_choice", Reversibel_til="første VETO")
+    # i eiervalg-slaget foreslås bare kort-navnet `mekanisk`. `technical_risk` ender på et avvik.
+    for typ in ("eiervalg", "eiervalg:produkt", "Eiervalg:produkt", "eiervalg:mekanisk", "eiervalg:mekanisk:x",
+                "release_scope", "release_scope:mekanisk", "technical_risk"):
+        for d in range(10, 20):
+            svar = "avvek: x" if (typ, d) == ("technical_risk", 19) else "fulgt"
+            out += entry(f"2026-07-{d} 10:00", "A0", Type=typ, Eierens_svar=svar)
     return out
 
 
 def run_parser_self_test():
     entries = parse_log(_mini_log())
-    exp_agr = ["A\t1\t1\t0\t-", "V\t1\t0\t1\t-", "W\t10\t10\t0\t-", "X\t10\t10\t0\tflytt-til-B", "Y\t2\t1\t1\t-", "Z\t9\t9\t0\t-"]
+    exp_agr = ["A\t1\t1\t0\t-", "Eiervalg:produkt\t10\t10\t0\t-", "V\t1\t0\t1\t-", "Y\t2\t1\t1\t-",
+               "eiervalg\t10\t10\t0\t-", "eiervalg:mekanisk\t10\t10\t0\tflytt-til-B", "eiervalg:mekanisk:x\t10\t10\t0\t-",
+               "eiervalg:produkt\t10\t10\t0\t-", "plan_review_choice\t10\t10\t0\tflytt-til-B",
+               "release_scope\t10\t10\t0\t-", "release_scope:mekanisk\t10\t10\t0\tflytt-til-B",
+               "revise_gate_choice\t10\t10\t0\t-", "runder\t9\t9\t0\t-", "technical_risk\t10\t9\t1\t-"]
     got_agr = agreement(entries)
     got_rb = [(h["ts"], h["reversibel"]) for h in recent_b(entries, 24, datetime(2026, 10, 2, 12, 0))]
     exp_rb = [("2026-10-02 09:00", "merge")]

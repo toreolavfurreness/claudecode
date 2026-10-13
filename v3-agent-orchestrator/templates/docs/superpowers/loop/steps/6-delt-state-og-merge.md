@@ -51,7 +51,7 @@ kjed den aldri med merge-kallet: `guard-main-merge.sh` sjekker bare kommandoer s
 Fra ferdig-rapporten, `status: "implemented"`:
 1. **Lessons:** for hver `lessons[]`, skriv én fil `tasks/lessons/<topic>/<YYYY-MM-DD>-<slug>.md` etter skrive-protokollen i `tasks/lessons.md` og formatet i `docs/loop-rules.md` § «Lessons learned — én fil per lesson»: `sources` → frontmatter-`kilder`, `pattern`/`checklist` → **Problem:**/**Løsning:**/**Unngå:**. Ingen indeks å oppdatere. Dekker en eksisterende lesson samme mønster: utvid den i stedet. Carry-forwards (planens CF-seksjon, rapportens `notes`) går til `tasks/followups/`, én fil per oppfølging — de er ikke et lessons-tema.
 2. **Bugs:** `bugs_new[]` → `tasks/bugs.md`; `bugs_closed[]` → `tasks/bugs_archive.md` (opprett fila hvis den ikke finnes). Hver oppføring, ny som lukket, har `**Oppdaget:** YYYY-MM-DD` som første linje under overskriften (ISO-dato først, forklaring etter), og linja beholdes ved flytting til arkivet: `tasks/retro-numbers.py` teller bugs i perioden på den. Datoen er elementets `discovered`. Mangler den, får en ny bug dagens dato fra `date +%F`. En lukket bug får aldri en gjettet dato: da utelates linja, og tallet blir `IKKE MÅLT`.
-3. **Arkiver todo:** flytt til `tasks/todo_archive.md` (format: se eksisterende oppføringer). Slett `tasks/todos/todo-<nr>-<slug>.md`. Flytt planfil → `tasks/plans/archive/`.
+3. **Arkiver todo:** flytt til `tasks/todo_archive.md` (format: se eksisterende oppføringer). Slett `tasks/todos/todo-<nr>-<slug>.md`. Kjør `grep -rlE 'TODO[- ]<nr>([^0-9A-Za-z]|$)' tasks/followups/`: hver treff-fil som PR-en lukket, slettes, men ikke filene denne §6-runden selv skrev i punkt 1. En fil som skal leve videre, får navnet på en aktiv todo, ellers telles den som `cf_orphans` i neste helsesjekk. Flytt planfil → `tasks/plans/archive/`.
 4. **Merge:** verifiser base FØR merge — `gh pr view <pr> --json baseRefName -q .baseRefName` → MÅ være `{{BASE_BRANCH}}`, ALDRI `{{PROD_BRANCH}}`.
 
    **Todo-nr-kollisjonssjekk FØR merge (TO gater — hver ser en tilstand den andre strukturelt
@@ -244,8 +244,12 @@ Fra ferdig-rapporten, `status: "implemented"`:
    og `Planlagt diff: 280/11` gir `planned=280/11`. Mangler linja (plan fra før 516), utelates tokenet, og en
    todo uten planfil får `planned=n/a`. Tallet gjettes aldri. Overgang: 516s egen §6-rad SKAL bære `planned=`.
 
+   **`docs_impact=`** appenderes i §5b. En `merged`-rad uten tokenet er et kontraktbrudd når
+   implementeren ble dispatchet etter at `docs_impact` ble innført (se `report-schema.md`). For en PR som var under
+   arbeid da, er `docs_impact=missing` lovlig. 212s egen §6-rad SKAL bære tokenet.
+
    **NB — notat-feltet (`selector=`/`floor=`/`viol=`/`floor_exempt=`/`pipelined_from=`/`parallel_with=`/
-   `auto_decided=`/`attest=`/`vblock=`/`scout=`/`wtsweep=`/`ci=`) er IKKE med i `$ROW`-malen over.** De fleste
+   `auto_decided=`/`attest=`/`vblock=`/`scout=`/`docs_impact=`/`wtsweep=`/`ci=`) er IKKE med i `$ROW`-malen over.** De fleste
    appenderes som SISTE felt etter at raden er skrevet (§5b, §5c, §5d, § Pausepunkter) — feltets eget
    NUMMER er omstridt mellom spec-tabellen og de faktiske radene (ikke fastsatt). `wtsweep=` er UNNTAKET: verdien er allerede kjent FØR raden skrives
    (§6 steg 4b over), så den skrives inn i notat-feltet SAMTIDIG med resten av raden i steg 5, ikke

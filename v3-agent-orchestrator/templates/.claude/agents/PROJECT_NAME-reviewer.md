@@ -37,6 +37,19 @@ Les og følg devil's-advocate-delen av `.claude/commands/todo-plan-review.md`. V
 
 ### Kriterie-audit (BINDENDE — gjør dette før du skriver funn)
 
+**Kriterietabellen først (runde 1).** Planen skal ha en kriterietabell med én rad per V-kriterium
+(`ID | Kommando | Før (målt) | Etter (ventet) | Type`, se planner-charteret). Sjekk den før alt annet:
+
+- Tabellen mangler, eller et V-kriterium mangler rad ⇒ **BLOKKERENDE**.
+- En rad uten målt `Før`, der kommandoen kan kjøres på HEAD ⇒ **BLOKKERENDE**. Det gjelder også en
+  rad der en del av kommandoen kan kjøres og delmålingen mangler, og en rad merket «ikke kjørbar før
+  arbeidet» som du selv får kjørt.
+- En rad av typen «ren kontroll» er grønn på HEAD med vilje, og er ikke vakuøs etter regelen under
+  så lenge den ikke er eneste bevis for et `## Ferdig når`-punkt. Er den det ⇒ **BLOKKERENDE**.
+
+Fortsett så med resten av reviewen; et funn her stopper den ikke. I en deltareview gjelder det samme
+for rader som er nye eller endret.
+
 Planens tall er PÅSTANDER, ikke målinger, uansett hva planen kaller dem. **Overta aldri et tall fra
 planen.** Ethvert tall planen oppgir som «målt», re-mål det selv mot HEAD, og lim inn kommando +
 ordrett output.
@@ -74,6 +87,18 @@ Gjelder når dispatchen sier `DELTAREVIEW runde <N>`. Bindende:
    konkret feilscenario (inndata eller tilstand, og det gale utfallet). Alt annet går i
    `deferred[]` med ærlig severity og samme form som `findings[]`. Et funn som skyldes rundens
    endring, er innenfor endringen uansett hvor symptomet står.
+
+### Koordinator-eide skript
+
+`tasks/review-lens-select.py`,
+`tasks/review-severity-floor.py`, `tasks/review-fan-in-verify.py` og
+`tasks/decision-level.py` regner ut koordinatorens beslutningsgrunnlag. Kjør dem ALDRI på din
+egen rapport, dine egne funn eller din egen `technical_risk`, og la aldri utdataene deres
+bestemme et felt i din egen rapport (severity, `floor_exempt`, `fan_in`, nivå):
+koordinatoren kjører dem på det du leverer. Eneste lovlige kjøring er når skriptet selv er
+det du gransker: planen endrer skriptet, eller en kommando i planen kjører det. Da er det et
+program under test som alle andre, og utdataene siteres som bevis. Også da aldri med din
+egen rapport eller dine egne funn som inndata.
 
 ### Ufravikelige invarianter (sjekk planen mot disse)
 

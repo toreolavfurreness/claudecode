@@ -10,8 +10,9 @@
 ### Minne-gate (før dispatch)
 
 Endrer PR-diffen `.claude/agent-memory/` (`gh pr diff <n> --name-only | grep -c '^.claude/agent-memory/'` ≥ 1),
-SKAL ferdig-rapporten ha `memory_check` med grep-kommando og output per ny linje (implementer-charteret
-§ Rollehukommelse). Mangler feltet, send implementeren tilbake med SendMessage FØR kode-review.
+SKAL ferdig-rapporten ha `memory_check` med minst to grep-kommandoer (én på et stabilt token) og output
+per ny eller endret linje (implementer-charteret § Rollehukommelse). Mangler feltet, eller har en linje
+færre enn to grep, send implementeren tilbake med SendMessage FØR kode-review.
 En kopi i minnet gir fort en ekstra runde.
 
 <!-- mekanisk-kandidat: Minne-gate — gh pr diff --name-only mot .claude/agent-memory/ + memory_check i rapporten (mangler) -->
@@ -65,7 +66,7 @@ git worktree list --porcelain > "<scratch>/wt-pre-5b-code-reviewer-<runde>.txt"
 Sjekk exit-koden med det samme; ikke-null ⇒ noter paret som `snapshot-missing`.
 
 `Agent`: `subagent_type: {{PROJECT_NAME}}-code-reviewer`. Prompt:
-> TODO <nr>. PR: `<pr_url>` (fra ferdig-rapporten). Relevante lessons-tema: <liste>. Følg charteret ditt. Returner code_review-rapport som JSON.
+> TODO <nr>. PR: `<pr_url>` (fra ferdig-rapporten). docs_impact: <feltet fra siste ferdig-rapport, ordrett JSON, eller «mangler»>. Relevante lessons-tema: <liste>. Følg charteret ditt. Returner code_review-rapport som JSON.
 
 **Fra runde 2: deltareview.** Skriv fix-diffen selv før dispatch (kode-revieweren er read-only), avgrenset til PR-ens egne filer: fix-mode merger `origin/{{BASE_BRANCH}}` i hver runde, så en bar `<forrige>..<ny>` inneholder alt andre har merget. Stiene sendes NUL-skilt, så `app/(auth)/…` tåles:
 ```bash
@@ -73,7 +74,11 @@ git fetch origin <branch>
 gh pr diff <pr> --name-only | tr '\n' '\0' | xargs -0 git diff <forrige_pr_head_sha>..<pr_head_sha> -- > "<scratch>/todo-<nr>-fixdiff-r<N>.diff"
 ```
 `<forrige_pr_head_sha>` er `evidence.pr_head_sha` fra runde N−1, `<pr_head_sha>` er `gh pr view <pr> --json headRefOid` nå. Mangler forrige rundes funn eller en av SHA-ene, feiler kommandoen, eller gir den tom diff, brukes runde 1-prompten (full review). Ellers prompt:
-> TODO <nr>. PR: `<pr_url>`. DELTAREVIEW runde <N>. Forrige rundes gate-funn etter severity-gulvet: <JSON>. Fix-diff: `<scratch>/todo-<nr>-fixdiff-r<N>.diff` (les den med Read). Relevante lessons-tema: <liste>. Følg charteret ditt, § Deltareview. Returner code_review-rapport som JSON.
+> TODO <nr>. PR: `<pr_url>`. DELTAREVIEW runde <N>. Forrige rundes gate-funn etter severity-gulvet: <JSON>. Fix-diff: `<scratch>/todo-<nr>-fixdiff-r<N>.diff` (les den med Read). docs_impact: <feltet fra siste ferdig-rapport, ordrett JSON, eller «mangler»>. Relevante lessons-tema: <liste>. Følg charteret ditt, § Deltareview. Returner code_review-rapport som JSON.
+
+**`docs_impact`.** Feltet i begge promptene limes ordrett fra siste ferdig-rapport. Mangler det, skriv
+«mangler», og legg til «(dispatchet før `docs_impact` ble innført)» når det er grunnen. Skriv `docs_impact=<oppdatert>/<treff>`,
+`docs_impact=none` eller `docs_impact=missing` i samme frittekst-felt som `selector=` (form: `report-schema.md`).
 
 **Bevis-sjekk (`evidence`):** match `evidence.pr_head_sha` (PRIMÆR) mot din egen `gh pr view <pr> --json headRefOid` — bekrefter at revieweren faktisk reviewet siste commit (ikke en stale versjon av PR-en). Mismatch → re-dispatch reviewen. `evidence.toplevel` er SVAKT for code-reviewer (leser via `gh`, ikke worktree-filer).
 
@@ -132,7 +137,7 @@ r(N+1).
 Les `code_review`-rapporten. `deferred[]` (deltareview) er aldri gate-input og sendes aldri til
 `review-severity-floor.py`; den skrives til `tasks/followups/` i §6, sammen med MINDRE-funnene.
 
-- Inneholder rapporten **≥1 BLOKKERENDE eller ≥1 VIKTIG** → **revise-gate**: send funnene tilbake til implementeren via fix-mode-dispatch (se fix-mode-mal under). Når fix-rapporten kommer tilbake: kjør **Gate F** (under) FØR du dispatcher kode-review r(N+1) — rød gate F ⇒ mekanisk retur, ingen ny review. **Hold en eksplisitt teller** («kode-review-runde N», samme mønster som §4). **Nivå B1:** ved HVER utløst revise-gate, også runde 1, kjøres `python3 tasks/measure-cost.py --brake <nr> --pr <PR-nr>` og så `decision-level.py` med `cost_over=<over>`. Ordet etter `over=` limes ordrett inn; `few` er ikke `no`, og `cost_over=no` i eksempelkallene under er bare et eksempel. Fra runde 2 også med `decision_logged=yes` og konvergensdata (se `coordinator-runbook.md` § Konvergensregel). Valget mellom (a) ny fix-runde, (b) merge med carry-forwards, eller (c) stopp er **nivå B1**, også når gate-funnene ikke går ned eller en ny feilklasse dukker opp. Koordinatoren velger selv (anbefalt handling), logger alle fire pliktene i § Pausepunkter, og fortsetter — mennesket kan vetoe i etterkant. Gir et nytt `fix_round`-forsøk **A0** (innholdsfunn, manglende data, over kostnadstaket eller, fra runde 2, `over=few`: for få sammenlignbare todoer til å måle kostnaden) → ⚠️ eskalér til mennesket, release claim. En LUKKENDE beslutning (`merge_carry`/`stop`) forblir nivå B1 uansett rundetall.
+- Inneholder rapporten **≥1 BLOKKERENDE eller ≥1 VIKTIG** → **revise-gate**: send funnene tilbake til implementeren via fix-mode-dispatch (se fix-mode-mal under). Når fix-rapporten kommer tilbake: kjør **Gate F** (under) FØR du dispatcher kode-review r(N+1) — rød gate F ⇒ mekanisk retur, ingen ny review. **Hold en eksplisitt teller** («kode-review-runde N», samme mønster som §4). **Nivå B1:** ved HVER utløst revise-gate, også runde 1, kjøres `python3 tasks/measure-cost.py --brake <nr> --pr <PR-nr>` og så `decision-level.py` med `cost_over=<over>`. Ordet etter `over=` limes ordrett inn; `few` er ikke `no`, og `cost_over=no` i eksempelkallene under er bare et eksempel. Fra runde 2 også med `decision_logged=yes` og konvergensdata (se `coordinator-runbook.md` § Konvergensregel). Valget mellom (a) ny fix-runde, (b) merge med carry-forwards, eller (c) stopp er **nivå B1**, også når gate-funnene ikke går ned eller en ny feilklasse dukker opp. Koordinatoren velger selv (anbefalt handling), logger alle fire pliktene i § Pausepunkter, og fortsetter — mennesket kan vetoe i etterkant. Gir et nytt `fix_round`-forsøk **A0** (innholdsfunn, manglende data, over kostnadstaket eller, fra runde 2, `over=few`: for få sammenlignbare todoer til å måle kostnaden, eller runde 4 og senere) → ⚠️ eskalér til mennesket, release claim. En LUKKENDE beslutning (`merge_carry`/`stop`) forblir nivå B1 uansett rundetall.
 
 
 ```bash
@@ -396,6 +401,10 @@ Skriv sporet i `run-log.md` felt 11, ved siden av `selector=`:
   `exempt[]`: skriv `floor_exempt=0`. Skriptets egne avvisninger (`unntak avvist: N`) telles ikke
   her; de er behandlet som umerkede funn. Stderr-oppsummeringslinja over siterer den nye linja og
   er kilden for tallene.
+- `lens=`, på `merged`-rader med `code_review_rounds` ≥ 1. Kjør
+  `python3 tasks/loop-metrics.py --token <scratch>/findings-5b-<nr>-*.json` over alle rundenes
+  funn-filer, og lim stdout ordrett inn i felt 11. Exit ≠ 0, eller en rundes fil er tapt: skriv
+  `lens=unknown`, aldri et håndregnet tall (form: `report-schema.md`).
 - Har skriptets `pausepunkt[]` innhold (typisk funn fra `ios-design-reviewer`, gulv `PAUSEPUNKT`):
   skriv `pausepunkt=<agent>:<antall>` i tillegg, og bær funnet inn i PR-ens manuelle
   verifiseringssjekkliste. PAUSEPUNKT hever og senker ALDRI severity — det er et RUTINGS-gulv, ikke
@@ -682,7 +691,7 @@ Sjekk exit-koden med det samme; ikke-null ⇒ noter paret som `snapshot-missing`
 
 `Agent`: `subagent_type: {{PROJECT_NAME}}-implementer`, **`model` alltid eksplisitt:** `"{{IMPLEMENTER_MODEL_ALIAS}}"` i fix-runde 1–2, `"{{DEEP_MODEL_ALIAS}}"` fra fix-runde 3 (se «Modell-eskalering fra fix-runde 3»); håndhevet av `.claude/hooks/guard-fix-round-model.sh`, som leser `fix-runde <N>` i prompten. Prompt:
 
-> FIX-MODE for TODO `<nr>`. Du har ALLEREDE implementert denne og laget PR `<pr_url>` på branch `<branch>`. IKKE re-implementer og IKKE kjør `todo-execute.md` på nytt. Gjør KUN dette: (1) `git fetch origin <branch> && git checkout <branch>` og `git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}` for å bygge på ferskeste delt state før re-push (konflikt i planfila: behold BEGGE siders fix-runde-seksjoner, aldri `--ours`/`--theirs` på hele fila); (2) rett UTELUKKENDE disse kode-review-funnene: `<liste med severity + file:line + issue + fix>`. Navngir et funn flere mekanismer, rett hver av dem og kvitter per mekanisme i rapporten — funnet er ikke lukket før alle mekanismene det navngir er rettet; (2b) **SANNHETSKRAV FOR NY TEKST (BINDENDE).** Endrer eller legger du til en brukersynlig streng eller en kodekommentar som PÅSTÅR noe om systemets tilstand eller oppførsel: før du skriver den, finn ALLE kodeveier som når linja, og skriv ordrett i ferdig-rapporten (i) hvilke skriveoperasjoner som ALLEREDE er utført når linja emitteres, og (ii) hvilke som IKKE er det. Teksten må være sann på HVER slik vei — er den sann på én gren og usann på en annen, er den en defekt, ikke en unøyaktighet. Gjelder særlig feilmeldinger i en flerstegs skrivekjede uten transaksjon («ingenting ble lagret» er usant hvis steg 1 av 3 gikk gjennom) og kommentarer skrevet i presens om invarianter som ikke lenger holder. Bruker du en delt mapper/hjelpefunksjon, sjekk også at den nye grenen ikke kaprer kallstedets egen tekst; (2c) **RØD-MÅLING AV RETTELSEN (BINDENDE).** For hver rettelse du beviser med en test: kjør testen mot koden uten rettelsen, og lim kommandoen og feilårsaken ordrett inn i en kodeblokk under den V-ID-en testen hører til i fix-runde-seksjonen. Testen skal være målt rød uten rettelsen, og av riktig grunn: en krasj, en manglende import eller en tom testseleksjon er ikke en måling. Ingen ny overskrift og ingen ny `**V…**`-linje; (3) kjør `{{CMD_BUILD}}` + `{{CMD_TYPE_CHECK}}` + relevante tester på nytt; (4) **re-kjør HELE V-blokken i planen mot HEAD og lim ordrett kommando + output inn i planfilas `#### V-blokk re-kjørt mot HEAD (fix-runde <N>)`-seksjon, med hvert `**V<id>**` på egen linje ved linjestart og minst én fenced kodeblokk under hvert, og med attestasjonslinjen ORDRETT til slutt: Ingen tall arves fra en tidligere runde. Rundens lesson-kandidater skrives i samme seksjon**; (4b) kjør `tasks/gate-f.sh tasks/plans/todo-<nr>-<slug>.md <N> <F3a_ref>` og lim output-linja inn i rapporten — RØD ⇒ rett seksjonen før push; (5) `git push` til samme branch (samme PR — IKKE ny PR, IKKE ny `gh pr create`); (6) returner oppdatert ferdig-rapport. Rør ingenting utenom de oppgitte funnene (unntak: planfilas fix-runde-seksjon, jf. steg 4).
+> FIX-MODE for TODO `<nr>`. Du har ALLEREDE implementert denne og laget PR `<pr_url>` på branch `<branch>`. IKKE re-implementer og IKKE kjør `todo-execute.md` på nytt. Gjør KUN dette: (1) `git fetch origin <branch> && git checkout <branch>` og `git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}` for å bygge på ferskeste delt state før re-push (konflikt i planfila: behold BEGGE siders fix-runde-seksjoner, aldri `--ours`/`--theirs` på hele fila); (2) rett UTELUKKENDE disse kode-review-funnene: `<liste med severity + file:line + issue + fix>`. Navngir et funn flere mekanismer, rett hver av dem og kvitter per mekanisme i rapporten — funnet er ikke lukket før alle mekanismene det navngir er rettet; (2b) **SANNHETSKRAV FOR NY TEKST (BINDENDE).** Endrer eller legger du til en brukersynlig streng eller en kodekommentar som PÅSTÅR noe om systemets tilstand eller oppførsel: før du skriver den, finn ALLE kodeveier som når linja, og skriv ordrett i ferdig-rapporten (i) hvilke skriveoperasjoner som ALLEREDE er utført når linja emitteres, og (ii) hvilke som IKKE er det. Teksten må være sann på HVER slik vei — er den sann på én gren og usann på en annen, er den en defekt, ikke en unøyaktighet. Gjelder særlig feilmeldinger i en flerstegs skrivekjede uten transaksjon («ingenting ble lagret» er usant hvis steg 1 av 3 gikk gjennom) og kommentarer skrevet i presens om invarianter som ikke lenger holder. Bruker du en delt mapper/hjelpefunksjon, sjekk også at den nye grenen ikke kaprer kallstedets egen tekst; (2c) **RØD-MÅLING AV RETTELSEN (BINDENDE).** For hver rettelse du beviser med en test: kjør testen mot koden uten rettelsen, og lim kommandoen og feilårsaken ordrett inn i en kodeblokk under den V-ID-en testen hører til i fix-runde-seksjonen. Testen skal være målt rød uten rettelsen, og av riktig grunn: en krasj, en manglende import eller en tom testseleksjon er ikke en måling. Ingen ny overskrift og ingen ny `**V…**`-linje; (3) kjør `{{CMD_BUILD}}` + `{{CMD_TYPE_CHECK}}` + relevante tester på nytt; (4) **commit kodeendringene først (kode-commit, med eventuelle endringer i `.claude/agent-memory/` i samme commit). Re-kjør så HELE V-blokken i planen mot HEAD og lim ordrett kommando + output inn i planfilas `#### V-blokk re-kjørt mot HEAD (fix-runde <N>)`-seksjon, med nøyaktig én linje `HEAD: <sha>` (kode-commitens SHA) utenfor kodeblokk, med hvert `**V<id>**` på egen linje ved linjestart og minst én fenced kodeblokk under hvert, og med attestasjonslinjen ORDRETT til slutt: Ingen tall arves fra en tidligere runde. Rundens lesson-kandidater skrives i samme seksjon**; (4b) commit planfila alene (plan-commit), kjør `tasks/gate-f.sh tasks/plans/todo-<nr>-<slug>.md <N> <F3a_ref> HEAD` og lim output-linja inn i rapporten — RØD ⇒ rett seksjonen før push; (5) `git push` til samme branch (samme PR — IKKE ny PR, IKKE ny `gh pr create`); (6) returner oppdatert ferdig-rapport. Rør ingenting utenom de oppgitte funnene (unntak: planfilas fix-runde-seksjon, jf. steg 4).
 
 <!-- mekanisk-kandidat: commit-emnet i fix-runden bærer fix-runde <N> — commit-msg-sjekk eller gh api pulls/<nr>/commits (mangler) -->
 
@@ -694,9 +703,9 @@ akkumuleres i SAMME liste med sitt eget PAR (`evidence.toplevel`, denne rundens
 ### Gate F — V-blokk-re-verifisering (BINDENDE)
 
 Kjøres av koordinatoren når fix-rapporten er mottatt og **FØR** kode-review r(N+1) dispatches.
-`<N>` = fix-rundenummeret. Én kommando per kall (worktree-vakten avviser sammensatte git-kommandoer
-og shell-aritmetikk); alle sammenligninger gjøres ved å LESE tallene, aldri med `$(( ))`. Alle
-awk-programmer er **literale** — aldri i en shell-variabel (`awk "$PROGRAM"` avvises).
+`<N>` = fix-rundenummeret. Det er unikt per planfil: høyeste brukte nummer pluss én, også på tvers av
+del-todoer. Én kommando per kall (worktree-vakten avviser sammensatte git-kommandoer og
+shell-aritmetikk).
 
 **Steg 0 — snapshot FØRST.** Planfila er BRANCH-EID fra §5-dispatch til merge (se planfil-eierskapet
 under); koordinatorens arbeidskopi har derfor ALDRI seksjonen. To egne Bash-kall:
@@ -708,76 +717,42 @@ git fetch origin <branch>
 git show origin/<branch>:tasks/plans/todo-<nr>-<slug>.md > <scratch>/plan-<N>.md
 ```
 Feiler `git show` (fila finnes ikke på branchen) ⇒ `vblock=missing`, mekanisk retur.
-**Ett kall:** `tasks/gate-f.sh <scratch>/plan-<N>.md <N> <F3a_ref>` kjører F0–F4 under ordrett og gir GRØNN/RØD med årsak (test: `bash tasks/test-gate-f.sh`). Kommandoene under er definisjonen; F5 er fortsatt manuell.
+**Ett kall:** `tasks/gate-f.sh <scratch>/plan-<N>.md <N> <F3a_ref> origin/<branch>` gir GRØNN/RØD med årsak (test: `bash tasks/test-gate-f.sh`). Skriptet er eneste definisjon av gaten, og reglene for hva som leses som en V-ID står i toppkommentaren der. F5 er fortsatt manuell.
 
-**ALLE kommandoene under leser `<scratch>/plan-<N>.md` — også F3a-gulvet.** Bland aldri dev-kopien
-og branch-snapshotet. Snapshotet skrives til `<scratch>`, ALDRI til en repo-relativ fil.
+**Gaten leser `<scratch>/plan-<N>.md`, også for F3a.** Bland aldri dev-kopien og branch-snapshotet.
+Snapshotet skrives til `<scratch>`, ALDRI til en repo-relativ fil.
 
-```bash
-grep -c '^```' <scratch>/plan-<N>.md
-```
-F0: total fence-paritet. Må være **PARTALL**. Odde ⇒ RØD (`vblock=stale`).
+Utskriften har ett tall per krav:
 
-```bash
-awk '/^```/{c=!c;next} !c' <scratch>/plan-<N>.md | grep -c '^#### V-blokk re-kjørt mot HEAD (fix-runde <N>)$'
-```
-F1: les TALLET. Må være nøyaktig `1`.
-
-```bash
-awk '/^```/{fc=!fc} !fc&&/^#### V-blokk re-kjørt mot HEAD \(fix-runde <N>\)$/&&!seen{seen=1;f=1;next} f&&/^```/{c=!c} f&&!c&&/^#+ /{f=0} f' <scratch>/plan-<N>.md > <scratch>/vblock-<N>.txt
-```
-F2: vindusuttrekk. `fc` gjør START-ankeret fence-bevisst; `!seen` låser til FØRSTE ekte forekomst;
-`c` gjør TERMINATOREN fence-bevisst; terminatoren er `^#+ `. **Awk-programmet står på ÉN linje.**
-
-```bash
-grep -c '^```' <scratch>/vblock-<N>.txt
-```
-F2b: fence-telling i vinduet. Må være **PARTALL** og **≥ 2**.
-
-```bash
-awk '/^```/{c=!c;next} c&&NF' <scratch>/vblock-<N>.txt | wc -l
-```
-F2c: antall ikke-fence, ikke-tomme linjer INNE i fencene i vinduet — reelt kommando-/output-innhold,
-ikke bare balanserte fence-par. Må være **≥ 2 × F3b** (F3b lest fra kommandoen under). Uten F2c
-består en seksjon med tomme fence-par F1, F2b og F4 samtidig som den ikke inneholder én eneste
-faktisk output-linje.
-
-```bash
-awk '/^```/{fc=!fc} !fc&&/^## .*[Vv]erifisering/&&!seen{seen=1;f=1;next} f&&/^```/{c=!c} f&&!c&&/^#{1,2} /{f=0} f' <scratch>/plan-<N>.md | grep -oE '^((\| )?\*\*V([0-9]|-[A-Z])[0-9A-Za-z-]*\*\*|#{3,6} V([0-9]|-[A-Z])[0-9A-Za-z-]*)' | sed -E 's/^(#{3,6} |\| )?\*{0,2}//; s/\*{0,2}$//' | sort -u | wc -l
-```
-F3a: **gulvet** — antall **DISTINKTE** V-kriterier i planens verifiseringsseksjon, telt med `sort -u`
-(symmetrisk med F3bs dedup — uten det kunne samme V-ID gjentatt i tabellform inflatere gulvet uten å
-dekke flere distinkte kriterier). Start-ankeret er fence-bevisst og låst med `!seen`. Terminatoren er
-**`^#{1,2} `, IKKE `^#+ `**. Regexen teller BÅDE tabellrader og linjestart-form, slik at gulvet virker
-også for planer skrevet før dette formatkravet.
+- `F0`: kodegjerder i hele fila. Må være partall.
+- `F1`: forekomster av overskriften for runde `<N>`, utenfor kodegjerder. Må være nøyaktig `1`.
+- `F2b`: kodegjerder i vinduet. Må være partall, ≥ 2 og ≥ 2 × F3r.
+- `F2c`: ikke-tomme linjer inne i kodegjerdene i vinduet. Må være ≥ 2 × F3r.
+- `F3a`: ref-strengen for § Verifisering (se gulv-låsen under).
+- `F3e`: kriteriene implementeren eier (alle minus de eier-merkede). Hvert av dem må være navngitt i
+  vinduet, ellers skriver gaten `mangler i fix-runde-seksjonen: <ID-er>`.
+- `F3b`: distinkte V-ID-er i vinduet. Må være ≥ 1.
+- `F3r`: V-ID-ene i vinduet som ikke er eier-merket. Det er disse som trenger kodeblokk med output.
+- `F4`: attestasjonslinjen i vinduet, utenfor kodegjerder. Må være ≥ 1.
+- `ANKER`: vinduets ene `HEAD: <sha>`-linje må være forfar-lik `origin/<branch>`, og bare
+  `tasks/plans/` kan være endret mellom dem. `ANKER AV` i koordinatorens kall er ikke GRØNN: kjør
+  gaten på nytt med `origin/<branch>`.
 
 <!-- mekanisk-kandidat: Gate F — V-blokk re-verifisert, F3a (finnes: tasks/vblock-lint.py) -->
 
-**Gulv-låsen (BINDENDE).** Ved §5-dispatch noterer koordinatoren `F3a_ref` = samme kommando kjørt mot
-planfila den dispatchet, og bærer tallet i kontekst sammen med `<N>`-telleren. I hver fix-runde:
+**Gulv-låsen (BINDENDE).** F3a-kommandoen er `tasks/gate-f.sh <planfil> ref`. Koordinatoren kjører
+den ved §5-dispatch mot planfila den dispatcher. Utskriften er `F3a_ref`: `<F3a>` når ingen kriterier
+er eier-merket, ellers `<F3a>:<ID-liste>` (f.eks. `2:V2`). Strengen noteres ved dispatch og bæres
+ordrett sammen med `<N>`-telleren, også delen etter kolon. Gaten sammenligner den som streng.
 
-- `F3a ≠ F3a_ref` ⇒ **RØD** (`vblock=stale`). Implementerens carve-out dekker KUN fix-runde-seksjoner
-  — F3a låser ANTALLET V-kriterier, ikke innholdet i § 6. En innholdsendring som bevarer antallet
-  oppdages IKKE av gate F (innholds-hash finnes ikke).
-- `F3a_ref = 0` ⇒ **`vblock=legacy`**: planen er skrevet før dette formatkravet. Gulvet (`F3b ≥ F3a`)
-  er da IKKE bindende, men **F0, F1, F2b, F2c ≥ 2 × F3b, F3b ≥ 1, fences ≥ 2 × F3b, F4 og F5 (inkl.
-  F5:none-regelen under) er fortsatt bindende**. Verken rød eller grønn — samme overgangsklasse som
-  `attest=legacy` (se `attest=`-blokka i §5b for når den verdien oppstår).
-
-```bash
-awk '/^```/{c=!c;next} !c' <scratch>/vblock-<N>.txt | grep -oE '^\*\*V([0-9]|-[A-Z])[0-9A-Za-z-]*\*\*' | sort -u | wc -l
-```
-F3b: antall **DISTINKTE** V-ID-er i fix-runde-seksjonen — kun linjestart-form, kun utenfor
-kodeblokker, telt med `sort -u`. Samme ID gjentatt flere ganger teller ÉN gang. Uten fence-filteret
-teller limt § 6-tekst med. Må være **≥ 1**, og **≥ F3a** når `F3a_ref > 0`.
-
-Fence-tellingen fra F2b OG innholdstellingen fra F2c må begge være **≥ 2 × F3b** — lest mot dette
-(distinkte) F3b-tallet.
-
-```bash
-awk '/^```/{c=!c;next} !c' <scratch>/vblock-<N>.txt | grep -c -F 'Ingen tall arves fra en tidligere runde.'
-```
-F4: det frosne ankeret, kun utenfor kodeblokker. Må være **≥ 1**. `grep -F` er case-sensitiv.
+- Exit 1 fra `ref` (`F3a=0`, eller en ID-lignende etikett gaten ikke leser) ⇒ planen går tilbake til
+  planneren før dispatch. En ren formatretting uten endret V-innhold krever ikke ny plan-review.
+- `F3a ≠ F3a_ref` ⇒ **RØD** (`vblock=stale`): antallet kriterier, eller hvilke som er eier-merket, er
+  endret. En innholdsendring som bevarer begge, oppdages IKKE av gate F (se CF-252-12).
+- `F3a = 0` er UGYLDIG, ikke `legacy`. `vblock=legacy` finnes bare når koordinatoren gir `F3a_ref = 0`
+  eksplisitt, og bare for en delt planfil med decision-log-rad. Gaten skriver da `GULV AV`. F0, F1,
+  F2b, F2c, F3b ≥ 1, F4 og F5 (inkl. F5:none-regelen under) er fortsatt bindende.
+- Uten `F3a_ref` skriver gaten `LÅS AV (ingen F3a_ref)`. Gulvet håndheves likevel.
 
 **F5 — stikkprøve (BINDENDE, kjøres i et engangs-tre).** F1–F4 kan oppfylles av en implementer som
 limer GAMLE tall inn i nye kodeblokker; F5 kan ikke.
@@ -807,9 +782,9 @@ kvalifisert. Finnes fortsatt ingen kjørbar kommando å velge, er det **RØD** (
 F5:none når F3b ≥ 1`), med `F3b = 0` fordi `F3b < 1` selv er rødt (jf. «Utfall» under) —
 `vblock=ok(F5:none)` skal aldri skrives.
 
-**Utfall.** Bryter ett av kravene (F0 odde; F3a ≠ F3a_ref; F1 ≠ 1; F2b odde eller < 2;
-`F2c < 2 × F3b` (distinkt); F3b < 1; F3b < F3a når `F3a_ref > 0`; fences < 2 × F3b; F4 = 0;
-F5-avvik, inkl. `F5:none` når `F3b ≥ 1`) ⇒ **fix-runden er ikke fullført**. Send den tilbake som en
+**Utfall.** Er gaten RØD (exit 1: hver årsak står på en egen `RØD:`-linje, og manglende eller uleste
+ID-er er navngitt der), eller gir stikkprøven avvik
+(F5-avvik, inkl. `F5:none` når `F3b ≥ 1`) ⇒ **fix-runden er ikke fullført**. Send den tilbake som en
 **MEKANISK retur**: samme funn-liste, ingen ny review, og implementeren **ERSTATTER** seksjonen for
 SAMME `<N>` (ikke ny seksjon, ikke `<N>+1`). En mekanisk retur bruker verken opp en revise-gate-runde
 eller et trinn i modell-eskaleringens fix-rundetelling. Dispatch ALDRI kode-review r(N+1) på en rød
@@ -819,14 +794,14 @@ gate F.
 A0 — eskalér til mennesket** med gate F sin ordrette output for alle tre forsøkene, og logg
 `vblock=stuck` i felt 11.
 
-**Fix-runde 0 finnes ikke som gate.** `<N>` starter på **1** ved den FØRSTE kode-review-drevne
-fix-runden. Implementeringsrunden (r0) produserer ingen `#### V-blokk re-kjørt mot HEAD`-seksjon, og
+**Fix-runde 0 finnes ikke som gate.** `<N>` starter på **1** ved den første fix-runden
+. Implementeringsrunden (r0) produserer ingen `#### V-blokk re-kjørt mot HEAD`-seksjon, og
 koordinatoren kjører IKKE gate F på den.
 
 **Telemetri.** Skriv `vblock=<ok|stale|missing|legacy|stuck>` i `run-log.md` felt 11, ved siden av
 `selector=`/`floor=`/`auto_decided=`/`attest=`. `ok` = alle passerte i første forsøk;
 `stale` = én eller flere rødnet og runden ble sendt mekanisk tilbake; `missing` = seksjonen eller
-snapshotet fantes ikke; `legacy` = `F3a_ref = 0` (gulvet ikke bindende, resten passerte);
+snapshotet fantes ikke; `legacy` = eksplisitt `F3a_ref = 0` (gaten skrev `GULV AV`, resten passerte);
 `stuck` = 2 mekaniske returer på samme `<N>`, eskalert. Legg alltid F5s valgte V-ID i parentes:
 `vblock=ok(F5:V4)`. Én rad kan bære flere fix-runder — skriv da
 `vblock=ok(F5:V4),stale(F5:V2)` i rundenes rekkefølge. **Fravær er IKKE et kontraktbrudd** i denne

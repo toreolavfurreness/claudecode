@@ -60,25 +60,41 @@ systemet — overlever den som sann, skal den til lessons og du skriver på sin 
 Å kopiere innholdet i en lesson hit er en defekt. Full regel: `docs/loop-rules.md` § «Tre kunnskapsbaser».
 
 ⚠️ **OBLIGATORISK HANDLING før du skriver en ny linje — ikke bare en norm å være enig i.**
-Regelen over har blitt brutt flere ganger, hver gang av en
-agent som kjente regelen. Siste gang ble substansen skrevet inn her samtidig som agenten selv
-flagget den som «lessons_candidate_for_coordinator» i rapporten — altså med full bevissthet om at
-den hørte et annet sted. Normen alene stopper det åpenbart ikke. Derfor, som et steg du UTFØRER:
+Regelen over har blitt brutt flere ganger, hver gang av en agent som kjente regelen. Én gang ble
+substansen skrevet inn her samtidig som agenten selv flagget den som
+«lessons_candidate_for_coordinator» i rapporten — altså med full bevissthet om at den hørte et annet
+sted. Et annet brudd kom fra en agent som KJØRTE grepet og stoppet på første treff. Verken normen
+alene eller ett enkelt grep stopper det. Derfor, som et steg du UTFØRER:
 
 ```
-grep -rn "<nøkkelordet i påstanden din>" tasks/lessons/
+grep -rli "<stabilt token fra påstanden din>" tasks/lessons/
+grep -rli "<et annet nøkkelord fra påstanden din>" tasks/lessons/
 ```
 
+- **Minst to grep med ulike nøkkelord** før du konkluderer noe. Minst ett av dem på et **stabilt
+  token**: det KORTESTE entydige — kommandonavn eller funksjonsnavn uten argumenter og flagg
+  (`checkout`, ikke `git checkout -- <fil>`), ellers filnavn eller feilmelding. Alltid `-i`. Aldri
+  bare norsk prosa: stavemåten varierer («ukommitterte» / «ucommittede»), og da bommer grepet.
+- **Les tittelen** (`grep -m1 '^# ' <fil>`) på hver fil som treffes av begge grep. Er snittet tomt,
+  les titlene i treffene på det stabile tokenet.
 - **Treff** → substansen finnes. Skriv en PEKER (`se tasks/lessons/<fil>.md <dato>`), aldri
   substansen. Legger observasjonen din noe NYTT til lessonen, hører det tillegget i rapporten som
   lessons-kandidat — koordinatoren skriver det, ikke du.
-- **Null treff** → kjør T1 (fjern «jeg», generaliser). Overlever påstanden som en sann
-  systempåstand, er den en lessons-kandidat for rapporten — ikke en minnelinje.
-- **Rapporten** skal si hvilket grep du kjørte og hva det ga. Uten det er minneendringen ikke
+- **Nær-treff** (samme tema, annen feilmodus) → IKKE «ny». Ett treff avslutter ikke søket: grep på
+  nytt med et tredje nøkkelord før du konkluderer.
+- **Null treff** kan først konkluderes etter minst to grep → kjør T1 (fjern «jeg», generaliser).
+  Overlever påstanden som en sann systempåstand, er den en lessons-kandidat for rapporten — ikke en
+  minnelinje.
+- **Rapporten** skal si hvilke grep du kjørte og hva hvert ga. Uten det er minneendringen ikke
   verifiserbar for kode-revieweren, som leser fila i diffen.
+- **Gate før PR (koordinatoren håndhever):** endrer diffen `.claude/agent-memory/`, SKAL
+  ferdig-rapporten ha feltet `memory_check` med, per ny eller endret linje, ALLE grep-kommandoene
+  (minst to, én på et stabilt token) og outputen ordrett. Mangler feltet, eller har en linje færre
+  enn to grep, sender koordinatoren runden tilbake FØR kode-review.
 
 Commit fila sammen med arbeidet i samme PR. Den er din — men den er også delt state, så hold den
-ren.
+ren. I fix-modus går minneendringer i kode-commiten. En observasjon som kommer etter ankeret, meldes
+i rapporten og skrives i neste runde.
 
 {{SCOUT_DELEGATION_BLOCK_IMPLEMENTER}}## Ufravikelige invarianter (sikkerhetsnett)
 
@@ -92,6 +108,12 @@ den døde planen. Sett `status: "plan_invalid"`, navngi i `notes` hvilken antake
 hvilket målt funn som felte den, og stopp. Den reviewede planen er kontrakten din. Er du i tvil om
 det er planen eller implementeringen som sviktet («planen sa X, koden er Y»), er det `plan_invalid`. **PR-er lages alltid mot `{{BASE_BRANCH}}`. Aldri push/merge/commit til `{{PROD_BRANCH}}`.**
 
+**Aldri slett, skip eller svekk en eksisterende test for å få en V-blokk, CI eller e2e grønn.** Er
+testen feil, er det et funn i `notes` eller `plan_invalid`, ikke en endring du gjør selv. Unntak:
+planen bestiller endringen. Da har PR-teksten en egen linje `Test-svekking: <begrunnelse med
+plansteg>`, og CI-steget «Test-svekking» (`scripts/test-weakening-check.py`) feller PR-en uten den.
+Linja skrives bare når CI-steget har funn, aldri som vanelinje.
+
 ## Minste diff
 
 Implementer planen med den minste diffen som oppfyller den. Legg ikke til abstraksjoner, konfig, stillas «for
@@ -104,7 +126,7 @@ hindrer datatap, og planens verifiseringskriterier. Selvgranskingen står i `/to
 
 **Hvis dispatch-prompten inneholder `FIX-MODE`: hopp over `todo-execute.md` HELT og følg KUN Fix-mode-seksjonen i `.claude/commands/todo-finish-worker.md` (rett de oppgitte kode-review-funnene på eksisterende branch, re-push samme PR — ikke re-implementer, ikke ny PR).**
 
-**Siste steg før push i fix-modus er ALLTID: re-kjør HELE V-blokken i planen mot HEAD og lim ordrett kommando + output inn i planfilas fix-runde-seksjon, med hvert `**V<id>**` på egen linje ved linjestart og minst én fenced kodeblokk under, og med linjen `Ingen tall arves fra en tidligere runde.` ORDRETT til slutt. Et tall i planen som ikke står ved siden av kommandoen som produserte det i DENNE runden er et kontraktbrudd, ikke en unøyaktighet.** Kjør `tasks/gate-f.sh <planfil> <N> <F3a_ref>` før push — samme sjekk koordinatoren kjører; RØD betyr mekanisk retur.
+**Siste steg før push i fix-modus er ALLTID: re-kjør HELE V-blokken i planen mot HEAD og lim ordrett kommando + output inn i planfilas fix-runde-seksjon, med hvert `**V<id>**` på egen linje ved linjestart og minst én fenced kodeblokk under, og med linjen `Ingen tall arves fra en tidligere runde.` ORDRETT til slutt. Et tall i planen som ikke står ved siden av kommandoen som produserte det i DENNE runden er et kontraktbrudd, ikke en unøyaktighet.** Commit planfila alene etter kode-commiten, og kjør `tasks/gate-f.sh <planfil> <N> <F3a_ref> HEAD` før push — samme sjekk koordinatoren kjører; RØD betyr mekanisk retur.
 
 1. Les og følg `.claude/commands/todo-execute.md` for implementeringen. **UNNTAK:** hopp over steget som setter `status: in_progress` og `claimed_by` i todo-frontmatteren — de feltene eier koordinatoren, ikke deg. Rør IKKE todo-frontmatteren i det hele tatt.
 2. Deretter `.claude/commands/todo-finish-worker.md` (verifisering → simplify → security → code-review → commit → PR mot `{{BASE_BRANCH}}`). Den stopper hardt etter PR.

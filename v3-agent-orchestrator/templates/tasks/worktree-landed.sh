@@ -179,10 +179,14 @@ awk 'NR % 2 == 1 { st = $0; next } { print st "\t" $0 }' "$TMP/diff.flat" > "$TM
 if ! git -C "$wt" ls-tree -r --name-only "$ref" > "$TMP/ref-files.txt"; then
   err "ls-tree-names"
 fi
-if ! git -C "$wt" ls-tree -r "$ref" > "$TMP/ref-tree-raw.txt"; then
-  err "ls-tree-raw"
+# Blob-lista er HISTORIKKEN til ref, ikke bare tippen: en eldre planrevisjon i et
+# agent-tre finnes ikke i tippen når planen senere er revidert og arkivert. Bare ref leses,
+# aldri andre refs: en annen remote-branch kan slettes, og treets egne ulandede commits ville
+# gitt falskt LANDED. (Lista bærer også commit- og tre-SHA-er; de kan ikke treffe en fil-hash.)
+if ! git -C "$wt" rev-list --objects "$ref" > "$TMP/ref-hist-raw.txt"; then
+  err "rev-list-objects"
 fi
-awk '$2 == "blob" { print $3 }' "$TMP/ref-tree-raw.txt" | sort -u > "$TMP/ref-blobs.txt"
+awk '{ print $1 }' "$TMP/ref-hist-raw.txt" | sort -u > "$TMP/ref-blobs.txt"
 
 # check_path: avgjør ÉN kandidatsti. Kaller keep() (exit 1) direkte hvis den ikke er landet.
 # Faller bare gjennom (returnerer) når kandidaten ER landet.
@@ -236,6 +240,7 @@ check_path() {
     return 0
   fi
 
+  # ref-blobs.txt er hele historikken til ref, ikke bare tippen.
   if grep -qx "$blobsha" "$TMP/ref-blobs.txt"; then
     echo "$p" >> "$landed_moved_file"
     return 0

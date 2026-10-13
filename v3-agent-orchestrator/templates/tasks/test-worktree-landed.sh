@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Harness for tasks/worktree-landed.sh — fjorten konstruerte tilfeller (§ 7 V1) og et
-# mutasjonskrok-punkt (§ 8 M1-M4, M9, M10).
+# Harness for tasks/worktree-landed.sh — seksten konstruerte tilfeller (§ 7 V1) og et
+# mutasjonskrok-punkt (§ 8 M1-M4, M9, M10, M12).
 #
 # Hver case bygger sitt EGET, disjunkte git-repo under mktemp -d — ingen delt tilstand mellom
 # casene, og ALDRI mot dette prosjektets egne worktrees. C10a/b/c/d (env-delmengde, 
@@ -9,15 +9,15 @@
 # at klassifikatorens `--git-common-dir`-basert `main_root`-oppslag faktisk skal peke på en
 # ANNEN katalog enn selve treet, slik det gjør i en ekte agent-worktree.
 #
-# Bruk: tasks/test-worktree-landed.sh [--classifier <sti-til-worktree-landed.sh>] [--mutant M1|M2P|M3P|M4|M9|M10]
+# Bruk: tasks/test-worktree-landed.sh [--classifier <sti-til-worktree-landed.sh>] [--mutant M1|M2P|M3P|M4|M9|M10|M12]
 #
-# --mutant appliserer én av § 8-mutasjonene (M1, M2', M3', M4, M9, M10) på en TEMP-kopi av
+# --mutant appliserer én av § 8-mutasjonene (M1, M2', M3', M4, M9, M10, M12) på en TEMP-kopi av
 # klassifikatoren (originalen røres aldri) og kjører alle casene mot kopien. Skriptet bekrefter
 # at mutasjonen faktisk endret filen (diff ikke-tom) FØR kjøringen telles — se lesson
 # 2026-09-21 "verifiser at mutasjonen TRAFF".
 #
-# Utskrift: "CASE=<id> forventet=<0|1> faktisk=<n>" per case, "CASES_KJØRT=14" til slutt.
-# Exit 0 kun hvis alle fjorten matcher forventet verdi. "HARNESS-FEIL:<...>" betyr at OPPSETTET
+# Utskrift: "CASE=<id> forventet=<0|1> faktisk=<n>" per case, "CASES_KJØRT=16" til slutt.
+# Exit 0 kun hvis alle seksten matcher forventet verdi. "HARNESS-FEIL:<...>" betyr at OPPSETTET
 # feilet — det er IKKE et rødt case-resultat og teller ikke som bevis i noen retning.
 set -uo pipefail
 
@@ -120,6 +120,18 @@ if [ -n "$MUTANT" ]; then
       awk '
         $0 == "      \"\") continue ;;" {
           print "      \"\"|\\#*) continue ;; # MUTANT M10: kommentar-unntak gjeninnfort"
+          next
+        }
+        { print }
+      ' "$CLASSIFIER" > "$MUT_COPY"
+      ;;
+    M12)
+      # Les blobber fra ALLE remote-refs, ikke bare $ref — datatap-retning: en
+      # ulandet commit som bare ligger på en annen remote-branch gir da falskt LANDED.
+      # Rammer C11b (forventet 1, skal bli 0).
+      awk '
+        $0 == "if ! git -C \"$wt\" rev-list --objects \"$ref\" > \"$TMP/ref-hist-raw.txt\"; then" {
+          print "if ! git -C \"$wt\" rev-list --objects \"$ref\" --remotes > \"$TMP/ref-hist-raw.txt\"; then"
           next
         }
         { print }
@@ -338,6 +350,39 @@ build_C10d_env_kommentar_avviker() {
   printf 'EXPO_PUBLIC_SUPABASE_URL=https://example.supabase.co\n#EXPO_PUBLIC_SUPABASE_ANON_KEY=PROD-UNIK-VERDI-kun-her\n' > "$d/wt/.env.local"
 }
 
+# --- C11a/b (blob-oppslag i HISTORIKKEN til ref, og bare ref) -----------
+
+build_C11a_eldre_planrevisjon_i_historikk() {
+  d="$1"
+  seed_common "$d" || return 1
+  # {{BASE_BRANCH}}: planen lander som rev1, og revideres så I SAMME commit som den arkiveres. Treets
+  # rev1 finnes da verken på stien eller som blob i tippen — bare i historikken.
+  git_ok "$d" checkout -q {{BASE_BRANCH}} || return 1
+  printf 'plan rev1\n' > "$d/tasks/plans/todo-98-rev.md"
+  git_ok "$d" add tasks/plans/todo-98-rev.md || return 1
+  git_ok "$d" commit -q -m "{{BASE_BRANCH}}: plan rev1" || return 1
+  mkdir -p "$d/tasks/plans/archive" || return 1
+  git_ok "$d" mv tasks/plans/todo-98-rev.md tasks/plans/archive/todo-98-rev.md || return 1
+  printf 'plan rev2 final\n' > "$d/tasks/plans/archive/todo-98-rev.md"
+  git_ok "$d" add tasks/plans/archive/todo-98-rev.md || return 1
+  git_ok "$d" commit -q -m "{{BASE_BRANCH}}: plan revidert og arkivert" || return 1
+  git_ok "$d" checkout -q agent-work || return 1
+  mkdir -p "$d/tasks/plans" || return 1
+  printf 'plan rev1\n' > "$d/tasks/plans/todo-98-rev.md"
+}
+
+build_C11b_ulandet_commit_ukjent_sti() {
+  d="$1"
+  seed_common "$d" || return 1
+  # Treets egen commit er aldri landet i {{BASE_BRANCH}}, men ligger på en ANNEN remote-ref enn ref.
+  # Den skal ikke telle: en slik branch kan slettes.
+  mkdir -p "$d/tasks/plans" || return 1
+  printf 'draft never landed\n' > "$d/tasks/plans/todo-97-draft.md"
+  git_ok "$d" add tasks/plans/todo-97-draft.md || return 1
+  git_ok "$d" commit -q -m "agent-work: planutkast, aldri landet" || return 1
+  git_ok "$d" update-ref refs/remotes/origin/other agent-work || return 1
+}
+
 # --- Runner --------------------------------------------------------------------
 
 all_ok=1
@@ -391,10 +436,12 @@ run_case C10a_env_delmengde_trygg 0 wt
 run_case C10b_env_verdi_endret 1 wt "KEEP:ignorert-env-avviker:.env.local"
 run_case C10c_env_ekstra_nokkel 1 wt "KEEP:ignorert-env-avviker:.env.local"
 run_case C10d_env_kommentar_avviker 1 wt "KEEP:ignorert-env-avviker:.env.local"
+run_case C11a_eldre_planrevisjon_i_historikk 0 "" "LANDED-MOVED:tasks/plans/todo-98-rev.md"
+run_case C11b_ulandet_commit_ukjent_sti 1 "" "KEEP:ingen-treff:tasks/plans/todo-97-draft.md"
 
 echo "CASES_KJØRT=$run_count"
 
-if [ "$all_ok" -eq 1 ] && [ "$run_count" -eq 14 ]; then
+if [ "$all_ok" -eq 1 ] && [ "$run_count" -eq 16 ]; then
   exit 0
 fi
 exit 1

@@ -73,6 +73,7 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 → `steps/1-koe-utvelgelse.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: `release.py status` først; kjør kø-skriptet i stegfilen (deps-resolvert, ekskluderer claimed/brainstorm/forslag/prod-release, bare den aktive releasens scope, prioritet → order), velg øverste `elig=YES`; ingen kandidat → DOM avgjør (`INGEN AKTIV RELEASE` → §7, ellers pausepunkt); et bevisst hopp er nivå B3.
 - [ ] Vakt/kommando: `python3 tasks/release.py status` (exit 2 ⇒ pausepunkt); kø-skriptet `python3 - <<'PY'` i stegfilen; `decision-level.py` (B3)
+- [ ] Før første claim i en release: retroen for forrige release er holdt og retro-todoen arkivert (`tasks/releases/README.md` § retro). `release.py status` skriver `ADVARSEL: retro-todoen …` med exit 0: les den som pausepunkt.
 - [ ] Pausepunkt: Brainstorm-påkrevd todo (hoppet over i §1); Release: scope tomt eller blokkert, eller `release.py` exit 2 (§1); B3
 
 ## 2. Claim + pre-løs lessons-tema
@@ -109,7 +110,7 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 → `steps/5b-kode-review.md` — les hele fila FØR steget kjøres.
 - [ ] Hva: sett `phase: kode-review r<n> PR <nr>`; Minne-gate → trigger-sett beregnet SELV → dispatch kode-reviewer → gate på severity (revise-gate) med kontrakt-vakt og liveness-vakt → fix-mode-dispatch («Rotårsaksanalyse før eskalering»; «Modell-eskalering fra fix-runde 3»: dyp modell fra runde 3) → Gate F re-verifisering av V-blokken før neste runde. Riving/migrering av brukervendt flate: gatene G1–G3.
 - [ ] Vakt/kommando: `tasks/review-lens-select.py`; `tasks/review-severity-floor.py` (se «Gulvunntak for ordlyd»); `tasks/review-fan-in-verify.py`; `python3 tasks/decision-level.py --event revise_gate_choice`; `.claude/hooks/guard-fix-round-model.sh` (krever eksplisitt `model` på HVER implementer-dispatch, dyp modell fra fix-runde 3)
-- [ ] Pausepunkt: Kode-reviewer revise-gate — **nivå B1; nivå A bare ved innholdsfunn, manglende data, kostnad over 2× medianen eller, fra runde 2, for få sammenlignbare todoer (`over=few`)**; Agent-probe i preflight feiler; B1
+- [ ] Pausepunkt: Kode-reviewer revise-gate — **nivå B1; nivå A bare ved innholdsfunn, manglende data, kostnad over 2× medianen eller, fra runde 2, for få sammenlignbare todoer (`over=few`), eller fra runde 4**; Agent-probe i preflight feiler; B1
 
 ## 5c. Pipelining (plan neste todo mens denne implementeres)
 → `steps/5c-pipelining.md` — les hele fila FØR steget kjøres.
@@ -207,7 +208,7 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A | Teknisk risiko flagget (§4) eller truffet (§5/§6) |
 | A | Brainstorm-påkrevd todo (hoppet over i §1) |
 | A | Reviewer no-go med innholdsfunn, manglende data eller over kostnadstaket (§4, se Konvergensregel). Ellers nivå B7 (koordinatoren bestemmer selv og logger) |
-| A | Kode-reviewer revise-gate med innholdsfunn, manglende data eller over kostnadstaket (§5b, se Konvergensregel). Ellers nivå B1 (koordinatoren bestemmer selv og logger) |
+| A | Kode-reviewer revise-gate med innholdsfunn, manglende data, over kostnadstaket eller fra runde 4 (§5b, se Konvergensregel). Ellers nivå B1 (koordinatoren bestemmer selv og logger) |
 | A | Juridisk tekst (personvern) eller kutt som endrer det todoen lover brukeren |
 | A | Agent-probe i preflight feiler («Agent type not found», dekker §5b) → fersk koordinator-sesjon kreves |
 | A | Merge-konflikt (§6.4) |
@@ -228,7 +229,7 @@ av kode-reviewer-revise-gate-punktet**, som nå er delt i nivå A og nivå B1 �
 | A6 | Avvik fra `CLAUDE.md` eller `docs/naming-conventions.md` som krever menneskets bekreftelse |
 | A7 | Apply av migrasjon eller RLS-endring mot dev (`{{DEV_ENV_ID}}`) |
 | A8 | Edge Function-deploy (dev eller prod) |
-| B1 | §5b revise-gate: ny fix-runde (fra runde 2 kun uten innholdsfunn) vs. merge m/carry-forwards vs. stopp — alle runder under kostnadstaket |
+| B1 | §5b revise-gate: ny fix-runde (fra runde 2 kun uten innholdsfunn, fra runde 4 aldri) vs. merge m/carry-forwards vs. stopp — alle runder under kostnadstaket |
 | B2 | Splitt av en todo i del-todos |
 | B3 | Valg eller hopp av neste todo innenfor mennesket-godkjent rekkefølge (§1) |
 | B4 | Pipelining: valg eller drop av B-sporet (§5c) |
@@ -253,7 +254,8 @@ for menneskelesere og for V7-paritet mot `--dump-rules` — de er IKKE en beting
 regelmatchingen i `decision-level.py`. Konvergens, innholdsregel og kostnadsbrems bor UTELUKKENDE i
 konvergensvakten under; B1 matcher på `event=revise_gate_choice` +
 `action ∈ {fix_round, merge_carry, stop}` alene, og B7 matcher på `event=plan_review_choice` +
-`action ∈ {revise, drop}` alene. **B5 krever begge betingelser** (`kind`  OG `executable_gate`);
+`action ∈ {revise, drop}` alene. Rundestoppet i §5b er en betingelse i `classify`,
+utenfor konvergensvakten. **B5 krever begge betingelser** (`kind`  OG `executable_gate`);
 et `technical_risk` med `kind=migration` treffer A7 fordi B5s `kind`-betingelse er usann — IKKE
 fordi A7 evalueres først (rekkefølgen A-block-før-B-block er likevel reell og bindende, se
 skriptets docstring). **`technical_risk` fra en REVIEWER (ikke planneren) bærer aldri
@@ -269,15 +271,24 @@ unngå at D2s ordrette paritet-diff (tabellrad ↔ `TRIGGER_BY_ID`) driver fra s
 
 ### Konvergensregel
 
-Det finnes ikke noe fast rundetak. Evalueres FØR alt annet i `decision-level.py`, for
+Det finnes ikke noe fast rundetak, men §5b har rundestopp fra runde 4.
+Evalueres FØR alt annet i `decision-level.py`, for
 `revise_gate_choice` + `action=fix_round` og `plan_review_choice` + `action=revise`. Å LUKKE gaten
 (`merge_carry`/`stop`/`drop`) er alltid B1/B7, uansett rundetall.
 
 - *gate-funn* = BLOKKERENDE i §4. I §5b er det BLOKKERENDE + VIKTIG etter severity-gulvet, altså det
   revise-gaten utløses av.
 - *ny feilklasse* = et gate-funn i runde N som ikke hører til en klasse fra runde N−1.
-- *innhold* = et gate-funn som treffer RLS/tilgang, datamodell/migrasjon eller omfang (det todoen
-  lover).
+- *innhold* i §4 = et gate-funn som treffer RLS/tilgang, datamodell/migrasjon eller omfang (det
+  todoen lover).
+- *innhold* i §5b: `content=yes` bare når
+  **rettelsen endrer hva todoen leverer**: noe todoen lover, kuttes, appens atferd for brukeren
+  endres, eller tilgang (RLS, grants, auth) eller datamodell (migrasjon, skjema) røres. Hvor funnet
+  står, avgjør ikke. Et funn i en prosedyre, en testrigg, planfila, en kommentar eller et
+  V-kriterium er form når rettelsen ikke gjør noe av dette, også når funnet er BLOKKERENDE. Tvil gir
+  `content=yes`. Har runden et BLOKKERENDE gate-funn og `content=no`, sier `Grunnlag`-linja i
+  `[B1]`-oppføringen i én setning hva rettelsen endrer og hvorfor det ikke er leveranse, tilgang
+  eller datamodell. Et A0 fra revise-gaten føres med `Type: revise_gate_choice`.
 - *form* = kriterieformat, innbretting av allerede godkjent tillegg, feil måling, linjenumre og
   ordlyd.
 - **Kostnadsbremsen i ALLE runder:** ved hver §4-no-go og hver utløst §5b-revise-gate, også runde 1,
@@ -297,13 +308,15 @@ Det finnes ikke noe fast rundetak. Evalueres FØR alt annet i `decision-level.py
     ikke går ned, eller at en ny feilklasse dukker opp (`new_class=yes`), er nivå B. Koordinatoren
     velger selv og logger. `content` annet enn `no` (innholdsfunn) gir fortsatt A0, og
     kostnadsbremsen er fortsatt nivå A.
+  - **§5b, rundestopp:** fra runde 4 er en ny fix-runde alltid A0 (`round_stop`), mens
+    `merge_carry`/`stop` fortsatt er B1.
 
 ```bash
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=1 --context action=fix_round --context cost_over=no
 python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=2 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
 ```
 
-Antall runder: ingen av gatene har rundetak fra funn-tallet. Rundene begrenses av
+Antall runder: §4 har ikke rundetak, og §5b har rundestopp fra runde 4. Ellers begrenses rundene av
 kostnadsbremsen og innholdsregelen. Et A0-spørsmål til eieren bærer anbefaling og konsekvens i
 vanlig språk. Hver `[B1]`/`[B7]` fra runde 2 bærer en
 `Konvergens:`-linje i decision-log (se § Format der), som er beviset og kan vetoes.

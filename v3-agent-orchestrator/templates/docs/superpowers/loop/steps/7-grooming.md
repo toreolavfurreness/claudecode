@@ -27,6 +27,8 @@ status: deferred
 tags: [forslag]
 ```
 Et forslag får aldri `release:`. Mennesket legger det i en release ved triage.
+Kjør `python3 tasks/graph-build.py --check-todo <utkast> [<utkast> …]` på hvert utkast før persistering:
+exit 1 ⇒ rett frontmatteren (`files:`/`bugs:`, `[]` er lovlig svar).
 Kombinasjonen er dobbel gating: `status: deferred` holder forslaget ute av §1-køen (som kun plukker `status: open`), og `tags: [forslag]` holder det ute selv om noen ved uhell flipper statusen uten å fjerne taggen.
 
 **Persistering:** de nye todo-utkast-filene under `tasks/todos/` er delt state. Kjør

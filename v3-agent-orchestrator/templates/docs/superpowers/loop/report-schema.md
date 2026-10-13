@@ -36,6 +36,7 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
   "deps_ok": true,
   "verification_criteria": ["Uinnlogget bruker på dyp lenke → /login?next=<url>"],
   "planned_diff": { "lines": 40, "files": 2 },
+  "docs_impact": [{ "doc": "docs/architecture.md#Auth", "action": "updated", "why": "Seksjonen beskriver redirect-flyten." }],
 {{SCOUT_USAGE_LINE}}  "canary": "L<linjenummeret du landet på>: <de første 8 ordene på den linja>",
   "evidence": { "toplevel": "<ordrett output av `git rev-parse --show-toplevel`>", "plan_tail": "<ordrett `tail -5` av planfilen>" },
   "status": "reviewed",
@@ -48,6 +49,10 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
 - `technical_risk.native_dep` og `technical_risk.native_permission` (`true|false` når `kind` er `"native"`, `null` ellers). Har planen også en annen risiko (migrasjon, RLS, secrets, prod/main, Edge-deploy), er `kind` den, aldri `native`. `native_dep` = planen legger til en avhengighet med native kode eller en config-plugin, eller rører `eas.json`, `app.config.js` eller `app.json` utenom ren visningstekst, eller EAS-miljøer (konfigurasjonen avgjør hva et bygg peker på, se `CLAUDE.md` § Native iOS-bygg). `native_permission` = planen legger til en tillatelse (Info.plist-nøkkel, `ios.infoPlist`/`permissions` i `app.json`/`app.config.js`, entitlement). Begge `false` er **pausepunkt-regel B8** (koordinatoren sender `true` som `yes` og `false` som `no`), ellers A3.
 - `deps_ok`: `false` → `status: "blocked"`.
 - `planned_diff`: planens anslag for diffen, i linjer og filer. §4 sammenligner det med budsjettet fra §3-dispatchen (proporsjonalitet).
+- `docs_impact`: doc-seksjonene som siterer filene i `files_touched`, fra
+  `python3 tasks/graph-query.py --docs <filer>`. Form: enten strengen `"none – <én setning>"` (bare lovlig når kommandoen ikke gir treff), eller en liste med `{ "doc": "docs/<fil>.md#<overskrift>", "action": "updated" | "unchanged", "why": "…" }`, én per treff.
+  `updated` betyr her «planen oppdaterer seksjonen». Lista er målt før endringen og er gulvet for
+  ferdig-rapportens felt.
 - `canary`: stikkprøve på at filene faktisk ble lest. Koordinatoren oppgir et mål (fil + linje som IKKE er gjentatt i prompten); planneren returnerer linjenummeret den landet på og den eksakte teksten der. Mismatch = lesing hoppet over. NB: dette beviser at lesing *skjedde*, ikke at *alle* bootstrap-filer ble lest fullt.
 - `evidence`: `toplevel` beviser at planneren skriver i EGEN worktree (feil-cwd er en observert bug-klasse — planneren skrev en gang planfilen til hovedsjekkuten); `plan_tail` beviser at planfilen faktisk ble skrevet på disk. I probe-modus (se «Bevis-regel» over): utelates helt.
 - `status` ∈ `"reviewed"|"blocked"`.
@@ -242,6 +247,12 @@ går til oppdragsgiveren (planner eller implementer), aldri til koordinatoren.
   (eneste kontroll av selve funnet) og sjekker fra r≥2 at forrige fix-runde bare endret ordlyd i
   ref-fila — rettelsen av det unntatte funnet selv verifiseres aldri (`coordinator-runbook.md`
   §5b). Enhver annen verdi gir `violations[]` og usignert rapport.
+- `honest_severity` er **valgfritt** og settes bare når revieweren har hevet funnet til
+  lensens gulv og selv ville rangert lavere. Verdien er revieweren sin egen rangering, og den er
+  aldri høyere enn `severity`. Utelatt betyr at `severity` er egen rangering. Feltet leses aldri av
+  gulvet eller gaten, bare av `tasks/loop-metrics.py`.
+- `regression` er **valgfritt**: `true` fra runde 2 når feilen ble innført av forrige
+  fix-runde.
 - `fan_in` (erstatter den tidligere `tech-review fan-in: n/n/n`-linja i `notes`, ikke en tilføyelse til den): et objekt med FEM felt (seks med `worktree_guard`, se under) — de fire PÅKREVDE arrayene pluss `attestations`, som er PÅKREVD når `returned` er ikke-tom — i rapporten din, PÅKREVD i full modus. **Mangler `fan_in` helt i en full-modus-rapport → kontraktbrudd, behandles som usignert** — samme prinsipp som 179s vakt (fravær er utvetydig bevis på at vakten ble ignorert, aldri stilltiende «alt er fint»).
   - `triggered` (reviewer-fylt): agenter kode-revieweren selv vurderer at `trigger:`-prosaen treffer for denne diffen.
   - `dispatched` (reviewer-fylt): agenter kode-revieweren faktisk sendte til som frisk sub-agent.
@@ -299,7 +310,8 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
   ],
   "bugs_closed": [],
   "bugs_new": [{ "title": "…", "discovered": "YYYY-MM-DD" }],
-{{SCOUT_USAGE_LINE}}  "deviations": "ingen",
+{{SCOUT_USAGE_LINE}}  "docs_impact": "none – ingen doc-seksjon siterer filene i diffen.",
+  "deviations": "ingen",
   "notes": "Fritekst til koordinatoren."
 }
 ```
@@ -324,6 +336,9 @@ revise-gate (§5b)  ⟺  minst én BLOKKERENDE ELLER minst én VIKTIG  (= Critic
   arbeidet stanset før noen scout ville vært aktuell — nettopp for å lukke den vanligste stien til
   `scout=unknown` ved kilden. Forbeholdet om hva `bytes_read`
   ER og ikke er, står i § Scout-rapport.
+- `docs_impact`: én rad per treff i unionen av planens liste og implementerens egen
+  kjøring (`todo-finish-worker.md`). Samme form som i plan-rapporten. `updated` betyr at doc-fila er
+  i diffen. PÅKREVD i hver ferdig-rapport, også etter fix-runder.
 - `evidence`: slanket sammenlignet med planner/reviewer — koordinatorens uavhengige `gh pr view`/`gh pr diff` er OFFISIELT bevis for PR-innholdet (verifiseres eksternt uansett), så implementeren siterer kun `toplevel` (egen worktree) + `branch` (riktig PR-branch). Ingen ordrett bygg-/testoutput kreves i selve rapporten.
 - `topic` MÅ være en tema-mappe under `tasks/lessons/` (`ls tasks/lessons/`); passer ingen, foreslå et nytt kebab-case-navn. Carry-forwards er ikke lessons — legg dem i `notes`.
 - `security_findings`/`review_findings`: kun KRITISK/HØY/Important som IKKE ble fikset (tom = alt fikset).
@@ -364,8 +379,9 @@ appender selv: `selector=<agenter>`, `floor=<n> viol=<n>`,
 `floor_exempt=<g>:godtatt,<a>:avvist`,
 `pipelined_from=<todo>` (§5c), `auto_decided=<rad-eier>:<antall>`, `attest=<verdi>`
 , `vblock=<ok|stale|missing|legacy|stuck>` (med F5s valgte V-ID i parentes:
-`vblock=ok(F5:V4)`), `wtguard=<none|missing|ok|violation>`, `planned=<linjer>/<filer>`, og `scout=<dispatches>d/<KB>kb` (lokaliserings-workeren). Feltets EKSAKTE
+`vblock=ok(F5:V4)`), `wtguard=<none|missing|ok|violation>`, `planned=<linjer>/<filer>`, `docs_impact=<oppdatert>/<treff>`, og `scout=<dispatches>d/<KB>kb` (lokaliserings-workeren). Feltets EKSAKTE
 nummer i forhold til spec-tabellens navngitte kolonner er ikke fastsatt — denne setningen dokumenterer kun INNHOLDET, ikke posisjonen.
+
 
 **`scout=`-tokenet.** Formen er `scout=<dispatches>d/<KB>kb`, der begge tallene er summen over ALLE
 rollene som dispatchet en scout denne runden (plan-rapportens + ferdig-rapportens `scout_usage`,
@@ -391,6 +407,19 @@ aldri som et regnskap per runde.
 
 **`planned=`-tokenet.** Verdien er `Planlagt diff:`-linja i planfila (`Planlagt diff: 280/11` gir `planned=280/11`), og `planned=n/a` for en todo uten planfil. `tasks/retro-numbers.py` leser den mot faktisk diff.
 
+**`docs_impact=`-tokenet.** Formen er `docs_impact=<oppdatert>/<treff>`, talt fra ferdig-rapportens `docs_impact`:
+`<treff>` er antall rader, `<oppdatert>` er antall med `action: "updated"`. Strengformen gir `docs_impact=none`,
+og en ferdig-rapport uten feltet gir `docs_impact=missing`. Koordinatoren appender det i §5b. Kontrakten gjelder
+`merged`-rader for todoer der implementeren ble dispatchet etter at `docs_impact` ble innført. For en PR som var under
+arbeid da, er `docs_impact=missing` lovlig. 212s egen merge-rad SKAL bære tokenet.
+
+**`lens=`-tokenet.** Formen er `lens=<agent>:<funn>/<hevet>/<reelle>/<regr>,…`, alfabetisk, og er stdout
+fra `python3 tasks/loop-metrics.py --token` over todoens funn-filer. Ingen funn i noen runde gir `lens=none`. Er en
+rundes funn-fil tapt, eller feiler skriptet, skrives `lens=unknown`, aldri et håndregnet tall. `<hevet>` er
+selvrapportert fra `honest_severity`: mekaniske hevinger står i `floor=`. Tallene er forekomster per runde: et funn
+som står urettet i runde 2, telles to ganger. `python3 tasks/loop-metrics.py [--since <iso>]` leser tokenene til en
+tabell per lens. Kolonnen `utenfor_selector` der undertelles når agentnavnet står i fritekst etter `selector=`-lista.
+
 `attest=` er, sammen med `pipelined_from=`, `vblock=` og `wtguard=`, blant tokenene i registeret over hvis
 FRAVÆR IKKE er et kontraktbrudd — i motsetning til `floor=`, `floor_exempt=`, `auto_decided=` og
 `scout=` (sistnevnte kun når `scout.enabled` er `true`), som ALLE gjør fravær til et kontraktbrudd:
@@ -402,6 +431,8 @@ FRAVÆR IKKE er et kontraktbrudd — i motsetning til `floor=`, `floor_exempt=`,
 | `auto_decided=` | Ja | alltid, på ikke-`health`-rader |
 | `scout=` | Ja | kun når `scout.enabled` er `true` |
 | `planned=` | Ja | på `merged`-rader der planfila har `Planlagt diff:`-linja (eldre planer har den ikke) |
+| `docs_impact=` | Ja | på `merged`-rader for todoer der implementeren ble dispatchet etter at `docs_impact` ble innført |
+| `lens=` | Ja | på `merged`-rader med `code_review_rounds` ≥ 1, skrevet etter at `lens=` ble innført |
 | `attest=` | Nei (`observe`) | — |
 | `pipelined_from=` | Nei | — |
 | `vblock=` | Nei | — |

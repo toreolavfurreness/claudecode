@@ -99,6 +99,43 @@ pausepunkter). v3 er v2 pluss herding fra drift, og at `/setup` nå installerer
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.8** (planen måler kriteriene sine, og loopen måler seg selv):
+- **Kriterietabell i planen:** planneren kjører hvert V-kriterium på dagens kode og fører utfallet i
+  én tabell (`ID | Kommando | Før (målt) | Etter (ventet) | Type`). Samme svar før og etter betyr at
+  kriteriet skrives om eller merkes som ren kontroll. Plan-revieweren sjekker tabellen først i runde 1.
+- **Rundestopp i §5b:** fra runde 4 er en ny fix-runde alltid A0 (`round_stop`). «Innhold» er
+  smalere: `content=yes` bare når rettelsen endrer hva todoen leverer, tilgang eller datamodell.
+- **Gate F** sammenligner mengder av V-ID-er, ikke antall. `tasks/gate-f.sh` er eneste definisjon,
+  kriterier koordinatoren eller eieren kjører merkes `[koordinator]` eller `[eier]`, og fix-runden
+  har et `HEAD: <sha>`-anker som gaten sjekker mot branch-tippen.
+- **Worktree-sweepen** sier hvilken vakt som holder trærne (`why=<klasse>:<n>`), og
+  klassifikatoren slår opp blobber i hele historikken til ref-en.
+- **Grafen:** `graph-build.py --check-todo` vokter `files` og `bugs` på nye todoer, `--lint` gir
+  hygiene-tall til helsesjekken, og `docs/*.md` blir doc-noder. `graph-query.py --docs` gir
+  doc-seksjonene som siterer en fil. `pr` er strøket som frontmatter-felt.
+- **`docs_impact`** i plan- og ferdig-rapporten, og som token på merge-raden. Kode-revieweren
+  kontrollerer feltet mot sin egen kjøring.
+- **`lens=`-tokenet** og `tasks/loop-metrics.py` måler hva hver lens finner, hever og innfører.
+  `honest_severity` og `regression` er nye, valgfrie felt per funn.
+- **Regelmotoren:** `flytt-til-B` foreslås bare for typer i `SLAG`, og i eiervalg-slaget bare for
+  kort-navnet `mekanisk`.
+- **Agent-minnet:** ingen-kopi-søket krever minst to nøkkelord, ett på et stabilt token.
+  Kode-revieweren måler linjetak og tripwire på PR-hodet, og en slettet minnefil er VIKTIG.
+- **Reviewer-rollene** kjører aldri koordinatorens skript (`review-lens-select.py`,
+  `review-severity-floor.py`, `review-fan-in-verify.py`, `decision-level.py`) på egen rapport.
+- **Test-svekking:** implementeren sletter, skipper eller svekker aldri en test uten at planen
+  bestiller det. `scripts/test-weakening-check.py` er vakten, og CI-steget står i
+  `scaffolding/github-workflows/ci.yml`. Testmønstrene i skriptet er TypeScript og Deno: tilpass dem.
+- **Helsesjekken** har fire rapporteringssteg: A5g prosa-drift (`tasks/prose-drift.py`), A5h
+  graf-hygiene, A5i lessons-konsolidering (`tasks/lesson-audit.py`, protokoll i `tasks/lessons.md`)
+  og A5j lens-effekt. Bug-gaten B3 leser Prioritet og Alvorlighet per bugblokk, og ukjent verdi teller.
+- **Retro før første claim:** runbooken §1 leser `ADVARSEL: retro-todoen …` fra `release.py status`
+  som pausepunkt.
+- **Nytt eksempel:** `examples/hooks/guard-zsh-modifier.example.sh` stopper `$NAVN:<bokstav>` uten
+  klammer i Bash-kall, for prosjekter der agentens skall er zsh.
+- **Ikke med:** migrasjons-forkontrollen før kode-review r1 (stack-spesifikk tørrkjøring mot
+  dev-databasen), full e2e-suite i bolker, og tabellen over agent-minne per rolle.
+
 **v3.7** (eieren spørres bare om eiervalg, og fast retro per release):
 - **Deltareview fra runde 2:** plan-review og kode-review kontrollerer at forrige rundes funn er
   rettet, og at rettelsen ikke har ødelagt noe. En rettelse som bevises med en test, skal ha testen

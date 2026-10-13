@@ -51,11 +51,34 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
    - **Agent-minne (kun ved implementer-PR):**
      **(a) Ingen-kopi-regelen** — rører diffen `.claude/agent-memory/**`: gjengir noen ny/endret linje
      substansen i en eksisterende lesson? Brudd = **VIKTIG** (`docs/loop-rules.md` § «Tre kunnskapsbaser»).
-     **(b) Linjetak** — er `.claude/agent-memory/{{PROJECT_NAME}}-implementer/MEMORY.md` over
-     80 linjer? = **MINDRE**.
-     **(c) Bootstrap-tripwire** — inneholder den fila fortsatt strengen `BOOTSTRAP-UNVERIFIED`?
-     = **MINDRE**: skrivestien til agent-minnet er ennå ikke verifisert i drift. Gjelder også når
-     diffen ikke rører minnefila — les fila fra arbeidstreet.
+     Før du frikjenner en linje: kjør samme søk som implementeren (minst to nøkkelord, ett på et
+     stabilt token — prosedyren står i implementer-charteret § Rollehukommelse) mot HELE
+     `tasks/lessons/`, ikke bare de oppgitte tema-mappene.
+     Sjekk (b) og (c) måles på PR-hodet. Slå opp `headRefOid` én gang ved start
+     (`gh pr view <nr> --json headRefOid`), bruk samme verdi i alle kommandoene under, og før det i
+     `notes` hvis et senere oppslag gir en annen verdi. Du står ikke på PR-hodet, så kjør
+     `git fetch origin pull/<nr>/head` og list minnefilene der med
+     `git ls-tree -r --name-only --full-tree <headRefOid> .claude/agent-memory/`
+     Tom liste føres i `notes` som `0 minnefiler på PR-hodet`. List så minnefilene PR-en sletter,
+     målt mot merge-basen, med
+     `git diff --no-renames --diff-filter=D --name-only origin/{{BASE_BRANCH}}...<headRefOid> -- :/.claude/agent-memory/`
+     (`origin/{{BASE_BRANCH}}` er den lokale kopien fra siste fetch). Hver sti i utdata = **VIKTIG**: PR-en
+     sletter eller omdøper minnefila. En minnefil som er ny på `{{BASE_BRANCH}}` etter forgreningen, er ikke en
+     sletting. For hver sti i lista fra
+     PR-hodet, brukt ordrett som `<sti>`:
+     **(b) Linjetak** — tell linjene med
+     `git show <headRefOid>:<sti> | grep -c ''`
+     Taket er 80 for implementeren og 40 for enhver annen rolle. Over taket = **MINDRE**.
+     **(c) Bootstrap-tripwire** — tell strengen med
+     `git show <headRefOid>:<sti> | grep -c BOOTSTRAP-UNVERIFIED`
+     `≥ 1` = **MINDRE**: skrivestien til agent-minnet er ennå ikke verifisert i drift. Gjelder også
+     når diffen ikke rører fila.
+     Et oppslag har feilet når utdata har en linje som starter med `fatal:` eller `error:`.
+     Exit-koden fra røret sier ingenting. Et feilet oppslag er et funn i `notes` med kommandoen og
+     linja ordrett. Aldri et stille «ok».
+     **(d) Lesson-anbefaling** — gjelder også når diffen ikke rører `.claude/agent-memory/`: før du
+     anbefaler en ny lesson, kjør samme søk som i (a) mot HELE `tasks/lessons/`. Anbefalingen er en
+     **hypotese** koordinatoren etterprøver, ikke en bestilling.
    - **Kit-regelen:** kjør `python3 scripts/kit-release-check.py --pr <nr>` og les raden
      `PR #<nr> (<kitfiler>) → <dom>`.
      `offender` (exit 1: kitfil endret uten gyldig `Kit:`-linje i PR-teksten) = **VIKTIG**.
@@ -67,6 +90,36 @@ Du trenger IKKE implementerens worktree. Diffen er tilgjengelig i din worktree v
      en utsatt port skal skrives `Kit: porteres …`, ellers slipper den gjennom releasevakten.
      Legger diffen en rad i `WAIVED` i skriptet, les begrunnelsen: den skal navngi kit-PR-en eller
      si hvorfor ingen trengs, ellers **VIKTIG**.
+   - **Test-svekking:** du står ikke på PR-hodet, så kjør `git fetch origin pull/<nr>/head`
+     og `python3 scripts/test-weakening-check.py "$(git merge-base origin/{{BASE_BRANCH}} <headRefOid>)" <headRefOid>`
+     (`headRefOid` fra `gh pr view <nr> --json headRefOid`), og les funnlinjene. Exit 2 er et funn i
+     `notes`, ikke «ingen funn». En slettet, skippet eller svekket test (også en endret forventet
+     verdi, som skriptet ikke ser) som planen ikke bestiller = **BLOKKERENDE**. Har PR-teksten
+     `Test-svekking:`, skal begrunnelsen peke på plansteget, og hvert funn skal være dekket av det,
+     ellers **BLOKKERENDE**. En `Test-svekking:`-linje uten funn = **MINDRE**.
+   - **Docs-impact:** kjør
+     `gh pr diff <pr> --name-only | tr '\n' '\0' | xargs -0 python3 tasks/graph-query.py --docs`, og les
+     `docs_impact:` fra dispatchen. Din kjøring er fasit for hvilke treff som finnes, fordi treet ditt
+     ikke har PR-ens endring. Det er **VIKTIG** når `docs_impact` mangler, når et treff ikke står i
+     lista (også `none` med treff), eller når `updated` peker på en doc-fil som ikke er i diffen.
+     Unntak: sier dispatchen at implementeren ble dispatchet før `docs_impact` ble innført, er et manglende
+     felt ikke et funn. Les `why` for `unchanged` og begrunnelsen for `none` mot diffen: en diff som
+     legger til en migrasjon, en Edge Function eller en rute, og sier `none`, skal ha en begrunnelse
+     som holder.
+   - **Lens-måling:** to valgfrie felt per funn, som `tasks/loop-metrics.py` teller.
+     `honest_severity` settes bare når du har hevet funnet til lensens gulv og selv ville rangert
+     lavere. Verdien er din egen rangering. Utelatt betyr at `severity` er din egen rangering.
+     `honest_severity` senker aldri `severity`, og gulvet og gaten leser den aldri. `regression`
+     settes til `true` fra runde 2 når feilen ble innført av forrige fix-runde.
+   - **Koordinator-eide skript:** `tasks/review-lens-select.py`,
+     `tasks/review-severity-floor.py`, `tasks/review-fan-in-verify.py` og
+     `tasks/decision-level.py` regner ut koordinatorens beslutningsgrunnlag. Kjør dem ALDRI på din
+     egen rapport, dine egne funn eller din egen `technical_risk`, og la aldri utdataene deres
+     bestemme et felt i din egen rapport (severity, `floor_exempt`, `fan_in`, nivå):
+     koordinatoren kjører dem på det du leverer. Eneste lovlige kjøring er når skriptet selv er
+     det du gransker: skriptfila er endret i diffen, eller en kommando i planens kriterietabell
+     kjører det. Da er det et program under test som alle andre, og utdataene siteres som bevis.
+     Også da aldri med din egen rapport eller dine egne funn som inndata.
 3. **Tech-review-arm (frisk sub-dispatch — IKKE absorbert sjekkliste):**
 {{TECH_REVIEW_AGENTS_DISPATCH}}
    - **Parallell dispatch:** trigger diffen FLERE av agentene over, dispatch dem i ÉN melding med

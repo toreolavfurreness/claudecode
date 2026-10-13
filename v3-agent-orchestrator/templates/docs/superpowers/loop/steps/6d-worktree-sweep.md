@@ -39,8 +39,10 @@ verifisere og umulig å ta feil av: et tre fjernes kun når **ingenting i det ka
 1. HEAD finnes på en remote branch (`git branch -r --contains`) ⇒ ingen commit kan gå tapt. Er
    dette IKKE tilfelle (typisk squash-merge, der HEAD-committen selv aldri lander på `{{BASE_BRANCH}}`), eller
    er treet skittent: `tasks/worktree-landed.sh` avgjør INNHOLDSMESSIG om alt som ikke er
-   committet trygt likevel finnes i `{{BASE_BRANCH}}` (samme sti, omdøpt/arkivert, eller flyttet — se fila for
-   klassene). Kun et rc 0 fra den (LANDED) tillater fjerning; alt annet ⇒ BEHOLD. Filer den melder
+   committet trygt likevel finnes i `{{BASE_BRANCH}}` (samme sti, omdøpt/arkivert, flyttet, eller som blob i
+   historikken til `origin/{{BASE_BRANCH}}` — se fila for klassene). Et tre med en eldre planrevisjon holdes
+   likevel i navngitt kjøring (planen står da fortsatt på sin sti i `origin/{{BASE_BRANCH}}` og avviker), og
+   tas av døgnsweepen etter at arkiveringen er pushet. Kun et rc 0 fra den (LANDED) tillater fjerning; alt annet ⇒ BEHOLD. Filer den melder
    `LANDED-MOVED` reddes til `.claude/worktree-rescue/<ts>/` og verifiseres byte-for-byte FØR
    treet fjernes.
 2. Ingen ÅPEN PR bærer denne worktreens HEAD — verken via branch-NAVN eller commit-ancestry mot en
@@ -60,6 +62,18 @@ verifisere og umulig å ta feil av: et tre fjernes kun når **ingenting i det ka
 
 Rescue-katalogen er gitignorert. Se på den kun hvis noe faktisk mangler; commit derfra bare det som
 viser seg å være ekte arbeid. Ved tvil: `--dry-run` rapporterer uten å røre noe.
+
+## Hvem holder trærne
+
+Oppsummeringslinja slutter med `why=<klasse>:<n>[,…]`, sortert på klassenavn,
+og `why=-` når ingenting holdes. Hvert beholdte tre telles i nøyaktig én klasse, så summen er lik
+`<beholdt>` i `wtsweep=<fjernet>/<beholdt>`. Klassene er vakten som holdt treet: `locked` (lås med
+levende pid), `open_pr`, `classifier` (`worktree-landed.sh` sa ikke LANDED), `ignored` (ignorert fil
+på rask vei), `age` (rørt innenfor `AGE_MIN`), `rescue` (redningskopi ikke verifisert),
+`remove_failed` og `cmd_error` (en kommando feilet, se `BEHOLDT`-linja). Samme streng står som
+`why` i `tasks/metrics/worktree-sweep-log.jsonl`, med `mode` lik `daily` eller `named`. Navngitt
+kjøring skriver også loggrad, tørrkjøring aldri. En loggrad uten `mode` er en døgnkjøring fra en
+eldre versjon.
 
 **Innkalling er mekanisk, ikke prosa.** `/loop-health-check` Del A kjører
 `./tasks/worktree-sweep.sh --gate`, som leser siste ikke-helse-§6-rad i run-log.md og feiler
