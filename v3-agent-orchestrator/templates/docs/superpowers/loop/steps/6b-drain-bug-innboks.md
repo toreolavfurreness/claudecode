@@ -11,6 +11,8 @@ Sjekk `tasks/bugs/inbox/` for nye `bug-*.md` (mennesker slipper dem her — én 
 - **Reell, ikke-planlagt bug** → legg en oppføring i `tasks/bugs.md` (format: se eksisterende).
   Første linje under overskriften er `**Oppdaget:** YYYY-MM-DD` (ISO-dato først, forklaring etter): retroen teller bugs på den.
 - **Bug som bør fikses nå** → forfremm til en ny todo (`tasks/todos/todo-NN-fix-<slug>.md`, sett `priority` etter innboks-filens vurdering).
+  Sett `bugs: ["BUG-nnn"]` og kjør `python3 tasks/graph-build.py --check-todo <den nye fila>`: exit 1 ⇒ rett
+  frontmatteren (`files:`/`bugs:`, `[]` er lovlig svar) før den committes.
   Med en aktiv release får den nye todoen **ikke** `release:`, med ett unntak: blokkerer buggen en
   `done_when`-linje, sett `release: "<aktiv>"`, `release_blocker: true` og navngi linja i
   brødteksten (scope-vakten, `tasks/releases/README.md`).

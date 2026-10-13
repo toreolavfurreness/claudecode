@@ -29,6 +29,11 @@
 #                     Oppsummeringslinja bruker `wtsweep_named=`/`wtsweep_named_dry=`, ALDRI
 #                     `wtsweep=` — kan kombineres med --dry-run, ikke med --gate.
 #
+# Telemetri: oppsummeringslinja slutter med `why=<klasse>:<n>[,…]` (`why=-` når
+# ingenting holdes) og sier hvilken vakt som holdt trærne: locked, open_pr, classifier,
+# ignored, age, rescue, remove_failed, cmd_error. Samme streng skrives som "why" i loggraden,
+# sammen med "mode" (daily/named). Tørrkjøring skriver aldri loggrad.
+#
 # Denne fila skal ALDRI omdirigere stderr til null-enheten. En kommandofeil skal
 # være SYNLIG som feil, aldri en stille "ingen treff".
 set -uo pipefail
@@ -181,7 +186,9 @@ if [ "$pr_count" -ge 200 ]; then
 fi
 printf '%s' "$pr_json" | jq -r '.[] | "\(.headRefName)\t\(.headRefOid)"' > "$TMP/open-prs.tsv"
 
-removed=0; kept=0; rescued=0
+removed=0; kept=0; rescued=0; why=""
+# hvert beholdte tre merkes med vaktklassen som holdt det.
+keep() { kept=$((kept + 1)); why="$why$1 "; }
 seen=" "
 
 while IFS= read -r p; do
@@ -208,19 +215,19 @@ while IFS= read -r p; do
   lockpid=$(printf '%s\n' "$lock_block" | sed -n 's/^locked .*pid \([0-9]*\).*/\1/p' | head -1)
   if [ -n "$lockpid" ] && ps -p "$lockpid" > /dev/null; then
     echo "BEHOLDT  $n — låst av levende pid $lockpid"
-    kept=$((kept + 1))
+    keep locked
     continue
   fi
 
   # Vakt 5: åpen PR bærer denne worktreens HEAD — via branch-navn ELLER commit-ancestry.
   if ! wt_branch=$(git -C "$p" rev-parse --abbrev-ref HEAD); then
     echo "BEHOLDT  $n — rev-parse (branch) feilet"
-    kept=$((kept + 1))
+    keep cmd_error
     continue
   fi
   if ! wt_head=$(git -C "$p" rev-parse HEAD); then
     echo "BEHOLDT  $n — rev-parse (HEAD) feilet"
-    kept=$((kept + 1))
+    keep cmd_error
     continue
   fi
   # OID-ancestry-grenen under skal KUN telle som treff når wt_head IKKE allerede er
@@ -237,7 +244,7 @@ while IFS= read -r p; do
   wt_in_dev_rc=$?
   if [ "$wt_in_dev_rc" -ge 2 ]; then
     echo "BEHOLDT  $n — {{BASE_BRANCH}}-ancestry-sjekk feilet (usikkert utfall)"
-    kept=$((kept + 1))
+    keep cmd_error
     continue
   fi
   wt_head_in_dev=0
@@ -264,12 +271,12 @@ while IFS= read -r p; do
   done < "$TMP/open-prs.tsv"
   if [ "$open_pr_hit" -eq 1 ]; then
     echo "BEHOLDT  $n — bærer HEAD/branch for en åpen PR"
-    kept=$((kept + 1))
+    keep open_pr
     continue
   fi
   if [ "$open_pr_err" -eq 1 ]; then
     echo "BEHOLDT  $n — ancestry-sjekk mot en åpen PR feilet (usikkert utfall)"
-    kept=$((kept + 1))
+    keep cmd_error
     continue
   fi
 
@@ -279,14 +286,14 @@ while IFS= read -r p; do
     [ -n "$remote_hits" ] && head_on_remote=1
   else
     echo "BEHOLDT  $n — branch -r --contains feilet"
-    kept=$((kept + 1))
+    keep cmd_error
     continue
   fi
 
   # Vakt 3: skittenhet.
   if ! dirty_out=$(git -C "$p" status --porcelain -uall); then
     echo "BEHOLDT  $n — status feilet"
-    kept=$((kept + 1))
+    keep cmd_error
     continue
   fi
   dirty=0
@@ -307,7 +314,7 @@ while IFS= read -r p; do
     if [ "$ignored_rc" -ne 0 ]; then
       reason=$(printf '%s\n' "$ignored_out" | tail -1)
       echo "BEHOLDT  $n — ignorert-fil (rask vei): $reason"
-      kept=$((kept + 1))
+      keep ignored
       continue
     fi
   else
@@ -318,7 +325,7 @@ while IFS= read -r p; do
     if [ "$classifier_rc" -ne 0 ]; then
       reason=$(printf '%s\n' "$classifier_out" | tail -1)
       echo "BEHOLDT  $n — klassifikator: $reason"
-      kept=$((kept + 1))
+      keep classifier
       continue
     fi
     landed_moved_list=$(printf '%s\n' "$classifier_out" | sed -n 's/^LANDED-MOVED://p')
@@ -346,7 +353,7 @@ while IFS= read -r p; do
   fi
   if [ "$find_rc" -ne 0 ]; then
     echo "BEHOLDT  $n — mtime-sjekk (find) feilet"
-    kept=$((kept + 1))
+    keep cmd_error
     continue
   fi
   if [ -n "$recent" ]; then
@@ -362,7 +369,7 @@ while IFS= read -r p; do
     else
       echo "BEHOLDT  $n — rørt innenfor $AGE_MIN min ($recent)"
     fi
-    kept=$((kept + 1))
+    keep age
     continue
   fi
 
@@ -391,7 +398,7 @@ EOF
 
   if [ "$rescue_ok" -ne 1 ]; then
     echo "BEHOLDT  $n — redning av landed-moved-fil(er) kunne ikke verifiseres"
-    kept=$((kept + 1))
+    keep rescue
     continue
   fi
   [ "$moved_count" -gt 0 ] && rescued=$((rescued + moved_count))
@@ -402,7 +409,7 @@ EOF
     removed=$((removed + 1))
   else
     echo "BEHOLDT  $n — remove feilet"
-    kept=$((kept + 1))
+    keep remove_failed
   fi
 done < <(git worktree list --porcelain | awk '/^worktree /{p=$2} /^$/{if(p!="")print p; p=""}')
 
@@ -417,14 +424,19 @@ echo "---"
 # ALDRI kunne forveksle et dry-run-tall med bevis på at sweepen faktisk fjernet noe.
 # wtsweep_named= (navngitt kjøring) er en egen understreng som ALDRI inneholder
 # `wtsweep=` — gaten (som leser KUN `wtsweep=`) kan derfor verken bli grønn eller rød av den.
+# why=: fordelingen av beholdte trær per vaktklasse, sortert på klassenavn.
+why_fmt=-
+[ -n "$why" ] && why_fmt=$(printf '%s\n' $why | LC_ALL=C sort | uniq -c | awk '{printf "%s%s:%s", s, $2, $1; s=","}')
 tok=wtsweep
 [ -n "$NAMES" ] && tok=wtsweep_named
 [ $DRY -eq 1 ] && tok="${tok}_dry"
-echo "$tok=$removed/$kept  rescued=$rescued  wt_igjen=$(git worktree list | wc -l | tr -d ' ')  disk_ledig=$(df -h / | tail -1 | awk '{print $4}')"
+echo "$tok=$removed/$kept  rescued=$rescued  wt_igjen=$(git worktree list | wc -l | tr -d ' ')  disk_ledig=$(df -h / | tail -1 | awk '{print $4}')  why=$why_fmt"
 [ -d "$RESCUE_DIR" ] && echo "rescue=$RESCUE_DIR (gitignorert — commit den hvis noe der er ekte arbeid)"
 
-if [ $DRY -eq 0 ] && [ -z "$NAMES" ]; then
+if [ $DRY -eq 0 ]; then
   mkdir -p "$(dirname "$SWEEP_LOG")"
   ts=$(date +%Y-%m-%dT%H:%M)
-  printf '{"ts":"%s","removed":%d,"kept":%d,"rescued":%d}\n' "$ts" "$removed" "$kept" "$rescued" >> "$SWEEP_LOG"
+  mode=daily
+  [ -n "$NAMES" ] && mode=named
+  printf '{"ts":"%s","removed":%d,"kept":%d,"rescued":%d,"mode":"%s","why":"%s"}\n' "$ts" "$removed" "$kept" "$rescued" "$mode" "$why_fmt" >> "$SWEEP_LOG"
 fi

@@ -51,6 +51,12 @@ Ferdig-rapporten MÅ inneholde BEGGE feltene `verification.e2e_outcome: <verdi>`
 
 Ferdig-rapporten MÅ i tillegg bære `scout_usage` når `scout.enabled` er `true` — `{"dispatches": 0, "bytes_read": 0, "findings": 0}` hvis ingen scout ble brukt.
 
+Ferdig-rapporten MÅ bære `docs_impact`. Etter `gh pr create`, og etter push i en fix-runde, kjør
+`gh pr diff --name-only | tr '\n' '\0' | xargs -0 python3 tasks/graph-query.py --docs`. Feltet har én rad per
+treff i **unionen** av planens liste og denne kjøringen, hver med `updated` eller `unchanged` og en grunn, eller
+`"none – <én setning>"` når unionen er tom (form: `report-schema.md`). Planens liste er målt før endringen, og en
+fil PR-en sletter eller flytter, gir ikke treff i ditt eget tre.
+
 **Forbud (single-writer):** rør ALDRI noe under `tasks/` — verken `tasks/lessons*`, `tasks/followups/`, `tasks/bugs*`, `tasks/todo_archive.md` eller todo-frontmatteren (`status`/`claimed_by` eies av koordinatoren). Du redigerer kun koden på din egen branch.
 
 **Ett unntak:** planfila for DIN todo, `tasks/plans/todo-<nr>-<slug>.md`. Du oppdaterer dens
@@ -79,6 +85,12 @@ Koordinatoren kan sende deg tilbake hit etter at den uavhengige kode-revieweren 
    seksjon `#### V-blokk re-kjørt mot HEAD (fix-runde <N>)`. Endre ALDRI et tall i planen uten at
    kommandoen som ga det står ved siden av.
    **Format (bindende — koordinatorens gate F måler nøyaktig dette):**
+   - **Rekkefølge (bindende):** commit kodeendringene først (kode-commit), med eventuelle endringer
+     i `.claude/agent-memory/` i samme commit. Kjør V-blokken. Skriv nøyaktig én linje `HEAD: <sha>`
+     (`git rev-parse HEAD`) i seksjonen, på egen linje utenfor kodeblokk. Commit så planfila alene
+     (plan-commit). Begge commits bærer `fix-runde <N>` i emnelinja (steg 4b). Ankeret kan aldri
+     være commiten det selv står i. Endres kode etter ankeret, kjøres V-blokken på nytt med nytt
+     anker. En minneobservasjon som kommer etter ankeret, meldes i rapporten og skrives i neste runde.
    - **Plassering:** har planen en innledende `## 0`-blokk OG en `## 1. Analyse`-seksjon, legg
      seksjonen i `## 0` under `### Fix-runde <N>`, umiddelbart FØR `## 1. Analyse`. **Mange planer
      har ingen av delene** (målt: 33 av 253 planfiler har `## 0`, 25 har `## 1. Analyse`)
@@ -112,7 +124,7 @@ Koordinatoren kan sende deg tilbake hit etter at den uavhengige kode-revieweren 
      Linjen teller ikke hvis den bare finnes inne i en limt kommando eller kodeblokk.
    - Skriv rundens lesson-kandidater i SAMME seksjon — ikke bare i rapporten; koordinatoren skriver
      dem videre til `tasks/lessons/`, det gjør du aldri.
-7. `git push` til **samme branch** (samme PR — IKKE ny PR, IKKE ny `gh pr create`).
+7. Kjør `tasks/gate-f.sh <planfil> <N> <F3a_ref> HEAD` (RØD ⇒ rett seksjonen først), så `git push` til **samme branch** (samme PR — IKKE ny PR, IKKE ny `gh pr create`).
 8. Returner oppdatert ferdig-rapport.
 
 `verification.review_findings` i ferdig-rapporten er din **selvgransking** fra steg 5 over. `code_review.findings[]` er den **uavhengige §5b-reviewen** — de er to distinkte kilder; forveksle dem ikke.

@@ -24,9 +24,9 @@ fast-path: les `models` og `plan_review_rounds` fra planfila; mangler de, skriv 
 **Graf-oppslag (før du velger tema):**
 ```bash
 python3 tasks/graph-query.py --todo <nr>
-python3 tasks/graph-query.py --file <sti>     # for hver fil todoen navngir
+python3 tasks/graph-query.py --file <sti> [--file <sti> …]   # alle filene todoen navngir, i ETT kall
 ```
-Gir todoens `deps`/`bugs`/`files`/`pr`, hvilke bugs som er **triagert til** den (og hvilke som bare
+Gir todoens `deps`/`bugs`/`files`/`lessons`, hvilke bugs som er **triagert til** den (og hvilke som bare
 **omtaler** den), hvilke lessons som nevner den, og — per fil — hvilke todos som har rørt den,
 hvilke bugs som bor der, og hvilke lessons som peker dit. Bruk `Foreslåtte lessons-tema`-linja i
 outputen som **utgangspunkt** for tema-valget, ikke som fasit.
@@ -35,8 +35,10 @@ Grafen bygges on-demand (under ett sekund), skrives til stdout og **lagres aldri
 `tasks/graph.json` å holde fersk — dukker en slik fil opp lokalt, er den et feilsøkings-artefakt
 fra `--out` og skal ikke committes.
 
-Gir grafen ingen treff **eller feiler kommandoen** (traceback, ikke-null exit) — fortsett med
-`grep tasks/lessons.md`. **Dette steget skal aldri stoppe en runde.**
+Gir grafen ingen treff **eller feiler kommandoen med tom stdout** (traceback, ikke-null exit med tom
+stdout) — fortsett med `grep tasks/lessons.md`. Exit 1 med blokker på stdout betyr at én eller flere
+filer ikke ble funnet i grafen (ukjent, tvetydig eller uten kanter; stderr navngir dem): bruk blokkene
+for de andre filene. **Dette steget skal aldri stoppe en runde.**
 
 Velg 1–3 tema relevant for todoens domene ut fra scope-katalogen i `tasks/lessons.md` (gyldige tema: `ls tasks/lessons/`).
 

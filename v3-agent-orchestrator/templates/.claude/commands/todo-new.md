@@ -81,7 +81,8 @@ Regler for feltene:
   Sjekk at releasen finnes (`ls tasks/releases/`). Kommer todoen inn i en aktiv release, skriv i
   brødteksten hvilken `done_when`-linje den blokkerer, ellers sett ikke `release_blocker`.
 - **`effort`:** valgfri. Skriv bare et anslag hvis du har lest koden; det er en påstand, ikke en måling.
-- **`files` / `lessons`:** fyll når de er kjent (inline-liste, doble anførselstegn).
+- **`files` / `bugs`:** påkrevd når brødteksten navngir en fil eller en bug (inline-liste, doble
+  anførselstegn), `[]` hvis ingen av dem skal endres/lukkes. **`lessons`:** valgfritt hint.
 - **Brødtekst:** på norsk, konkret. «Ferdig når» må kunne sjekkes uten å spørre deg.
 
 ## 4. Branch og PR
@@ -89,6 +90,7 @@ Regler for feltene:
 ```bash
 git worktree add <scratchpad>/wt-todo-<nr> -b docs/todo-<nr>-<slug> origin/{{BASE_BRANCH}}
 # skriv fila der
+python3 tasks/graph-build.py --check-todo tasks/todos/todo-<nr>-<slug>.md   # exit 1 ⇒ rett frontmatteren før commit
 npx prettier --check tasks/todos/todo-<nr>-<slug>.md
 git add tasks/todos/todo-<nr>-<slug>.md
 git commit -m "docs(todo): TODO <nr> — <kort tittel>"

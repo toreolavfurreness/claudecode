@@ -229,7 +229,69 @@ Køsiden-raden i `docs/superpowers/loop/artifacts.md`) står som i `v3-agent-orc
   flyttes til `tasks/queue-config.py`. Loopen redigerer aldri en kit-eid fil for å få vakten grønn.
 - Exit 2 (`UKJENT`, fant ikke kit-malen) → `kitdrift=n/a`, med én linje i statusrapporten.
 
+### A5g — Prosa-drift
+
+Måler om linja et `fil:NNN`-sitat peker på, er endret siden sitatet ble skrevet. Steget gjør aldri
+helsesjekken rød og endrer ikke A6.
+
+```bash
+python3 tasks/prose-drift.py --self-test; echo "exit=$?"
+python3 tasks/prose-drift.py; echo "exit=$?"
+```
+
+- Selvtest med exit ≠ 0, eller måling med exit 2 → **ADVARSEL** med stderr ordrett. Tallet meldes ikke.
+- Skriptet leser `HEAD`, mens helsesjekken gjelder `origin/{{BASE_BRANCH}}` (Steg 0). `ref` i `prosa-drift:`-linja
+  skal være lik `git rev-parse --short=8 origin/{{BASE_BRANCH}}`. Avvik → **ADVARSEL**, og tallet meldes ikke.
+- Ellers tar koordinatoren `prosa-drift:`-linja og hver `plan …`-linje ordrett med til eieren i neste
+  statusrapport. Linjene er opplysning. Om en plan skal planlegges på nytt, er eierens valg.
+
+Hva som er bindende (ingenting) og hvorfor, står i toppkommentaren i `tasks/prose-drift.py`.
+
+### A5h — Graf-hygiene
+
+```bash
+python3 tasks/graph-build.py --lint; echo "exit=$?"
+```
+
+Tallene gjelder arbeidstreet helsesjekken kjøres i.
+
+- Første linje føres ordrett som `hygiene=` i Del C. Exit ≠ 0 eller ingen `hygiene=`-linje →
+  `hygiene=n/a` og en **ADVARSEL** med stderr ordrett.
+- `forslag_stale`-linjene går til eieren i neste statusrapport som triage-liste: åpne (`status: open`
+  og fjern taggen) eller slett.
+- `deps_dangling`-linjene meldes som sannsynlig skrivefeil i `deps`.
+- `cf_orphans` meldes bare som tall. Det er størrelsen på oppfølgingskøen uten eier, ikke en feil.
+
+### A5i — Lessons-konsolidering
+
+```bash
+python3 tasks/lesson-audit.py --self-test; echo "selftest=$?"
+python3 tasks/lesson-audit.py | tail -1
+```
+
+Steget gjør aldri helsesjekken rød.
+
+- `selftest` ulik 0 → **ADVARSEL** med selvtestens utdata ordrett. Siste linje meldes da ikke.
+- Starter siste linje med `KONSOLIDERING:`, tar koordinatoren linja ordrett med til eieren i neste
+  statusrapport. Runden følger `tasks/lessons.md` § Konsoliderings-protokoll, og eieren velger når.
+- Starter siste linje med `Ingen tema over terskelen`, er det ingen melding.
+- Alt annet (tom utdata, feilmelding, traceback) → **ADVARSEL** med utdataen ordrett: målingen feilet.
+
+### A5j — Lens-effekt og graf-treff
+
+```bash
+python3 tasks/loop-metrics.py; echo "exit=$?"
+python3 tasks/loop-metrics.py --graph; echo "exit=$?"
+```
+
+Vinduet er mergene siden forrige helserad. Utskriften går ordrett i rapportblokka til eieren.
+Ren rapportering: endrer ikke A6 eller Del C. Exit ≠ 0 gir en **ADVARSEL** med stderr ordrett
+(`--graph` trenger nett og `gh`, og en rad uten måling står som `IKKE MÅLT`).
+
 ### A6 — Helsesjekk-aggregering
+
+A5h er ren rapportering og endrer ikke A6.
+A5i er ren rapportering og endrer ikke A6.
 
 Samlet helsesjekk-status:
 - Alle sjekker `green` (eller `n/a`) → **GRØNN** — fortsett til Del B
@@ -273,16 +335,38 @@ List berørte kildefiler for å gi et teknisk bilde av omfanget.
 ### B3 — Release-blokkerende bug-sjekk
 
 ```bash
-grep -ci '^\*\*Prioritet:\*\* høy' tasks/bugs.md
+test -f tasks/bugs.md && test -r tasks/bugs.md && awk 'function f(){if(h=="")return;m++;if(p==3)print "UKJENT " h;else if(p==2||(!p&&a))print h;else if(!s)print "UKJENT (ingen feltlinje) " h;else return;n++} /^## /{f();h="";p=a=s=0;if(/^## BUG-/)h=$0} {l=tolower($0)} l~/^[^a-z]*\*\*prioritet[^a-z]*:/{s=1;v=l;sub(/^[^a-z]*prioritet[ \t*:]*/,"",v);q=(v~/^(h(ø|Ø)y|kritisk)/)?2:(v~/^(lav|normal|middels)[ \t\r]*(\(|$)/)?1:3;if(q>p)p=q} l~/^[^a-z]*\*\*alvorlighet[^a-z]*:/{s=1;v=l;sub(/^[^a-z]*alvorlighet[ \t*:]*/,"",v);if(v~/^(h(ø|Ø)y|kritisk)/)a=1} END{f();print "B3: " n+0 " (av " m+0 " bugblokker)"}' tasks/bugs.md
 ```
 
-`> 0` → release-anbefaling = **no-go**. Vis BUG-ID-ene:
+Siste linje er `B3: <n> (av <m> bugblokker)`. Mangler den, er B3 ikke målt og aldri grønn (awk
+feilet, eller `bugs.md` er ikke en lesbar fil). `av 0 bugblokker` er heller ikke målt: ingen
+`## BUG-`-overskrift ble funnet. `B3: 0` med minst én bugblokk → bug-gaten er grønn (kun åpne bugs i
+`bugs.md`; lukkede er i `bugs_archive.md`). Ellers → release-anbefaling = **no-go**, og linjene over
+er lista over buggene.
 
-```bash
-grep -B 20 '^\*\*Prioritet:\*\* høy' tasks/bugs.md | grep '^## BUG-'
-```
+Regelen er at bare en ren, kjent verdi kan senke en bug. Alt annet teller:
 
-`= 0` → bug-gaten er grønn (kun åpne bugs i `bugs.md`; lukkede er i `bugs_archive.md`).
+- **Høy:** Prioritet-verdien begynner med høy eller kritisk. Buggen teller.
+- **Lav:** Prioritet-verdien er lav, normal eller middels, fulgt av linjeslutt eller en parentes
+  (`lav (nedjustert 12.10)`). Buggen teller ikke, uansett Alvorlighet.
+- **Ukjent:** alt annet etter Prioritet-nøkkelen, også tom verdi, tegn foran verdien
+  (`~~lav~~ høy`, `(lav)`) og sammensatte verdier (`Middels-Høy`, `Normal → Høy`, `lav – utsatt`).
+  Buggen står som `UKJENT <overskrift>` og teller til verdien er rettet.
+- **Strengeste Prioritet-linje i blokka gjelder** (lav < høy < ukjent), ikke siste: en bug senkes ved
+  å rette linja, ikke ved å legge en ny under.
+- **Alvorlighet** gjelder bare når blokka ikke har noen Prioritet-linje. Buggen teller da bare når
+  Alvorlighet-verdien begynner med høy eller kritisk. Lav- og ukjent-testen gjelder
+  Prioritet-verdien: en annen Alvorlighet-verdi (`Middels-Høy`, `Lav`, tom) gir ikke `UKJENT`, og
+  buggen teller ikke.
+- **Ingen feltlinje:** en bugblokk uten noen gjenkjent Prioritet- eller Alvorlighet-linje står som
+  `UKJENT (ingen feltlinje) <overskrift>` og teller til en feltlinje er satt.
+
+En feltlinje kjennes igjen når `**` står rett foran `Prioritet` eller `Alvorlighet`, med kolon
+innenfor eller utenfor feten, og med punkttegn, sitattegn (`>`) eller innrykk foran. Linja må
+begynne uten bokstaver foran feten: `- [x] **Prioritet:** høy` gjenkjennes ikke, og prosa uten fet
+skrift (`Prioritet: høy`) er ikke en feltlinje. Har blokka ingen annen feltlinje, gjelder
+«Ingen feltlinje» over. Etter nøkkelen fjernes bare blanktegn, `*` og `:` før verdien leses. Store
+og små bokstaver er like.
 
 ### B4 — Go/no-go-anbefaling
 
@@ -323,7 +407,7 @@ git rev-parse origin/{{BASE_BRANCH}}
 Format for `health_payload` (fast rekkefølge, nøkkel=verdi-kjede):
 
 ```
-sha=<full-40-char-origin/{{BASE_BRANCH}}-HEAD-SHA>;tests=<green|red|infra-feil>;type=<green|red|infra-feil>;lint=<green|red|infra-feil>;rls=<green|red|n/a>;web=<green|red|n/a|infra-feil>;release=<go|no-go>
+sha=<full-40-char-origin/{{BASE_BRANCH}}-HEAD-SHA>;tests=<green|red|infra-feil>;type=<green|red|infra-feil>;lint=<green|red|infra-feil>;rls=<green|red|n/a>;web=<green|red|n/a|infra-feil>;release=<go|no-go>;hygiene=<cf_orphans:N,deps_dangling:N,forslag_stale:N|n/a>
 ```
 
 Helseraden i run-log følger disse **felt-invariantene**:
@@ -343,7 +427,7 @@ Helseraden i run-log følger disse **felt-invariantene**:
 
 Eksempel:
 ```
-2026-06-19T16:00 | - | loop-health-check | health | - | - | 0 | 0 | planner/reviewer/implementer/code-reviewer={{MODELS_DISPLAY}} | sha=abc123def456abc123def456abc123def456abc123;tests=green;type=green;lint=green;rls=n/a;web=green;release=go
+2026-06-19T16:00 | - | loop-health-check | health | - | - | 0 | 0 | planner/reviewer/implementer/code-reviewer={{MODELS_DISPLAY}} | sha=abc123def456abc123def456abc123def456abc123;tests=green;type=green;lint=green;rls=n/a;web=green;release=go;hygiene=cf_orphans:0,deps_dangling:0,forslag_stale:0
 ```
 
 **Helseraden nullstiller merge-telleren** for N-merge-triggeren i §6c (se koordinator-runbooken).
@@ -363,7 +447,7 @@ Del D's format.
 python3 tasks/decision-level.py --self-test
 ```
 
-Krav: exit 0 **og** `59/59` **og** `logg-parser: PASS` **og** `avstemming: PASS` i stderr-oppsummeringen. Ikke-grønn ⇒ **RØD** (regelmotoren selv er i
+Krav: exit 0 **og** `61/61` **og** `logg-parser: PASS` **og** `avstemming: PASS` i stderr-oppsummeringen. Ikke-grønn ⇒ **RØD** (regelmotoren selv er i
 utakt med sine egne fixtures — ALDRI stol på klassifiseringer denne runden).
 
 ### D1b — Regelmotor ekte-kall-sjekk (runbookens DOKUMENTERTE `--context`-kall virker, ikke bare `--self-test`)
@@ -384,6 +468,7 @@ python3 tasks/decision-level.py --event revise_gate_choice --context code_review
 python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=few
 python3 tasks/decision-level.py --event plan_review_choice --context plan_review_rounds=2 --context action=revise --context blocking_prev=2 --context blocking_now=1 --context new_class=no --context content=yes --context cost_over=no
 python3 tasks/decision-level.py --event technical_risk --context source=planner --context kind=native --context native_dep=no --context native_permission=no
+python3 tasks/decision-level.py --event revise_gate_choice --context code_review_rounds=4 --context action=fix_round --context decision_logged=yes --context blocking_prev=3 --context blocking_now=1 --context new_class=no --context content=no --context cost_over=no
 ```
 
 Krav, i rekkefølge:
@@ -402,9 +487,11 @@ Krav, i rekkefølge:
    også §4 fra runde 2.
 9. exit 1, `"rule": "A0"` og `content='yes'` i `violations`. Innholdsfunn er nivå A også i §4.
 10. exit 0 og `"rule": "B8"`. Native kodearbeid uten ny avhengighet og uten ny tillatelse er nivå B.
+11. exit 1, `"rule": "A0"` og `round_stop` som eneste oppføring i `violations`. Rundestoppet gjelder fra
+    runde 4.
 
 Ett avvik ⇒ **RØD**. Gir kall 1–4 og 10 `"level": "A"`, er nivå B inert i drift uansett hva D1/D2 sier.
-Gir kall 5–9 nivå B,
+Gir kall 5–9 og 11 nivå B,
 bestemmer koordinatoren selv noe eieren skal spørres om.
 
 ### D2 — Regel-paritet (skript ↔ runbook-prosa)
@@ -496,7 +583,7 @@ Hver V16a/b-treffende rad MÅ ha en tilsvarende
 decision-log-entry (`[B7]` eller `[A0]`/`[A…]` for V16a, `[B1]` eller `[A0]`/`[A…]` for V16b — det
 finnes ikke noe fast rundetak, så runde 3+ kan være en B-runde). En V16c-treffende rad (`crr >= 4`) MÅ ha
 enten `[B1]` (lukking — den vanlige klassen: `merge_carry`/`stop` ved `crr>=4` er B1 uansett
-rundetall) eller `[A0]` (et forkastet nytt fix-runde-forsøk) — IKKE strengt `[A0]`. Rad uten NOEN
+rundetall) eller `[A0]` (et forkastet nytt fix-runde-forsøk: fra runde 4 er en ny fix-runde alltid A0) — IKKE strengt `[A0]`. Rad uten NOEN
 av de tillatte entry-typene ⇒ **RØD**.
 
 **Residual (navngitt, ikke lukket av Del D4 alene):** `decision_logged=yes` og run-loggens
@@ -518,6 +605,23 @@ En type som alt har en `[B, calibration]`-oppføring med samme `Type`, får `-` 
 nytt. `-` demper også et nytt `flytt-til-B` for samme type, så en videre utvidelse av en flyttet
 type (f.eks. `content=yes` for `revise_gate_choice`) må tas opp manuelt. Dempingen varer for alltid, også etter en VETO mot flyttingen; en tilbakeføring
 må da også tas opp manuelt.
+
+En type foreslås bare når leddet foran kolon står i `SLAG` i `tasks/decision-level.py`. I slaget
+`eiervalg` foreslås en rad bare med kort-navnet `mekanisk` (f.eks. `eiervalg:mekanisk`,
+`release_scope:mekanisk`): et eiervalg som er uklassifisert, `struktur` eller `produkt`, får alltid `-`.
+
+**Minste N:** en rad leses ikke som en rate før n ≥ 10. `flytt-til-B` krever i tillegg at de ti
+siste svarene er fulgt. Kolonnen `avvek` betyr «ikke i fulgt-form», så fritekstsvar teller mot
+delegering.
+
+Kalibreringsspørsmålet for en rad med kort-navnet `mekanisk` i eiervalg-slaget (f.eks.
+`eiervalg:mekanisk`, `release_scope:mekanisk`) lister overskriftene til de ti siste oppføringene, så eieren kan underkjenne klassifiseringen. En godkjenning gjelder bare det navngitte underområdet
+regel-PR-en beskriver, ikke hele klassen. Etter godkjenningen viser raden `-`, og flere underområder
+tas opp manuelt.
+
+Rapportblokken oppgir også antall tellende oppføringer i eiervalg-slaget uten klasse:
+summen av `n` for rader der leddet hører til slaget `eiervalg` i `SLAG` i `tasks/decision-level.py`,
+og kort-navnet ikke er `mekanisk`, `struktur` eller `produkt`.
 
 Rødt i D1-D5 ⇒ helsesjekk RØD (samme eskalering som Del A6) — §8b kjøres IKKE (se
 `coordinator-runbook.md` «Etter §6c»).

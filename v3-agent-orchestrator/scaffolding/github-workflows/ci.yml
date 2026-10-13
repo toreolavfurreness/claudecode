@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2            # test-svekkingsvakten trenger merge-committens første forelder
       - uses: actions/setup-node@v5
         with:
           node-version-file: '.nvmrc'
@@ -24,6 +26,23 @@ jobs:
       - run: npm run type-check     # ← verification_commands.type_check_script
       - run: npm run lint           # ← verification_commands.lint
       - run: npm run test:run       # ← verification_commands.test
+      # Test-svekkingsvakten: rødt når en testfil er slettet, tester eller assersjoner er fjernet
+      # fra en eksisterende testfil, eller den har fått skip/only/fixme. En bestilt svekking slipper
+      # gjennom med en egen linje i PR-teksten: «Test-svekking: <begrunnelse>». En ren endring av
+      # PR-teksten starter ikke CI på nytt: det trengs en ny commit. Skriptet står alene som siste
+      # kommando, uten pipe og uten «|| true»: steget kjøres med bash -e uten pipefail, og da blir
+      # funn grønt. Testmønstrene i skriptet (TEST_FILE, TESTS, MARKERS) er TypeScript og Deno:
+      # tilpass dem til prosjektets testrammeverk.
+      - name: Test-svekking
+        if: github.event_name == 'pull_request' && github.base_ref == 'dev'   # ← base_branch
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if ! git rev-parse --verify -q 'HEAD^2' >/dev/null; then
+            echo "::error::HEAD er ikke en merge-commit, test-svekkingsvakten har ingen base."
+            exit 1
+          fi
+          python3 scripts/test-weakening-check.py HEAD^1 HEAD
 
   # Blokkerende gate mot todo-nr-kollisjoner mellom parallelle koordinatorer.
   # Leser samme kilder som koordinatorens §6-pre-merge-kjøring: frontmatter i

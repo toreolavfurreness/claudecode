@@ -6,6 +6,8 @@
 Bruk:
     python3 tasks/graph-query.py --file components/AddItemModal.tsx
     python3 tasks/graph-query.py --todo 12
+    python3 tasks/graph-query.py --file <sti> --file <sti>   # flere filer, ETT bygg
+    python3 tasks/graph-query.py --docs <sti> [<sti> ...]   # doc-seksjonene som siterer filene
     python3 tasks/graph-query.py --file <sti> --json     # maskinlesbart {"edges": [...]}
     python3 tasks/graph-query.py --file <sti> --graph <lagret-graf.json>   # feilsoking
 
@@ -19,6 +21,8 @@ Traversal-kontrakt (normativ, ikke en illustrasjon):
     --todo <nr>    Lag 1 = UTGAENDE og INNKOMMENDE kanter pa todo:<nr>.
                    Lag 2 = ett hopp UTGAENDE fra hver returnerte bug:-node i lag 1
                    (ALDRI via deps-mal — se runbok-notatet i planen).
+    --docs <sti>…  Kilden til hver documents-kant mot file:<sti> (eksakt, repo-relativ), uten
+                   doc:-prefikset. Én seksjon per linje, sortert. Ukjent fil er ikke en feil: exit 0.
 
 Mekanisme 4 (fail-soft-kontrakten i graph-build.py ma ikke bli usynlig her): byggerens stderr
 videresendes alltid, returncode sjekkes FOR json.loads, og stats.missing_sources gir en
@@ -44,7 +48,7 @@ def norm_id(raw):
     if m:
         digits, suffix = m.group(1), m.group(2)
         s = (digits or "0") + suffix
-    return s
+    return s.lower()
 
 
 def load_graph(graph_path):
@@ -139,8 +143,8 @@ def suggested_lesson_themes(layer1, layer2):
     return sorted(themes)
 
 
-def print_human(header, layer1, layer2):
-    print(f"=== INNKOMMENDE (1 hopp) til {header} ===")
+def print_human(label, header, layer1, layer2):
+    print(f"=== {label} {header} ===")
     if not layer1:
         print("    (ingen treff)")
     for e in layer1:
@@ -174,27 +178,48 @@ def main():
         description="Oppslag mot kantgrafen (todo/bug/PR/fil/lesson). Se docstring for kontrakten."
     )
     mode = ap.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--file", help="Repo-relativ sti eller basenavn — resolveres mot grafens fil-noder.")
+    mode.add_argument(
+        "--file",
+        action="append",
+        help="Repo-relativ sti eller basenavn — resolveres mot grafens fil-noder. Kan gjentas: ett bygg, én blokk per fil.",
+    )
     mode.add_argument("--todo", help="TODO-nr (normaliseres — genitiv-'s' og ledende nuller strippes).")
+    mode.add_argument("--docs", nargs="+", metavar="STI", help="Repo-relative stier: skriv doc-seksjonene som siterer dem.")
     ap.add_argument("--json", action="store_true", help="Skriv {\"edges\": [...]} i stedet for lesbar tekst.")
-    ap.add_argument("--graph", help="Kjor mot et lagret graf-JSON i stedet for a bygge on-demand (feilsoking).")
+    ap.add_argument("--graph", help="Kjør mot et lagret graf-JSON i stedet for å bygge on-demand (feilsøking).")
     args = ap.parse_args()
 
     graph = load_graph(args.graph)
 
+    if args.docs:
+        targets = {f"file:{s}" for s in args.docs}
+        hits = {e["source"][4:] for e in graph["edges"] if e["type"] == "documents" and e["target"] in targets}
+        print("\n".join(sorted(hits)), end="\n" if hits else "")
+        return
+
+    # Én (etikett, node, lag 1, lag 2) per oppslag. En ukjent fil stopper ikke de andre.
+    results, failed = [], False
     if args.file:
-        file_node = resolve_file_node(graph, args.file)
-        layer1, layer2 = query_file_mode(graph, file_node)
-        header = file_node
+        for arg in args.file:
+            try:
+                file_node = resolve_file_node(graph, arg)
+            except SystemExit:
+                failed = True
+                continue
+            results.append(("INNKOMMENDE (1 hopp) til", file_node, *query_file_mode(graph, file_node)))
     else:
         todo_node = f"todo:{norm_id(args.todo)}"
-        layer1, layer2 = query_todo_mode(graph, todo_node)
-        header = todo_node
+        results.append(
+            ("UTGÅENDE OG INNKOMMENDE (1 hopp) på", todo_node, *query_todo_mode(graph, todo_node))
+        )
 
-    if args.json:
-        print_json(layer1, layer2)
-    else:
-        print_human(header, layer1, layer2)
+    if args.json and results:
+        print_json([e for r in results for e in r[2]], [e for r in results for e in r[3]])
+    elif not args.json:
+        for r in results:
+            print_human(*r)
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
