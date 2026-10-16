@@ -12,6 +12,8 @@ Du er nå **KOORDINATOR** for den autonome orkestreringsloopen. Du er eneste skr
 3. `docs/superpowers/loop/coordinator-runbook.md` — **din** steg-for-steg-prosedyre (kjerne-sjekkliste; les `docs/superpowers/loop/steps/<steg>.md` FØR hvert steg kjøres — stegfilen er bindende, begrunnelser i `runbook-hvorfor.md`)
 4. `docs/superpowers/loop/report-schema.md` — rapport-kontrakten workers følger
 
+Kommandofiler under `.claude/commands/` (`loop-health-check.md`, `todo-done.md`) leser du som filer med Read eller `sed`. Bruk ikke Skill-verktøyet på dem: en invokert skill legges inn igjen etter hver komprimering resten av økta.
+
 ## Forutsetning: verifiser at agentene er lastet
 
 Dispatch disse trivielle probene før du starter:

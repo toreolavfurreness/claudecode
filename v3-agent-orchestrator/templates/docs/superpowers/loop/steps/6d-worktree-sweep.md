@@ -75,7 +75,7 @@ på rask vei), `age` (rørt innenfor `AGE_MIN`), `rescue` (redningskopi ikke ver
 kjøring skriver også loggrad, tørrkjøring aldri. En loggrad uten `mode` er en døgnkjøring fra en
 eldre versjon.
 
-**Innkalling er mekanisk, ikke prosa.** `/loop-health-check` Del A kjører
+**Innkalling er mekanisk, ikke prosa.** `loop-health-check.md` Del A kjører
 `./tasks/worktree-sweep.sh --gate`, som leser siste ikke-helse-§6-rad i run-log.md og feiler
 RØDT (§8b kjøres ikke) hvis den raden mangler `wtsweep=<n>/<n>`-tokenet eller bærer et
 feil-formet ett (`wtsweep=feilet:…`) — se §6 steg 4b/5 for hvorfor det er nettopp raden, ikke en

@@ -34,7 +34,6 @@ skrives her ÉTT sted, slik at den ikke gjettes på nytt for hver ny rapporttype
   "files_touched": ["src/proxy.ts", "src/app/login/page.tsx"],
   "technical_risk": { "flagged": false, "kind": null, "executable_gate": null, "native_dep": null, "native_permission": null, "detail": null },
   "deps_ok": true,
-  "verification_criteria": ["Uinnlogget bruker på dyp lenke → /login?next=<url>"],
   "planned_diff": { "lines": 40, "files": 2 },
   "docs_impact": [{ "doc": "docs/architecture.md#Auth", "action": "updated", "why": "Seksjonen beskriver redirect-flyten." }],
 {{SCOUT_USAGE_LINE}}  "canary": "L<linjenummeret du landet på>: <de første 8 ordene på den linja>",

@@ -7,8 +7,7 @@
 
 → Kjerne: `coordinator-runbook.md` § 6c · Begrunnelser: `runbook-hvorfor.md` § 6c
 
-**Koordinatoren** kjører `/loop-health-check` (`.claude/commands/loop-health-check.md`) når én av
-to deterministiske triggere slår inn. Workers dispatches aldri til denne oppgaven — single-writer-
+**Koordinatoren** følger `.claude/commands/loop-health-check.md` når én av to deterministiske triggere slår inn. Les fila med Read eller `sed`, og bruk ikke Skill-verktøyet på den. Workers dispatches aldri til denne oppgaven — single-writer-
 kontrakten gjelder.
 
 ### Triggerlogikk
@@ -53,7 +52,7 @@ er en rød helsesjekk.
   sett `pause_event=helsesjekk-rød` i health-raden, release evt. aktiv claim og stopp loopen.
   §8b og §8c kjøres IKKE.
 
-**Del D:** `/loop-health-check` kjører i tillegg Del D (regelmotor-selvtest,
+**Del D:** `loop-health-check.md` har i tillegg Del D (regelmotor-selvtest,
 regel-paritet, monoton decision-log, nivå-B-oppsummering + avstemming mot run-loggen, treffsikkerhet per type (D5)) som en del av
 DENNE helsesjekken, FØR «Etter §6c» over evalueres — se `loop-health-check.md` Del D. Rødt i Del D
 er samme klasse som Del A/A6: rød helsesjekk, §8b kjøres IKKE.

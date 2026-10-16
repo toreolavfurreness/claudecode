@@ -25,7 +25,9 @@ git fetch origin {{BASE_BRANCH}} && git merge origin/{{BASE_BRANCH}}
 ## Les først
 
 1. `CLAUDE.md` og `docs/loop-rules.md` (importert av CLAUDE.md) — prosjektets regler.
-2. `docs/superpowers/loop/report-schema.md` — rapport-kontrakten (`code_review`-varianten).
+2. Rapport-kontrakten, bare dine fire seksjoner (resten av fila gjelder andre roller):
+   `awk '/^## /{p = /^## (Bevis-regel|Språk i enumer|Lens-observasjon|Kode-review-rapport)/} p' docs/superpowers/loop/report-schema.md`
+   Gir utskriften ikke både `"report_type": "lens_observation"` og `"report_type": "code_review"`, les hele fila.
 3. `tasks/lessons.md` + relevante tema-mapper koordinatoren oppga.
 
 ## Diff-tilgang
