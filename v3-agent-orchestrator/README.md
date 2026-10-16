@@ -99,6 +99,14 @@ pausepunkter). v3 er v2 pluss herding fra drift, og at `/setup` nå installerer
 (todo-nr-vakt, hotfix-runbook, TDD-orden, konsoliderings- og rivegater) er portet inn og tilpasset
 v3-formatene.
 
+**v3.8.1** (færre lesekostnader i loopen):
+- Koordinatoren leser kommandofiler (`loop-health-check.md`, `todo-done.md`) med Read eller `sed`,
+  ikke med Skill-verktøyet. En invokert skill legges inn igjen etter hver komprimering.
+- `verification_criteria` er strøket fra plan-rapporten. Ingen stegfil, intet skript og intet
+  charter leser feltet.
+- Kode-revieweren leser bare sine fire seksjoner av `report-schema.md` med `awk`, og hele fila
+  hvis utskriften mangler en av de to rapporttypene.
+
 **v3.8** (planen måler kriteriene sine, og loopen måler seg selv):
 - **Kriterietabell i planen:** planneren kjører hvert V-kriterium på dagens kode og fører utfallet i
   én tabell (`ID | Kommando | Før (målt) | Etter (ventet) | Type`). Samme svar før og etter betyr at

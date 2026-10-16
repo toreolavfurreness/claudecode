@@ -138,8 +138,8 @@ Planner, reviewer, implementer og kode-reviewer er **alltid agenter**: loopens v
 
 ## 6c. Helsesjekk + release-rådgiver (betinget, kun koordinator)
 → `steps/6c-helsesjekk.md` — les hele fila FØR steget kjøres.
-- [ ] Hva: kjør `/loop-health-check` ved Trigger 1 (kø tom, før §7) eller Trigger 2 (hver 5. merge, telleren i stegfilen); grønn → §8b + §8c; rød → PAUSEPUNKT, §8b/§8c kjøres IKKE; Del D er del av sjekken. Et D4-avvik retter og logger koordinatoren selv; det er rødt først når avstemmingen feiler etter rettingen.
-- [ ] Vakt/kommando: `python3 tasks/loop-cadence.py` etter hver merged-rad (exit 1 = forfalt); `/loop-health-check`
+- [ ] Hva: følg `.claude/commands/loop-health-check.md` (les fila, ikke Skill-verktøyet) ved Trigger 1 (kø tom, før §7) eller Trigger 2 (hver 5. merge, telleren i stegfilen); grønn → §8b + §8c; rød → PAUSEPUNKT, §8b/§8c kjøres IKKE; Del D er del av sjekken. Et D4-avvik retter og logger koordinatoren selv; det er rødt først når avstemmingen feiler etter rettingen.
+- [ ] Vakt/kommando: `python3 tasks/loop-cadence.py` etter hver merged-rad (exit 1 = forfalt); `.claude/commands/loop-health-check.md`
 - [ ] Pausepunkt: Helsesjekk rød (§6c) — regresjon eller infra-feil
 
 ## 6d. Worktree-sweep (hver syklus, kun koordinator)
